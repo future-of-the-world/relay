@@ -1,0 +1,172 @@
+{
+  "branch": "wt/a-feature-s-check-stops-the-cycle-with-n",
+  "findings": [
+    {
+      "details": [
+        "Found by the front 30 Oct, twice in one hour: the cycle runs for the-change-cycle-script-lands-a-ready-change-its and one-digest-per-wave-instead-of-status-messages both ended 'stopped_at: check, the check closed with no test for the queue item (q1_test is empty)' although each check had open 0, a green gate and a new test file (tests/test_land_waits.py, tests/test_digest.py). The front closed each item by hand with `relay queue done --test`, one extra round per feature.",
+        "Also: plugins/delegate/agents/checker.md"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A cycle run of a feature change whose check is open 0, gate green, and which adds tests/test_x.py ends with stopped_at check and q1_test empty."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A feature change with open 0 and an added test closes its item in the cycle",
+        "A change that adds no test still stops with a line naming the missing test",
+        "A fix item's q1_test behaviour is unchanged"
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "tests/test_cycle_workflow.py::test_feature_item_with_empty_q1_test_is_picked_by_the_closer passes and fails at the base 817500dd."
+      ],
+      "severity": "HIGH",
+      "since": "817500dd5d55ec1b890ff1d1b60bf09e7cbb0d8a",
+      "source": "queue",
+      "summary": "A feature's check stops the cycle with no test named",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. cycle.js:262 decides \"feature\" as it.kind undefined/change/built. it.kind is the cycle unit's kind",
+        "(KINDS change, built, fix, recheck; unit validation at cycle.js:91-102), and unit kind fix means a fix round that needs fix,",
+        "fixes and findings (cycle.js:100). The queue item's kind (fix or feature, relay_queue.py:46) is never read by the cycle, and the",
+        "unit carries only the item slug. So every queue fix item built through changeUnit counts as a feature here.",
+        "The new test encodes pass case 3 as a cycle unit of kind fix (test_cycle_workflow.py: unit(kind=\"fix\", fix=\"f\", fixes=\"f.md\",",
+        "findings=\"r.json\", item=\"i\")), which is a fix round, not a fix item, so it passes while the promise is broken.",
+        "Damage is bounded: relay queue done (relay_queue.py check_refusal) still needs a check with Q1 MET for a fix item, so an unchecked fix",
+        "cannot close; but the item's recorded proof becomes whatever test a runner picked, and the queue's test field is what later reads trust.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "sed -n 88,102p cycle.js: \"const kind = it.kind || 'change'\" ... \"if (kind === 'fix') for (const f of ['fix', 'fixes', 'findings']) ... is kind fix and needs ${f}\"",
+        "cycle.js:262: const pick = !ck.q1_test && (it.kind === undefined || it.kind === 'change' || it.kind === 'built')",
+        "relay_queue.py:46: KINDS = (\"fix\", \"feature\")",
+        "relay queue show a-feature-s-check-stops-the-cycle-with-no-test-n: \"fix, ip 86, 30m, taken by wt/a-feature-s-check-stops-the-cycle-with-n\"; pass case \"A fix item's q1_test behaviour is unchanged\""
+      ],
+      "failing_case": [
+        "A queue item of kind fix (like this very item, \"fix, ip 86\") is built as a cycle unit of kind change (the normal case: unit kind",
+        "fix is only a fix round with fix/fixes/findings). The checker returns open 0 with q1_test \"\" (it forgot to name the Q1 test).",
+        "Before this change: stopped_at check, \"the check closed with no test for the queue item (q1_test is empty)\".",
+        "Now: pick = true (it.kind is undefined), the close runner is told to pick any test from the added files and runs",
+        "relay queue done <item> --test <picked>; the fix item is closed with a test nobody showed fails without the fix, and the cycle",
+        "result says test \"picked by the closer\". It should still stop at check, as before (brief pass case 3: \"A fix item's q1_test",
+        "behaviour is unchanged\")."
+      ],
+      "fix_hint": [
+        "Decide on the queue item's kind, not the unit's. Smallest: have the close runner read it first: \"Run relay queue show <item> -C <wt>;",
+        "if its first line says fix, run nothing and report BLOCKED with 'the check closed with no test for the queue item (q1_test is empty)'\",",
+        "and keep the pick for feature. Cleaner: the cycle asks for the kind once (or the checker's CHECK schema returns item_kind) and",
+        "branches in code (principle 5: a fact goes to code). Rewrite the test so pass case 1 uses a change unit whose item is a fix."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 262,
+      "pass_cases": [
+        "1. Queue item kind fix, unit kind change, check open 0, q1_test \"\": stopped_at \"check\", detail names the empty q1_test, no \"close queue item: <item>\" label.",
+        "2. Queue item kind feature, unit kind change, check open 0, q1_test \"\", change adds tests/test_x.py: ready, the close prompt carries the diff --name-only --diff-filter=AM command (today's behaviour kept).",
+        "3. Queue item kind fix, unit kind change, q1_test \"tests/test_x.py::T::test_a\": close prompt is exactly \"relay queue done <item> -C <wt> --test tests/test_x.py::T::test_a\" (unchanged).",
+        "4. Queue item kind feature, close runner reports BLOCKED \"no test for the queue item: the change adds no test\": stopped_at \"close queue item\" with that line (unchanged)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "test_fix_item_built_as_a_change_unit_with_empty_q1_test_stops_at_check passes; failed at 5410d352. cycle.js picks by ck.item_kind."
+      ],
+      "severity": "HIGH",
+      "since": "5410d3525f1e09f8eb7c3c5ec920b1621b4bf69d",
+      "source": "review-a-feature-s-check-stops-the-cycle-with-n.json",
+      "source_id": "F1",
+      "summary": "the picker is chosen by the cycle unit's kind, not the queue item's kind, so a queue fix item with an empty q1_test is closed with an arbitrary added test (pass case 3 broken)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: fixUnit (cycle.js:403-410) calls finish with the same it, and finish uses it.kind to decide the pick. The same",
+        "root as F1 (unit kind used as item kind); one fix that reads the queue item's kind meets both. Whether the front ever sends a kind",
+        "fix unit with a feature item is not measured; the unit validation allows it (cycle.js:96 only refuses item outside relay mode).",
+        "Size: 5 minutes once F1 is fixed."
+      ],
+      "evidence": [
+        "cycle.js:409: return finish(it, st, { findings: it.findings, fixes: fixesText(it.fixes, st), gateLog: r.g.gate_log, review: undefined })",
+        "cycle.js:262-263: pick false for it.kind 'fix' -> stop(it, 'check', 'the check closed with no test for the queue item (q1_test is empty)')"
+      ],
+      "failing_case": [
+        "A feature change whose landing hit a take conflict is sent back as a cycle unit of kind fix (fix \"take master and resolve <files>\",",
+        "findings, fixes) that still names its feature queue item (item = <feature slug>). The check is open 0, the gate green, the change",
+        "added tests/test_x.py, and the checker leaves q1_test \"\". Now: pick is false because it.kind is 'fix', so the run ends",
+        "stopped_at check, \"the check closed with no test for the queue item (q1_test is empty)\": the brief's failing case again.",
+        "It should close the feature item with a picked test, as for a change unit."
+      ],
+      "fix_hint": [
+        "Covered by F1's fix: branch on the queue item's kind, whatever the unit's kind."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 262,
+      "pass_cases": [
+        "1. Unit kind fix with item = a feature item, check open 0, q1_test \"\", added tests/test_x.py: ready, close prompt carries the pick instruction.",
+        "2. Unit kind fix with item = a fix item, q1_test \"\": stopped_at check (F1's pass case 1).",
+        "3. Unit kind change with item = a feature item, q1_test \"\": ready (today's behaviour kept)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "test_feature_item_in_a_fix_unit_with_empty_q1_test_is_picked passes; failed at 5410d352."
+      ],
+      "severity": "MEDIUM",
+      "since": "5410d3525f1e09f8eb7c3c5ec920b1621b4bf69d",
+      "source": "review-a-feature-s-check-stops-the-cycle-with-n.json",
+      "source_id": "F2",
+      "summary": "a feature item finished through a fix unit (a take-conflict or front-ordered fix round) still stops at check with q1_test empty",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading cycle.js:265 against relay_queue.py:1489 TEST_FORMS. Correct for the two cases that prompted the item; fragile",
+        "for agent-text features. Only the fallback path is hit (the checker may already name the eval). Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A feature change to an agent text adds evals/plugin/<case>/ (a test form relay queue done accepts: evals/plugin/<case>::<grader>)",
+        "and no tests/ file; the checker leaves q1_test \"\". The closer filters the added files to tests/ or test_*, finds none, and",
+        "reports BLOCKED \"no test for the queue item: the change adds no test\", although the change added a test."
+      ],
+      "fix_hint": [
+        "Add \"or under evals/\" to the filter and name the eval form from TEST_FORMS in the prompt."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 265,
+      "pass_cases": [
+        "1. Added evals/plugin/foo/prompt.md only, q1_test \"\": the close prompt allows picking evals/plugin/foo::<grader>; item closes.",
+        "2. Added tests/test_x.py, q1_test \"\": unchanged, item closes with a test of tests/test_x.py.",
+        "3. No test or eval case added: BLOCKED with the missing-test line (unchanged)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "test_pick_prompt_accepts_eval_cases passes; failed at 5410d352."
+      ],
+      "severity": "LOW",
+      "since": "5410d3525f1e09f8eb7c3c5ec920b1621b4bf69d",
+      "source": "review-a-feature-s-check-stops-the-cycle-with-n.json",
+      "source_id": "F3",
+      "summary": "the closer's pick keeps only files under tests/ or named test_*, so a feature whose only test is an eval case is reported as adding no test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "6f71d2e97512697195b3bee664267d832cee41a2.gate.log",
+  "head": "dcf4ebe63494a77fa7e2d05c1eaed9e1fa5a4276",
+  "item": "a-feature-s-check-stops-the-cycle-with-no-test-n",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Fix commit 6f71d2e9 over 5410d352; gate log is green (exit 0) on 6f71d2e9, HEAD only adds the gate log. Ran tests/test_cycle_workflow.py: 79 passed. Ran the tests at the Q1 base 817500dd and at 5410d352 with the head test file: 4 new tests fail on each. Did not rerun relay precheck (gate covers it)."
+  ],
+  "type": "check"
+}

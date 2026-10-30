@@ -16,7 +16,8 @@
   skill, role and rule texts get one paid run on the default branch after a wave
   of merges (the checked-path changes landed after a green run), not one per change; `relay sync` waits for it, and a red run is one
   fix item at the top of the queue. While a paid run goes, lanes keep building; a change for which
-  `bin/paid-cost touches <branch>` prints files waits at the landing until the run ends, then lands through `relay land` after the run's `relay sync`.
+  `bin/paid-cost touches <branch>` prints files waits at the landing until the run ends, then lands through `relay land` after the run's `relay sync`
+  (`relay land` decides that wait itself, from dated records: exit 6).
   Ask me before the merge only when a fixer could not resolve a conflict from
   taking the default branch (it stopped on it); a finding is open as Design, question, Disputed or
   Gap, or I have not answered a question about the change; the change is
@@ -28,7 +29,7 @@
   keep it in the session scratchpad; ignored files there go with it. Before
   its merge a task branch takes the default branch by a merge commit, never a
   rebase (a rebase loses the check). A ready change lands through
-  `relay land <branch>`: it takes the default branch, gates the result and
+  `relay land <branch>` (the cycle runs it as its last stage): it takes the default branch, gates the result and
   fast-forwards on green, one landing at a time; a take conflict goes to a fixer,
   then a gate and a check of the resolved files. `relay queue` lands a queue item on the
   default branch at once, and its code refuses when anything but that one file

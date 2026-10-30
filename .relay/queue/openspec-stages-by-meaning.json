@@ -15,6 +15,8 @@
   "taken_by": null,
   "closed_at": null,
   "test": null,
-  "dropped_at": null,
-  "dropped_why": null
+  "dropped_at": "2026-10-30T08:46:45Z",
+  "dropped_why": [
+    "Owner, 30 Oct: \"я подумываю о том что мой принцип zerodocs противоречит sdd, думаю от этого следует отказаться\", then \"a\" (drop OpenSpec, the [specs] and [flow] slots); covered by remove-openspec-and-the-spec-and-flow-slots."
+  ]
 }
