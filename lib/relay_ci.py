@@ -14,17 +14,16 @@ when a case failed its majority of runs (2 of 3 pass), or when a run was not jud
 
 A change of only rules/*.md files (lib/relay_textonly.py) runs just the step "rules text tests" under --quick.
 
-The step `inert` runs only under `relay gate` (RELAY_GATE = the commit gated). The inert probe is a second quick run of
-this gate in a temporary worktree of that commit where every inert file has a line appended and probe files sit in the
-inert folders. It is started BEFORE the first step and runs beside the outer steps; at the `inert` step the gate waits
-for it and fails when a step's result or the test count differs, which proves no outcome depends on an inert file
-(design section 12.6). A probe that dies is a failed `inert`, never an ok one. The probe's output is kept in
-.ci/steps/inert-nested.log.
+Under `relay gate` (RELAY_GATE = the commit gated) the six free steps run once, on a copy of that commit without the
+inert files (GateCopy: a temporary worktree where docs/handover.md and everything under .relay/queue, .relay/checks and
+.relay/changes is deleted, committed as "gate copy"). Two commits that differ only in inert files give the same copy, so a
+green gate also stands for them (lib/relay_gate_logs.py `reusable`), and a test that reads one of those files goes red on
+its first gate. The step logs and the gate log are written in the real worktree; the paid steps run there too, after the
+copy is removed. A plain `bin/ci` makes no copy.
 """
 from __future__ import annotations
 
 import contextlib
-import difflib
 import glob
 import os
 import re
@@ -38,8 +37,9 @@ import time
 import traceback
 from typing import Any, Callable, NoReturn, TextIO
 
-from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record
-from relay_ci_lines import _read_lines, _read_lines_keep, outcome  # noqa: F401  (outcome is called by other programs through relay_ci)
+from relay_ci_copy import remove_leftover_copy, write_shared_record, drop_shared_record
+from relay_ci_lines import _read_lines_keep
+import relay_inert
 import relay_precheck
 from relay_ci_image import clean_image
 from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
@@ -48,12 +48,11 @@ StepFn = Callable[[TextIO], int]
 
 FINDING = re.compile(r"FAIL|Error|error|✗|^ERROR: ")   # "ERROR: <test id>" names a test that raised, not failed
 MAX_FINDINGS = 8            # lines of a failing step shown under its line (the full log is in .ci/ci.log)
-STOP_GRACE = 10.0           # seconds a stopped probe has to end after SIGTERM before it is killed
-# Seconds of its own run (clock starts in Ci.main) after which the quick gate stops itself. Owner, 29 Oct: "30 минут сейчас, 25 после ускорения": 1500 when the speed-up lands. Measured 29 Oct over 579 logs: 20 ran over 30 min (7 normal, 13 hung).
-QUICK_LIMIT_SECONDS = 1800
+STOP_GRACE = 10.0           # seconds a stopped process has to end after SIGTERM before it is killed
+# Seconds of its own run (clock starts in Ci.main) after which the quick gate stops itself. Owner, 29 Oct: "30 минут сейчас, 25 после ускорения" (1500 since the single test run). Measured 29 Oct over 579 logs: 20 ran over 30 min (7 normal, 13 hung).
+QUICK_LIMIT_SECONDS = 1500
 LIMIT_ENV = "RELAY_CI_QUICK_LIMIT"   # whole seconds, 1 or more; replaces QUICK_LIMIT_SECONDS (tests, or a person debugging)
 LIMIT_EXIT = 124            # the exit of a gate stopped at its time limit (GNU `timeout`'s code); relay_gate.LIMIT_EXIT is the same number
-PROBE_LINE = "inert probe line"
 HOOK_TOOLS = (("git", "install git"), ("jq", "brew install jq"), ("python3", "install python3"),
               ("bun", "curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"))
 
@@ -97,7 +96,7 @@ def _signal(pid: int, sig: int) -> None:
 
 def stop_tree(pids: list[int], root: int) -> None:
     """End `pids` (SIGTERM, up to STOP_GRACE seconds to leave), then SIGKILL them and whatever now sits below `root`
-    (a process started during the grace). Used for the probe and for a gate stopped at its time limit."""
+    (a process started during the grace). Used for a gate stopped at its time limit."""
     for pid in pids:
         _signal(pid, signal.SIGTERM)
     deadline = time.monotonic() + STOP_GRACE
@@ -107,83 +106,60 @@ def stop_tree(pids: list[int], root: int) -> None:
         _signal(pid, signal.SIGKILL)
 
 
-class Probe:
-    """The inert probe: a temporary worktree of the gated commit with every inert file changed, and a quick run of the gate
-    in it, started now and finished by `finish`. `stop` ends it (and removes the worktree) on any way out."""
+class GateCopy:
+    """The tree the gate's single test run sees: a temporary worktree of the gated commit with every inert file deleted,
+    committed as "gate copy". `stop` removes it (and its temporary folder) on any way out."""
 
-    def __init__(self, root: str, head: str, quick: bool, env: dict[str, str], log_path: str,
-                 nested: tuple[str, ...] = ("bash", "bin/ci", "--quick")) -> None:
-        self.root, self.head, self.quick, self.env, self.log_path, self.nested = root, head, quick, env, log_path, nested
+    def __init__(self, root: str, head: str) -> None:
+        self.root, self.head = root, head
         self.tmpd: str | None = None
         self.work = ""
-        self.proc: subprocess.Popen[bytes] | None = None
         self.error = ""
-        self._log: Any = None
-        self.record_path = os.path.join(root, ".ci", "inert-probe")
+        self.record_path = os.path.join(root, ".ci", "gate-copy")
 
-    def _git(self, *args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(["git", *args], cwd=cwd or self.root, capture_output=True, text=True)
+    def _git(self, *args: str, cwd: str | None = None, text: str | None = None) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(["git", *args], cwd=cwd or self.root, capture_output=True, text=True, input=text)
 
     def start(self) -> None:
-        """Make the worktree, plant the files, commit, start the nested run. A failure is kept in `self.error`."""
+        """Make the worktree, delete the inert files, commit. A failure is kept in `self.error`."""
         self.tmpd = tempfile.mkdtemp()
         # recorded BEFORE the worktree exists: a gate killed without a chance to clean up (relay gate SIGKILLs the group)
-        # leaves this record, and the next run of this worktree removes the leftover (remove_leftover_probe)
+        # leaves this record, and the next run of this worktree removes the leftover (remove_leftover_copy)
         os.makedirs(os.path.dirname(self.record_path), exist_ok=True)
         with open(self.record_path, "w", encoding="utf-8") as handle:
             handle.write(self.tmpd + "\n")
         write_shared_record(self.root, self.tmpd)
         self.work = os.path.join(self.tmpd, "wt")
         if self._git("worktree", "add", "-q", "--detach", self.work, self.head).returncode != 0:
-            self.error = "FAIL inert: cannot make a worktree at %s" % self.head
+            self.error = "FAIL gate copy: cannot make a worktree at %s" % self.head
             return
-        for sub in (".relay/queue", ".relay/checks", "docs"):
-            os.makedirs(os.path.join(self.work, sub), exist_ok=True)
-        tracked = self._git("ls-files", "-z", "--", "docs/handover.md", ".relay/queue", ".relay/checks", cwd=self.work)
-        for rel in [p for p in tracked.stdout.split("\0") if p] + ["docs/handover.md"]:
-            with open(os.path.join(self.work, rel), "a", encoding="utf-8") as handle:
-                handle.write(PROBE_LINE + "\n")
-        # unknown files under the stored names (.json): a reader that lists the folders and breaks on an extra one changes the outcome
-        planted = {".relay/queue/zz-probe.json": "not a queue item\n", ".relay/checks/zz.json": "{}\n",
-                   ".relay/checks/zz.check.json": "{}\n", ".relay/checks/zz.gate.log": "head 0\nexit 0\n"}
-        for rel, text in planted.items():
-            with open(os.path.join(self.work, rel), "w", encoding="utf-8") as handle:
-                handle.write(text)
-        self._git("add", "-A", cwd=self.work)
-        self._git("-c", "user.name=relay-ci", "-c", "user.email=ci@relay", "commit", "-q", "--no-verify", "-m", "inert probe",
-                  cwd=self.work)
-        # a full outer run ran the hook suites in full (guard-main repeats its shared cases per profile); the nested run is quick
-        # for the paid steps only, so its hook tests run in full too, or the case counts differ by mode, not by an inert file
-        env = {k: v for k, v in self.env.items() if k != "RELAY_GATE"}
-        env["RELAY_INERT_PROBE"] = "1"   # the probe run is marked: its test runner only reads the class times; the outer run writes them
-        env["RELAY_INERT_FULL_HOOKS"] = "" if self.quick else "1"
-        os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
-        self._log = open(self.log_path, "wb")
-        # same process group as bin/ci on purpose: relay gate SIGKILLs that group when it stops the gate, which must end the probe too
-        # (a probe in a session of its own outlived it, kept the worktree lock and had no time limit)
-        self.proc = subprocess.Popen(list(self.nested), cwd=self.work, env=env, stdin=subprocess.DEVNULL,
-                                     stdout=self._log, stderr=subprocess.STDOUT, close_fds=False)   # keeps an inherited lock fd
-
-    def wait(self) -> int | None:
-        """The nested run's exit code once it ends (negative: stopped by a signal); None when it never started."""
-        if self.proc is None:
-            return None
-        return self.proc.wait()
+        tracked = self._git("ls-files", "-z", cwd=self.work).stdout.split("\0")
+        inert = [p for p in tracked if p and relay_inert.matches(p)]
+        if inert:   # the paths go through stdin: a long queue folder must not hit the argument limit
+            removed = self._git("rm", "-q", "--pathspec-from-file=-", "--pathspec-file-nul", cwd=self.work, text="\0".join(inert) + "\0")
+            if removed.returncode != 0:
+                self.error = "FAIL gate copy: cannot delete the inert files: %s" % removed.stderr.strip()
+                return
+        done = self._git("-c", "user.name=relay-ci", "-c", "user.email=ci@relay", "commit", "-q", "--no-verify", "--allow-empty",
+                         "-m", "gate copy", cwd=self.work)
+        if done.returncode != 0:
+            self.error = "FAIL gate copy: cannot commit the copy: %s" % done.stderr.strip()
+            return
+        # the tests' per-worker logs keep going to the real worktree's .ci/steps
+        steps = os.path.join(self.root, ".ci", "steps")
+        if os.path.isdir(steps):
+            os.makedirs(os.path.join(self.work, ".ci"), exist_ok=True)
+            os.symlink(steps, os.path.join(self.work, ".ci", "steps"))
 
     def stop(self) -> None:
-        """End the nested run and everything below it, remove the worktree and the temporary folder. Safe to call twice."""
-        proc = self.proc
-        if proc is not None and proc.poll() is None:
-            stop_tree([proc.pid] + _descendants(proc.pid), proc.pid)
-            proc.wait()
-        if self._log is not None:
-            self._log.close()
-            self._log = None
+        """Remove the worktree and the temporary folder. Safe to call twice."""
         if self.tmpd is not None:
-            self._git("worktree", "remove", "--force", self.work)
-            self._git("worktree", "prune")
+            if os.path.isdir(self.root):   # a gone worktree: the shared record lets the next gate of any worktree unregister the copy
+                self._git("worktree", "remove", "--force", self.work)
+                self._git("worktree", "prune")
             shutil.rmtree(self.tmpd, ignore_errors=True)
-            drop_shared_record(self.root, self.tmpd)
+            if os.path.isdir(self.root):
+                drop_shared_record(self.root, self.tmpd)
             self.tmpd = None
         if os.path.exists(self.record_path):
             os.remove(self.record_path)
@@ -199,25 +175,45 @@ class Ci:
         self.coverage_line = ""      # the gate log's coverage line, set by the library tests step
         self.env = dict(os.environ if env is None else env)
         self.env.update(NO_COLOR="1", RELAY_ROOT=root)
+        self.real_env = self.env     # the environment of the real worktree, kept while the copy runs
         self.runner = runner
         self.status = 0
-        self.probe: Probe | None = None
+        self.work = root             # where the steps run: the real worktree, or the gate copy while the free steps run
+        self.copy: GateCopy | None = None
         self.running = ""            # the step being run now (read by the watchdog thread)
         self.stopped = False         # the watchdog has fired
         self.stopped_step = ""       # the step that was running when it fired ("" between steps)
         self.kills_done = threading.Event()   # the watchdog has finished its kills: nothing is cleaned up before this
-        self.nested: tuple[str, ...] = ("bash", "bin/ci", "--quick")   # what the probe runs in its worktree (tests replace it)
 
     # ---- plumbing -------------------------------------------------------------------------------------------------
     def say(self, text: str) -> None:
         print(text, flush=True)
 
     def path(self, *parts: str) -> str:
+        """A path in the real worktree (logs, records, the paid steps' files)."""
         return os.path.join(self.root, *parts)
+
+    def wpath(self, *parts: str) -> str:
+        """A path in the tree the steps run on (the gate copy while the free steps run)."""
+        return os.path.join(self.work, *parts)
+
+    def enter_copy(self, copy: GateCopy) -> None:
+        """Run the steps that follow on `copy`, without RELAY_GATE (a test cannot find the gated sha from it)."""
+        self.work = copy.work
+        self.real_env = self.env
+        self.env = {k: v for k, v in self.env.items() if k != "RELAY_GATE"}
+        self.env["RELAY_ROOT"] = copy.work
+
+    def leave_copy(self) -> None:
+        """Remove the copy; the steps that follow run on the real worktree again."""
+        if self.copy is not None:
+            self.copy.stop()
+            self.work, self.env = self.root, self.real_env
+            self.copy = None
 
     def prepare(self) -> None:
         os.makedirs(self.path(".ci", "steps"), exist_ok=True)
-        remove_leftover_probe(self.root)
+        remove_leftover_copy(self.root)
         for name in ("ci.log", "results.txt"):
             open(self.path(".ci", name), "w").close()
 
@@ -234,7 +230,7 @@ class Ci:
             log and log.write("stopped at the time limit: %s not started\n" % argv[0])
             return subprocess.CompletedProcess(argv, LIMIT_EXIT, "" if capture else None)
         # close_fds=False: a lock fd that relay gate passes to bin/ci stays open in every child until the last one ends
-        kwargs: dict[str, Any] = {"cwd": cwd or self.root, "env": env or self.env, "close_fds": False}
+        kwargs: dict[str, Any] = {"cwd": cwd or self.work, "env": env or self.env, "close_fds": False}
         if capture:
             kwargs.update(stdout=subprocess.PIPE, text=True)
         elif log is not None:
@@ -279,13 +275,13 @@ class Ci:
         self.status = 1
 
     def _leave(self) -> NoReturn:
-        self.kills_done.wait()    # the probe's cleanup starts only after the watchdog's kills, never killed under it
+        self.kills_done.wait()    # the copy's cleanup starts only after the watchdog's kills, never killed under it
         raise _LimitStop()
 
     # ---- steps ----------------------------------------------------------------------------------------------------
     def lib_tests(self, log: TextIO) -> int:
         import relay_coverage      # lib/ is on the path of the gate (bin/ci); not at the top, like the other relay modules here
-        rc, self.coverage_line = relay_coverage.library_tests(self.root, self.env, self.quick, self.run, log, self.which)
+        rc, self.coverage_line = relay_coverage.library_tests(self.work, self.env, self.quick, self.run, log, self.which)
         return rc
 
     def types_lint(self, log: TextIO) -> int:
@@ -305,11 +301,10 @@ class Ci:
         # the hook suites are tests/test_hook_*.py: the library tests step runs them. What is left here is the live session.
         rel = os.path.join("tests", "hooks_live.py")
         # hooks-live runs a real Claude Code session (claude -p, Haiku, a few cents): the full gate only
-        # every --quick run leaves it, the inert probe's nested run too: a second paid call, and a model-dependent count in the comparison
         if self.quick:
             log.write("--- %s (left for the full bin/ci: it makes a paid claude call)\n" % rel)
             return 0
-        if not os.path.exists(self.path(rel)):
+        if not os.path.exists(self.wpath(rel)):
             return 0
         if self.which("claude") is None:
             log.write("FAIL %s needs claude on PATH: install Claude Code\n" % rel)
@@ -322,7 +317,7 @@ class Ci:
 
     def lib_links(self, log: TextIO) -> int:
         """Each lib module exists once: the precheck's allow-list over the committed tree (see relay_precheck.check_lib_links)."""
-        found = relay_precheck.check_lib_links(self.root)
+        found = relay_precheck.check_lib_links(self.work)
         for line in found:
             log.write(line + "\n")
         return 0 if all(line.startswith("skipped") for line in found) else 1
@@ -333,7 +328,7 @@ class Ci:
     def tracks_something(self, folder: str) -> bool:
         """False only when git answers and tracks no file in `folder` (a renamed plugin's old folder holding ignored files);
         when git cannot answer the folder is kept, so it is still validated."""
-        run = self.run(["git", "ls-files", "--", os.path.relpath(folder, self.root)], capture=True)
+        run = self.run(["git", "ls-files", "--", os.path.relpath(folder, self.work)], capture=True)
         return run.returncode != 0 or bool((run.stdout or "").strip())
 
     def validate_all(self, log: TextIO) -> int:
@@ -341,35 +336,13 @@ class Ci:
             log.write("skipped: claude is not on PATH (install Claude Code to validate plugins)\n")
             return 0
         rc = 0
-        dirs = ["."] + [os.path.relpath(d, self.root) + "/" for d in sorted(glob.glob(self.path("plugins", "*/")))
+        dirs = ["."] + [os.path.relpath(d, self.work) + "/" for d in sorted(glob.glob(self.wpath("plugins", "*/")))
                         if self.tracks_something(d)]
         for d in dirs:
             log.write("--- %s\n" % d)
             if self.run(["claude", "plugin", "validate", d], log).returncode != 0:
                 rc = 1
         return rc
-
-    def inert_step(self, log: TextIO) -> int:
-        """Wait for the probe started before the first step and compare what the two runs did."""
-        probe = self.probe
-        assert probe is not None
-        if probe.error:
-            log.write(probe.error + "\n")
-            return 1
-        code = probe.wait()
-        if code is None or code < 0:
-            log.write("FAIL inert: the probe run did not end by itself (%s): its output is in .ci/steps/inert-nested.log\n"
-                      % ("it never started" if code is None else "stopped by signal %d" % -code))
-            return 1
-        outer, nested = outcome(self.root), outcome(probe.work)
-        if outer != nested:
-            log.write("FAIL inert: a step's result or the test count changed when only inert files changed (the probe's "
-                      "output is in .ci/steps/inert-nested.log):\n")
-            for ln in difflib.unified_diff(outer, nested, "outer run", "probe run", lineterm="", n=0):
-                log.write("    %s\n" % ln)
-            return 1
-        log.write("inert: the same results with every inert file changed\n")
-        return 0
 
     def rules_tests(self, log: TextIO) -> int:
         done = self.run(["python3", "lib/relay_textonly.py", "tests"], log, capture=True)
@@ -485,7 +458,7 @@ class Ci:
             print(err, file=sys.stderr)
             return 2
         timer: threading.Timer | None = None
-        if self.quick and not self.env.get("RELAY_INERT_PROBE"):
+        if self.quick:
             timer = threading.Timer(limit, self._stop_at_limit)
             timer.daemon = True
             timer.start()
@@ -519,10 +492,15 @@ class Ci:
         gate = self.env.get("RELAY_GATE")
         try:
             if gate:
-                self.probe = Probe(self.root, gate, self.quick, self.env, self.path(".ci", "steps", "inert-nested.log"),
-                                   nested=self.nested)
-                self.probe.start()   # beside the outer steps, not after them: it is waited for at the `inert` step
-            # the seconds-long steps first: a red one ends the gate at once (the probe runs this same order and stops with it)
+                copy = GateCopy(self.root, gate)
+                self.copy = copy
+                copy.start()
+                if copy.error:
+                    self.say("ci: " + copy.error)
+                    self.say("ci: RED")
+                    return 1
+                self.enter_copy(copy)
+            # the seconds-long steps first: a red one ends the gate at once
             self.step("types and lint", self.types_lint)
             self.step("plugin lib links", self.lib_links)
             if self.status != 0:
@@ -533,13 +511,10 @@ class Ci:
             self.step("hook tests", self.hook_tests)
             self.step("eval grader tests", self.grader_tests)
             self.step("plugin validate", self.validate_all)
-            if self.probe is not None:
-                self.step("inert", self.inert_step, show_all=True)
-            else:
-                self.say("inert: skipped (runs under relay gate)")
+            if gate:
+                self.say("ran on a copy without queue, handover and check records; covers every commit with the same code")
         finally:
-            if self.probe is not None:
-                self.probe.stop()
+            self.leave_copy()
         if not self.quick:
             # the paid run (once per wave) is where the clean-image gate runs: a container gate takes about 20 minutes on this Mac
             before = self.status
@@ -581,7 +556,7 @@ def main(argv: list[str], root: str | None = None) -> int:
     if problem:
         print(problem, file=sys.stderr)
         return 1
-    # a stopped gate leaves through an exception, so the probe is stopped and its worktree removed
+    # a stopped gate leaves through an exception, so the copy's worktree is removed
     for sig in (signal.SIGTERM, signal.SIGHUP):
         signal.signal(sig, _raise_exit)
     return Ci(root, quick).main()

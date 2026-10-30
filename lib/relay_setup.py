@@ -1175,6 +1175,37 @@ def dep_checks(deps=None):
 
 # --- doctor -----------------------------------------------------------------
 
+APPLE_GIT_LAUNCHER = "/usr/bin/git"
+
+
+def git_first_problem(git: str | None, exec_path: str | None) -> str | None:
+    """Why the first git on PATH is not a usable real git (macOS), None when it is. `git` is its path, `exec_path` what
+    `git --exec-path` prints (None when it printed nothing). A missing git is the dependency check's to report."""
+    if git is None:
+        return None
+    if git == APPLE_GIT_LAUNCHER:
+        return "the first git on PATH is Apple's launcher (about 8 ms slower per start) -> docs/macos.md section 1"
+    if not exec_path or not os.path.isdir(exec_path):
+        return f"the first git on PATH looks for its helpers in {exec_path or 'nowhere'}, which is missing (a bare symlink) -> docs/macos.md section 1"
+    return None
+
+
+def git_first_check(system: str | None = None) -> tuple[str, bool, str] | None:
+    """The doctor line "git first on PATH is the real git", on macOS only (Linux distributions put the real git at /usr/bin/git)."""
+    if (system or platform.system()) != "Darwin":
+        return None
+    git = shutil.which("git")
+    exec_path = None
+    if git is not None:
+        try:
+            done = subprocess.run([git, "--exec-path"], capture_output=True, text=True, timeout=30)
+            exec_path = done.stdout.strip() if done.returncode == 0 else None
+        except (OSError, subprocess.TimeoutExpired):
+            exec_path = None
+    problem = git_first_problem(git, exec_path)
+    return ("git first on PATH is the real git", problem is None, problem or "")
+
+
 def bin_relay_problem(root: str) -> str | None:
     """Why bin/relay in relay's main checkout (not a linked worktree of it: a branch may edit bin/relay there) is not what HEAD
     holds, None when it is, or when the folder is no git checkout. The fix is the next step, since guard-main refuses a restore
@@ -1203,6 +1234,9 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
         checks.append((name, bool(good), detail))
 
     checks.extend(dep_checks())
+    git_line = git_first_check()
+    if git_line is not None:
+        checks.append(git_line)
     user = read_json(os.path.join(claude_dir(), "settings.json"))
     ok("relay marketplace in ~/.claude/settings.json", marketplace()[0] in user.get("extraKnownMarketplaces", {}), "relay setup --global")
     problem = marketplace_problem()

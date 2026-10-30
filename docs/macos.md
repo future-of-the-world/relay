@@ -10,19 +10,21 @@ Each start through the launcher costs about 8 ms more: 11.8 ms against 4.1 ms fo
 
 Linux distributions install the real git at `/usr/bin/git`: nothing to do there.
 
-Fix on a Mac: make a folder that holds only git, and put it first on `PATH`. Once:
+Measured 29 Oct: 20.9 ms per start through the launcher against 6.6 ms for the real git. A library test run starts git 51,000-61,000 times: 1225 s with the launcher, 720 s with the real git.
+
+Fix on a Mac: put the real git first on `PATH`. The simplest way is Homebrew: `brew install git` (its folder comes before `/usr/bin` on a Homebrew machine). Or link the developer tools' git, with all three links, because git started through a bare link looks for its helpers and its built-in settings next to the link: without them `git init` makes `master` instead of `main`, no hook templates are copied, and submodules and the keychain credential helper fail. Once:
 
 ```sh
-mkdir -p "$HOME/.local/git-bin" && ln -sf "$(xcrun --find git)" "$HOME/.local/git-bin/git"
+DEV="$(dirname "$(xcrun --find git)")/.."
+mkdir -p "$HOME/.local/bin" "$HOME/.local/libexec" "$HOME/.local/share"
+ln -sf "$(xcrun --find git)" "$HOME/.local/bin/git"
+ln -sfn "$DEV/libexec/git-core" "$HOME/.local/libexec/git-core"
+ln -sfn "$DEV/share/git-core" "$HOME/.local/share/git-core"
 ```
 
-Then in your shell profile:
+Then in your shell profile put `export PATH="$HOME/.local/bin:$PATH"`. Open a new terminal (or a new Claude Code session) to pick it up. `git --exec-path` must print a folder that exists. Do not put the whole developer-tools folder first on `PATH`: it also carries `python3` 3.9, older than relay needs, and relay would stop starting.
 
-```sh
-export PATH="$HOME/.local/git-bin:$PATH"
-```
-
-`xcrun --find git` prints the path of the real git. Open a new terminal (or a new Claude Code session) to pick it up. Do not put the whole developer-tools folder first on `PATH`: it also carries `python3` 3.9, older than the 3.11 relay needs, and relay would stop starting. Installing git from Homebrew does the same as the folder above.
+`relay doctor` checks this on macOS ("git first on PATH is the real git") and names this section when the first git is Apple's launcher or its helper folder is missing.
 
 relay does not change `PATH` by itself (decision of 27 Oct: record it, fix it only on your own machine).
 

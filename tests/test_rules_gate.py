@@ -54,7 +54,7 @@ def steps_run(changed: dict[str, str], dirty: dict[str, str] | None = None) -> l
             os.makedirs(os.path.dirname(os.path.join(tmp, rel)), exist_ok=True)
             with open(os.path.join(tmp, rel), "w") as f:
                 f.write(text)
-        env = {k: v for k, v in os.environ.items() if k not in ("RELAY_GATE", "RELAY_INERT_FULL_HOOKS")}
+        env = {k: v for k, v in os.environ.items() if k != "RELAY_GATE"}
         subprocess.run(["bash", "bin/ci", "--quick"], cwd=tmp, env=env, capture_output=True, text=True)
         with open(os.path.join(tmp, ".ci", "results.txt")) as f:
             return [line.rsplit(" ", 1)[0] for line in f.read().splitlines()]
