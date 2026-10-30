@@ -23,8 +23,8 @@
     "lib/relay_lanes.py:293-301",
     "lib/relay_queue.py drop"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T23:53:53Z",
+  "taken_by": "wt/a-dropped-item-s-empty-worktree-still-holds-a-la",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -34,6 +34,21 @@
       "at": "2026-10-30T00:34:38Z",
       "said": [
         "Как мы вообще можем сказать сколько lane занято, как мы оперируем этими данными, где это хранится, разумно было бы смотреть на занятую очередь задач, вероятно мы так и делаем"
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T23:53:51Z",
+      "question": [
+        "Which of the two fixes the item names: drop removes the empty worktree, or the lane count skips a no-item worktree with no own commit and no modified file?"
+      ],
+      "options": [
+        "a. the lane count skips it (lib/relay_lanes.py only)",
+        "b. drop removes the worktree (lib/relay_queue.py)"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "The owner's words of 30 Oct 04:34 (\"разумно было бы смотреть на занятую очередь задач\") point to counting from the queue's state; a also covers worktrees left by any path, not only drop; and it does not touch lib/relay_queue.py, which the held digest branch also changes. Owner can reverse."
       ]
     }
   ]
