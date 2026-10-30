@@ -13,6 +13,26 @@ from relay_testbase import Base, ROOT  # noqa: E402
 
 
 class Setup(Base):
+    def _wt_project(self, wt_script):
+        import relay_setup
+        proj = os.path.join(self.tmp, "wtproj")
+        os.makedirs(os.path.join(proj, "bin"))
+        subprocess.run(["git", "init", "-q", proj], check=True, capture_output=True)
+        if wt_script is not None:
+            with open(os.path.join(proj, "bin", "wt"), "w") as handle:
+                handle.write(wt_script)
+        d = relay_setup.detect(proj)
+        return relay_setup.bindings_text(d, "none")
+
+    def test_setup_uses_the_folder_bin_wt_makes(self):
+        # ALIX: bin/wt makes .worktree/<name>; kit.toml must say so, not the default.
+        text = self._wt_project('#!/bin/sh\ngit worktree add ".worktree/$1" -b "wt/$1"\n')
+        self.assertIn('worktrees = ".worktree"\n', text)
+
+    def test_setup_default_worktrees_folder_without_bin_wt(self):
+        text = self._wt_project(None)
+        self.assertIn('worktrees = ".worktrees"\n', text)
+
     def test_setup_doc_states_squash_merge_limit(self):
         # A project that squash-merges pull requests on its server gets the check records in the squashed tree, naming
         # commits of the deleted branch; relay land never squashes. The doc must say both, plainly.
