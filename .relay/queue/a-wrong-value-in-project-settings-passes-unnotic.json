@@ -28,8 +28,8 @@
     "lib/relay_config.py",
     "lib/relay_setup.py:1066-1180 doctor"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T16:23:34Z",
+  "taken_by": "wt/a-wrong-value-in-project-settings-passes",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
