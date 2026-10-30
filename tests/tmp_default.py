@@ -41,6 +41,9 @@ def temporary_environment(base: str) -> Dict[str, Optional[str]]:
         "HOME": base,
         "CLAUDE_CONFIG_DIR": os.path.join(base, ".claude"),
         "RELAY_HOME": os.path.join(base, ".relay"),
+        # relay's own checkout holds a tracked projects.toml; without this a test that reads the registry would move it
+        # out of the checkout (lib/relay_config.py projects_file) and the gate would see the tree change.
+        "RELAY_PROJECTS": os.path.join(base, ".relay", "projects.toml"),
         "RELAY_CLAUDE_JSON": None,
         "TMPDIR": base,
     }

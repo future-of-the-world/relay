@@ -1,0 +1,45 @@
+{
+ "agents": [
+  {
+   "cost_usd": 2.6116,
+   "id": "adcd5f8e879f1286f",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 25,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design",
+   "start": "2026-10-30T11:18:48.704Z",
+   "stop": "2026-10-30T11:29:47.001Z"
+  },
+  {
+   "cost_usd": 1.468,
+   "id": "a332ff0a8aac02a39",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 19,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design review",
+   "start": "2026-10-30T11:29:50.480Z",
+   "stop": "2026-10-30T11:34:50.511Z"
+  },
+  {
+   "cost_usd": 4.9437,
+   "id": "a26f6a9a5a7e18682",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 31,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "design revise",
+   "start": "2026-10-30T11:34:58.387Z",
+   "stop": "2026-10-30T11:49:48.238Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "design",
+ "land": [],
+ "schema": 1,
+ "unit": "session-rev3"
+}

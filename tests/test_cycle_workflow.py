@@ -751,6 +751,17 @@ class Cycle(unittest.TestCase):
         self.assertEqual(c["landed"], "landed wt/x on master at abc123 (gate 9.0 min)")
         self.assertIn("relay land wt/x -C %s" % self.wt, out["prompts"]["land 1: the-item"])
 
+    def test_land_keep_open_unit_lands_with_the_flag_and_others_do_not(self):
+        """F2 cases 1, 2: a unit with keep_open: true starts `relay land wt/x --keep-open -C <wt>`; a unit without it, the same command as before."""
+        out = self.run_cycle(self.largs([self.unit(item="the-item", keep_open=True)]))
+        self.assertIn("relay land wt/x --keep-open -C %s" % self.wt, out["prompts"]["land 1: the-item"])
+        out = self.run_cycle(self.largs([self.unit(item="the-item")]))
+        self.assertNotIn("--keep-open", out["prompts"]["land 1: the-item"])
+
+    def test_keep_open_must_be_a_boolean(self):
+        out = self.run_cycle(self.largs([self.unit(item="the-item", keep_open="yes")]))
+        self.assertIn("keep_open", out["result"]["refused"])
+
     def test_land_exit_3_runs_one_fixer_one_gate_one_check_no_second_close_then_lands_again(self):
         """Exit 3 (take conflict), land_fixes 1: fixer, one gate group, one check with the unit's review JSON and no
         close-queue-item, then a second land. Hand-counted labels: the gate numbers go on (gate 2), the check is check 2."""

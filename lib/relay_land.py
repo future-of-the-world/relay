@@ -268,9 +268,9 @@ class Result:
         return EXIT[self.outcome]
 
 
-def land(repo: str, branch: str, notify: Callable[[str], None], paid_fix: bool = False) -> Result:
+def land(repo: str, branch: str, notify: Callable[[str], None], paid_fix: bool = False, keep_open: bool = False) -> Result:
     """Land `branch`; the steps of design relay-land 4.1. Returns the outcome and the lines to print. `paid_fix` lets the branch
-    through a red paid run (lib/relay_land_waits.py)."""
+    through a red paid run (lib/relay_land_waits.py). `keep_open` lands an intermediate change of a feature: its item is not closed."""
     import relay_config      # these are not at the top: the merge hook's plugin folder carries this file without them
     import relay_land_waits
     import relay_queue
@@ -298,7 +298,7 @@ def land(repo: str, branch: str, notify: Callable[[str], None], paid_fix: bool =
         record(main, Event("locked", now(), branch=branch, pid=os.getpid()))
         try:
             relay_land_waits.check(main, default, branch, paid_fix)      # again after the lock: the wait may have begun while this one queued
-            result = _locked(main, default, branch, tree, stats, tries, inert_tries, ff_tries, notify, paid_fix)
+            result = _locked(main, default, branch, tree, stats, tries, inert_tries, ff_tries, notify, paid_fix, keep_open)
         except Stop as stop:
             result = Result(stop.outcome, stop.lines)
             for key, value in stop.fields.items():
@@ -356,7 +356,7 @@ def _preflight(main: str, default: str, branch: str) -> str:
 
 
 def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries: int, inert_tries: int, ff_tries: int,
-            notify: Callable[[str], None], paid_fix: bool = False) -> Result:
+            notify: Callable[[str], None], paid_fix: bool = False, keep_open: bool = False) -> Result:
     import relay_gate
     import relay_land_waits
     code_moves = inert_moves = 0
@@ -399,7 +399,7 @@ def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries
             landed = _fast_forward(main, default, branch, base, ff_tries, notify, judged)
         if landed:
             stats.before = base
-            return _landed(main, default, branch, stats, started)
+            return _landed(main, default, branch, stats, started, keep_open)
         # the default branch moved while we gated: an inert move (only queue records or the handover) is cheap, a code move is not
         if relay_inert.changed(main, base, _sha(main, ref)):
             code_moves += 1
@@ -445,7 +445,19 @@ def _close_features(main: str) -> list[str]:
         return [f"land: the landing happened, but the queue could not be updated: {exc}"]
 
 
-def _landed(main: str, default: str, branch: str, stats: Event, started: float) -> Result:
+def _release_kept_open(main: str, branch: str, sha: str) -> list[str]:
+    """--keep-open: the feature items the landed branch took are released with a dated record of the landing (a fix is left alone)."""
+    try:
+        import relay_queue
+        items = [i for i in relay_queue.read_queue(main) if i.get("state") == "taken" and i.get("taken_by") == branch and i.get("kind") == "feature"]
+        for item in items:
+            relay_queue.release_kept_open(main, item["slug"], branch, sha)
+        return [f"kept open: {i['slug']} (released, open for its next change)" for i in items] or [f"{branch} holds no feature item: --keep-open changed nothing"]
+    except Exception as exc:        # the landing already happened (the rule _close_features follows)
+        return [f"land: the landing happened, but the queue could not be updated: {exc}"]
+
+
+def _landed(main: str, default: str, branch: str, stats: Event, started: float, keep_open: bool = False) -> Result:
     stats.sha = _sha(main, "refs/heads/" + default)
     lines: list[str] = []
     units = _units(main, stats.before, stats.sha, branch)
@@ -457,9 +469,10 @@ def _landed(main: str, default: str, branch: str, stats: Event, started: float) 
                          f"{(done.stderr.strip().splitlines() or ['no reason given'])[-1]}")
     except subprocess.TimeoutExpired:
         lines.append(f"land: {branch} landed, but the cleanup of its worktree and branch did not finish in {JUDGE_TIMEOUT_S} s")
+    kept = _release_kept_open(main, branch, stats.sha) if keep_open else []      # before the sweep: an intermediate change leaves its feature open
     closed = _close_features(main)
     how = f"gate {stats.gate_seconds / 60:.1f} min" if stats.gates_run else "gate reused: only queue records or the handover came in"
-    return Result(LANDED, [f"landed {branch} on {default} at {stats.sha[:12]} ({how})", *lines, *closed], units)
+    return Result(LANDED, [f"landed {branch} on {default} at {stats.sha[:12]} ({how})", *lines, *kept, *closed], units)
 
 
 def _units(main: str, before: Optional[str], head: Optional[str] = None, branch: Optional[str] = None) -> list[tuple[str, str]]:

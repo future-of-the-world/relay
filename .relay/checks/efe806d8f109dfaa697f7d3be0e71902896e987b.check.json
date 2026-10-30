@@ -1,0 +1,226 @@
+{
+  "branch": "wt/setup-registers-a-project-in-relay-s-own",
+  "findings": [
+    {
+      "details": [
+        "Found 30 Oct by the trial of relay on a copy of relay cleaned of relay (owner, 30 Oct: \"\u041f\u043e\u043b\u0430\u0433\u0430\u044e \u0447\u0442\u043e \u0434\u043b\u044f \u0442\u0435\u043a\u0443\u0449\u0438\u0445 \u0437\u0430\u0434\u0430\u0447 \u0431\u0443\u0434\u0435\u0442 \u043d\u0435 \u043b\u0438\u0448\u043d\u0438\u043c \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 relay \u043a \u0441\u0430\u043c\u043e\u043c\u0443 relay, \u043e\u0447\u0438\u0449\u0435\u043d\u043d\u043e\u043c\u0443 \u043e\u0442 relay\"); sandbox HOME, RELAY_HOME and RELAY_PROJECTS, claude stubbed. lib/relay_config.py:22-23: with no RELAY_PROJECTS set, projects_file defaults to <relay checkout>/projects.toml, a file tracked in relay's repository, so registering any project (from a sandbox, another machine or a newcomer) edits relay's tracked file; nothing says so.",
+        "Also: lib/relay_setup.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "With RELAY_PROJECTS unset, `relay setup` in a fresh repo adds an entry to /Users/amidman/relay/projects.toml (git status of relay shows it modified)."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "setup with RELAY_PROJECTS unset writes only under $RELAY_HOME",
+        "relay's own checkout stays clean after setup of another project",
+        "an old registry in the checkout is moved once with a line"
+      ],
+      "path": "lib/relay_config.py",
+      "rank": "high",
+      "reason": [
+        "Test tests/test_setup.py RegistryLocation fails at 11db2d32 (errors), but the brief's pass case that relay's own checkout stays clean is not met (see F1)."
+      ],
+      "severity": "HIGH",
+      "since": "11db2d32b170ec59bff912fc09a58df442b8b45a",
+      "source": "queue",
+      "summary": "Setup registers a project in relay's own projects.toml",
+      "verdict": "NOT MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a scratch run. The registry cannot both be moved out of the checkout and stay tracked there: either the",
+        "change removes projects.toml from relay's repository (git rm + .gitignore entry, with a seed of [global] for a fresh",
+        "install, which today gets [global] only from the tracked file) or it leaves the tracked file alone (copy, not move) and",
+        "then relay must never read it again, which is Q1's split. The new tests miss this: RegistryLocation uses an untracked",
+        "temp folder as the checkout, so `os.listdir(root) == []` is true by construction and the move test asserts the very",
+        "deletion that dirties the real checkout. Size: 30 minutes once Q1 is answered."
+      ],
+      "evidence": [
+        "env -u RELAY_PROJECTS RELAY_ROOT=$S/repo RELAY_HOME=$S/home python3 -c '... relay_config.projects_file()'",
+        "  relay: moved the project registry .../repo/projects.toml to .../home/projects.toml (it now lives under RELAY_HOME)",
+        "git -C $S/repo status --short  ->   D projects.toml",
+        "git -C $S/repo merge side (side sets paid_cap_usd_per_day = 300)  -> fast-forward, projects.toml back in the checkout",
+        "relay_paidcap.cap() -> cap read 200.0   (home copy; the tracked file says 300)",
+        "git -C <worktree> ls-files projects.toml -> projects.toml ;  ls ~/.relay/projects.toml -> No such file"
+      ],
+      "failing_case": [
+        "Merge this branch; on the owner's machine (no ~/.relay/projects.toml today, RELAY_PROJECTS unset) run any command that",
+        "reads the registry (relay sync, relay setup <dir>, bin/paid-cost today). projects_file() does shutil.move of",
+        "~/relay/projects.toml to ~/.relay/projects.toml. `git -C ~/relay status --short` now prints ` D projects.toml`: the",
+        "primary checkout is dirty, against the brief's pass case \"relay's own checkout stays clean\" and the Git rule (primary",
+        "checkout clean). The change does not untrack the file (git ls-files projects.toml still lists it). Reproduced in a",
+        "scratch repo: after the move, a fast-forward of a commit touching projects.toml writes the file back, and relay keeps",
+        "reading the home copy: two registries, the tracked one silently ignored.",
+        "Expected: after the first run relay's checkout is clean and there is one registry."
+      ],
+      "fix_hint": [
+        "Remove projects.toml from relay's repository in this change (git rm, add to .gitignore) so the one-time move leaves the",
+        "checkout clean, and seed a [global] block when no registry exists (install/setup); or follow Q1's answer if the owner",
+        "wants shipped settings kept in the repository. Add a test with a real git repo as the checkout asserting a clean status."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 34,
+      "pass_cases": [
+        "1. A git repo standing for relay's checkout with a committed projects.toml ([global] + [relay]), RELAY_ROOT at it,",
+        "   RELAY_HOME empty, RELAY_PROJECTS unset: after projects_file() (or relay setup of another repo) `git status --porcelain`",
+        "   of that repo is empty, and <RELAY_HOME>/projects.toml holds the [global] and [relay] entries.",
+        "2. Same, then relay setup of a fresh repo `newproj`: [newproj] is in <RELAY_HOME>/projects.toml; relay's repo stays clean.",
+        "3. RELAY_PROJECTS=/x/p.toml set: projects_file() returns /x/p.toml and nothing is moved (works today, must keep working).",
+        "4. Second call: no line on stderr, nothing moved (works today)."
+      ],
+      "path": "lib/relay_config.py",
+      "rank": "high",
+      "reason": [
+        "Fixer left it undone (depends on F3). projects.toml is still tracked; first read leaves the checkout dirty. No test with a real git checkout."
+      ],
+      "severity": "HIGH",
+      "since": "a446703353d3ecdfcbff4c43145e4457bccbd6c6",
+      "source": "review-setup-registers-a-project-in-relay-s-own.json",
+      "source_id": "F1",
+      "summary": "the move deletes projects.toml, a file tracked in relay's repository, so relay's primary checkout is left dirty (' D projects.toml') and the next fast-forward silently restores a copy that is never read",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading land_cap (lib/relay_paidcap.py:57-79): without RELAY_PROJECTS it plans a commit of",
+        "\"projects.toml\" on the default branch via relay_queue._land, a caller of the old location the change did not update.",
+        "cap() at :24 uses projects_file(). The brief's own rule: a caller not updated. bin/paid-cost's help line (12) also still",
+        "says it lands a commit. Size: 15 minutes (land_cap writes projects_file() in place when the registry lives in RELAY_HOME;",
+        "update the help line and tests/test_paid_cap.py)."
+      ],
+      "evidence": [
+        "lib/relay_paidcap.py:58  \"else one commit of projects.toml on the default branch\"",
+        "lib/relay_paidcap.py:67  blob = relay_queue.cat_batch(reader.main, [f\"{reader.rev}:projects.toml\"])[0]",
+        "lib/relay_paidcap.py:26  path = path or projects_file()",
+        "scratch run: relay_paidcap.cap() -> 200.0 with side:projects.toml holding 300 in the checkout"
+      ],
+      "failing_case": [
+        "After the move (F1), RELAY_PROJECTS unset: `bin/paid-cost cap 300`. land_cap() lands a commit setting",
+        "paid_cap_usd_per_day = 300 in master's projects.toml and prints 300. `bin/paid-cost today` and the paid-run guard",
+        "(`bin/paid-cost guard eval` in bin/ci) call cap() -> projects_file() -> ~/.relay/projects.toml, still 200. The owner's",
+        "cap is silently ignored (reproduced: cap read 200.0 while the tracked file says 300).",
+        "Expected: after `bin/paid-cost cap 300`, `bin/paid-cost cap` and the guard read 300."
+      ],
+      "fix_hint": [
+        "land_cap: with the registry under RELAY_HOME, call set_cap(usd) on projects_file() (no commit); fix bin/paid-cost help."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 57,
+      "pass_cases": [
+        "1. RELAY_PROJECTS unset, <RELAY_HOME>/projects.toml with cap 200: `bin/paid-cost cap 300`, then `bin/paid-cost cap`",
+        "   prints 300 and relay_paidcap.cap() returns 300.0; relay's checkout stays clean.",
+        "2. RELAY_PROJECTS=<tmp>/p.toml: `bin/paid-cost cap 250` writes that file in place (works today, keep).",
+        "3. `bin/paid-cost cap 0` is refused with \"the cap must be above 0\" (works today, keep)."
+      ],
+      "path": "lib/relay_paidcap.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_registry_fixes.py:34 passes, fails at a4467033; pass cases :44 and :51 pass."
+      ],
+      "severity": "HIGH",
+      "since": "a446703353d3ecdfcbff4c43145e4457bccbd6c6",
+      "source": "review-setup-registers-a-project-in-relay-s-own.json",
+      "source_id": "F2",
+      "summary": "`bin/paid-cost cap <USD>` still commits the cap to the default branch's tracked projects.toml, but cap() now reads <RELAY_HOME>/projects.toml, so the owner's new daily cap never takes effect",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Question for the owner. What it is about: relay's projects.toml holds two kinds of thing: the list of projects",
+        "registered on this machine (what setup adds), and relay's own settings that today travel by commit ([global] intro and",
+        "skip list, the native language, the daily paid cap, relay's lanes = 6). How it works after this change: on the first",
+        "run the whole file moves to ~/.relay, and relay reads only that copy. Live example: the queue item's fix moves it; the",
+        "tracked file stays in git (F1) and the cap command still commits to it (F2). What each answer changes: (a) all of it",
+        "becomes per-machine: simplest, one file; edits to lanes or the cap are local and never reach another machine or a",
+        "review; (b) split: shipped defaults stay versioned in the repository, registrations and personal settings live in",
+        "~/.relay: two files, merged on read.",
+        "Question: where do relay's own settings live? (a) all in ~/.relay, the repository file removed (recommended: fewer parts,",
+        "relay has no other users today; rests on: not measured beyond the 11 commits); (b) shipped defaults stay in the",
+        "repository, registrations in ~/.relay."
+      ],
+      "evidence": [
+        "git -C ~/relay log --oneline --since=2026-10-01 master -- projects.toml | wc -l -> 11",
+        "git show master:projects.toml -> [global] (paid cap, intro, native_language, skip) and [relay] (lanes = 6)"
+      ],
+      "failing_case": [
+        "After the move, a change on master edits projects.toml as commit ff877712 did (`lanes = 6` for relay) or adds a rule to",
+        "[global] skip. relay sync and the generated \"Changes built at once: N\" keep reading ~/.relay/projects.toml: the change",
+        "has no effect and nothing says so. 11 commits touched projects.toml on master since 1 Oct.",
+        "Expected: one place per setting, known to whoever edits it."
+      ],
+      "fix_hint": [
+        "(a): untrack the file and seed [global] (with F1, F2). (b): read ROOT/projects.toml for shipped sections, RELAY_HOME for the rest."
+      ],
+      "id": "F3",
+      "kind": "question",
+      "line": 32,
+      "pass_cases": [
+        "1. Answer (a): projects.toml is removed from relay's repository; a test asserts git ls-files projects.toml is empty and a",
+        "   fresh RELAY_HOME gets a seeded [global] (intro, skip, native_language absent until set).",
+        "2. Answer (b): shipped defaults stay in a tracked file read on every run, per-machine entries in RELAY_HOME; a commit",
+        "   changing [global] skip in the tracked file changes relay sync's output; relay setup writes only RELAY_HOME."
+      ],
+      "path": "lib/relay_config.py",
+      "rank": "medium",
+      "reason": [
+        "Question for the owner, left open by the fixer."
+      ],
+      "severity": "MEDIUM",
+      "since": "a446703353d3ecdfcbff4c43145e4457bccbd6c6",
+      "source": "review-setup-registers-a-project-in-relay-s-own.json",
+      "source_id": "F3",
+      "summary": "projects.toml is versioned relay configuration as well as a registry; moving all of it per machine makes every later commit to [global] or [relay] (lanes, skip, intro, cap) silently ineffective",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (several lanes run relay at once; only the very first read after the merge is exposed). Size: 5 minutes."
+      ],
+      "evidence": [
+        "lib/relay_config.py:33-35 check-then-move with no guard."
+      ],
+      "failing_case": [
+        "Target absent, old present; process A and B both pass the isfile checks; A moves; B's shutil.move(old, target) raises",
+        "FileNotFoundError (rename of a missing source). Expected: B returns target."
+      ],
+      "fix_hint": [
+        "Wrap the move in try/except FileNotFoundError and return target when it now exists."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 34,
+      "pass_cases": [
+        "1. old moved away between the check and the move: projects_file() returns the target, no exception.",
+        "2. Single process: moved once with one line (works today)."
+      ],
+      "path": "lib/relay_config.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_registry_fixes.py:58 passes, errors at a4467033."
+      ],
+      "severity": "LOW",
+      "since": "a446703353d3ecdfcbff4c43145e4457bccbd6c6",
+      "source": "review-setup-registers-a-project-in-relay-s-own.json",
+      "source_id": "F4",
+      "summary": "two relay processes doing the first read at once race on the move: the second's shutil.move raises FileNotFoundError and that command crashes",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "31938eb4efd3112f47d3f0acafd8584533ea726f.gate.log",
+  "head": "efe806d8f109dfaa697f7d3be0e71902896e987b",
+  "item": "setup-registers-a-project-in-relay-s-own-project",
+  "notes": [
+    "Tracked projects.toml is still in git ls-files; the one-time move still leaves the primary checkout with ' D projects.toml'. F3 awaits the owner."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 11db2d32..HEAD; gate on 31938eb4 green, only the gate-log commit after it. precheck green. Ran tests/test_registry_fixes.py, test_setup RegistryLocation, test_paid_cap: pass. Ran new tests on pre-fix commits: all fail there."
+  ],
+  "type": "check"
+}

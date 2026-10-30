@@ -65,12 +65,13 @@
                                      and records it (or prints the 3 root commands the owner must see first); set changes a
                                      setting within its bound; remove deletes the record and prints the one root command
                                      that removes the account; status shows the newest Linux watch and the stop-sending rule
-  relay land <branch> [--paid-fix] [-C <repo>]
+  relay land <branch> [--paid-fix] [--keep-open] [-C <repo>]
                                      take the default branch into the branch, gate the result, fast-forward on green; one
                                      landing at a time, no agent. Exit 0 landed, 1 red gate, 2 refused, 3 take conflict,
                                      4 run again, 5 waits for the owner (a hold or an unanswered question: ask the owner),
                                      6 waits for the paid run (no question to the owner: it lands after the run, see --waiting).
                                      --paid-fix lets the fix item of a red paid run land (refused in any other state)
+                                     --keep-open lands an intermediate change of a feature and leaves its item open for the next change (default: the landing closes it)
   relay land --hold <branch> "<the owner's words>" | --release <branch> [-C <repo>]
                                      the owner's hold on a branch (also one with no queue item); a held branch exits 5
   relay land --waiting [-C <repo>]   the branches that stopped on the paid run and still exist, one per line
@@ -703,7 +704,7 @@ def cmd_hosts(args):
 
 
 def cmd_land(args):
-    usage = ("relay land <branch> [--paid-fix] [-C <repo>] | relay land --hold <branch> \"<the owner's words>\" | relay land --release <branch> | "
+    usage = ("relay land <branch> [--paid-fix] [--keep-open] [-C <repo>] | relay land --hold <branch> \"<the owner's words>\" | relay land --release <branch> | "
              "relay land --waiting | relay land --stats [--since <date>] [--until <date>] [-C <repo>]")
     args = list(args)
     repo = "."
@@ -753,9 +754,12 @@ def cmd_land(args):
     paid_fix = "--paid-fix" in args
     if paid_fix:
         args.remove("--paid-fix")
+    keep_open = "--keep-open" in args
+    if keep_open:
+        args.remove("--keep-open")
     if len(args) != 1 or args[0].startswith("-"):
         raise Usage(usage)
-    result = relay_land.land(repo, args[0], lambda line: print("land: " + line, file=sys.stderr, flush=True), paid_fix=paid_fix)
+    result = relay_land.land(repo, args[0], lambda line: print("land: " + line, file=sys.stderr, flush=True), paid_fix=paid_fix, keep_open=keep_open)
     print("\n".join(result.lines))
     return result.code
 

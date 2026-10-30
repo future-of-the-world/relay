@@ -42,6 +42,16 @@ def load_hook(name: str, path: str) -> types.ModuleType:
                 del sys.modules[added]
 
 
+def shipped_specs() -> dict:
+    """What the registry holds on a fresh machine (relay's shipped defaults) plus relay's own entry, whose settings
+    are in this repository's .claude/kit.toml [rules]: the targets the tests of relay's own rules look at."""
+    import relay_config
+    data = relay_config.read_toml(os.path.join(ROOT, "defaults", "projects.toml"))
+    own = relay_config.read_toml(os.path.join(ROOT, ".claude", "kit.toml"))["rules"]
+    data["relay"] = dict(own, file=os.path.join(ROOT, "CLAUDE.local.md"), title="Principles this project loads")
+    return data
+
+
 class Base(unittest.TestCase):
     def setUp(self):
         self._saved_env = dict(os.environ)

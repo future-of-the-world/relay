@@ -20,13 +20,13 @@ class Quick(Fixture):
         git(self.wt, "commit", "-q", "-m", name)
 
     def args_seen(self):
-        return read(os.path.join(self.tmp, "args")).strip()
+        return read(os.path.join(self.main, ".ci", "args")).strip()
 
     def quick_repo(self, gate=GATE):
         """kit.toml names ci and ci_quick; ci_quick is the same script with --quick"""
         self.repo(gate=gate)
         kit = os.path.join(self.main, ".claude", "kit.toml")
-        write(kit, '[gate]\nci = "%s"\nci_quick = "%s --quick"\n' % (self.script, self.script))
+        write(kit, '[gate]\nci = "%s"\nci_quick = "%s --quick"\n' % (self.SCRIPT_REL, self.SCRIPT_REL))
         git(self.main, "add", "-A")
         git(self.main, "commit", "-q", "-m", "quick")
         git(self.wt, "merge", "-q", "master")
@@ -37,7 +37,7 @@ class Quick(Fixture):
         done = self.gate()
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         log = [line for line in read(done.stdout.splitlines()[1]).splitlines()]
-        self.assertEqual(log[1], "cmd " + self.script)
+        self.assertEqual(log[1], "cmd " + self.SCRIPT_REL)
 
     # F2 pass 2: ci_quick names the free mode
     def test_f2_a_plain_gate_runs_the_ci_quick_binding(self):
@@ -67,20 +67,20 @@ class Quick(Fixture):
     def paid_tool(self):
         tool = os.path.join(self.wt, "bin", "paid-cost")
         write(tool, '#!/bin/sh\ncase "$1" in estimate) echo EST;; today) echo SPENT;; esac\n'
-              'echo "$1" >> "$(dirname "$0")/../../../../trace"\n', stat.S_IRWXU)
+              'echo "$1" >> "$(dirname "$0")/../../../.ci/trace"\n', stat.S_IRWXU)
         git(self.wt, "add", "-A")
         git(self.wt, "commit", "-q", "-m", "tool")
 
     def test_f1_paid_prints_estimate_and_spend_before_the_gate_runs(self):
         self.quick_repo()
-        # the tool and the gate both append to <tmp>/trace (the tool is at <tmp>/main/.worktrees/x/bin: four levels up)
+        # the tool and the gate both append to <main>/.ci/trace (the tool is at <main>/.worktrees/x/bin: three levels up)
         self.paid_tool()
         done = self.gate("--paid")
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertIn("EST", done.stderr)
         self.assertIn("SPENT", done.stderr)
         # worked out by hand: estimate, then today, then the gate's own line
-        self.assertEqual(read(os.path.join(self.tmp, "trace")).split(), ["estimate", "today", "gate"])
+        self.assertEqual(read(os.path.join(self.main, ".ci", "trace")).split(), ["estimate", "today", "gate"])
 
     def test_f1_plain_and_explicit_args_print_no_cost_line(self):
         self.quick_repo()
@@ -101,7 +101,7 @@ class Quick(Fixture):
         done = self.gate("--paid", "--", "--quick")
         self.assertEqual(done.returncode, 2)
         self.assertIn("do not go together", done.stdout + done.stderr)
-        self.assertFalse(os.path.exists(os.path.join(self.tmp, "args")))
+        self.assertFalse(os.path.exists(os.path.join(self.main, ".ci", "args")))
 
 
 if __name__ == "__main__":

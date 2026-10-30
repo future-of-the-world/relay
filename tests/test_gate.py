@@ -25,6 +25,7 @@ sys.path.insert(0, HERE)
 
 import leaked_gates
 import relay_procs
+import repo_templates
 from fake_tools import install_fake
 from pidfile import wait_pid
 
@@ -56,6 +57,9 @@ def write(path, text, mode=None):
         handle.write(text)
     if mode:
         os.chmod(path, mode)
+
+
+_TEMPLATES: dict = {}
 
 
 class Fixture(unittest.TestCase):
@@ -128,27 +132,38 @@ class Fixture(unittest.TestCase):
             return [(numbers[0] if numbers else 0, "holder of %s not identified" % path)]
         return [(pid, p.command) for pid, p in sorted(mine.items())]
 
+    SCRIPT_REL = "../../.ci/gate.sh"      # from .worktrees/x to main/.ci/gate.sh
+
     def repo(self, relay=True, gate=None, ignore=".ci/\n.worktrees/\n"):
         """main checkout on master with a worktree .worktrees/x on wt/x holding one commit; gate = the gate script's text"""
         main = os.path.join(self.tmp, "main")
-        os.makedirs(main)
-        git(main, "init", "-q", "-b", "master")
-        write(os.path.join(main, ".gitignore"), ignore)
-        if relay:
-            write(os.path.join(main, ".relay", "README.md"), "x\n")
+        key = (relay, ignore, gate is not None)
+        if key not in _TEMPLATES:      # git builds this repository once per run; each case gets a copy of the folder
+            template = tempfile.mkdtemp(prefix="t", dir=repo_templates.template_root("gate"))      # unique even when this file is imported under two names
+            git(template, "init", "-q", "-b", "master")
+            write(os.path.join(template, ".gitignore"), ignore)
+            if relay:
+                write(os.path.join(template, ".relay", "README.md"), "x\n")
+            if gate is not None:      # the script sits outside the tracked files at a path relative to the worktree (cwd of the gate): main/.ci/gate.sh
+                write(os.path.join(template, ".claude", "kit.toml"), '[gate]\nci = "%s"\n' % self.SCRIPT_REL)
+            git(template, "add", "-A")
+            git(template, "commit", "-q", "-m", "init")
+            twt = os.path.join(template, ".worktrees", "x")
+            git(template, "worktree", "add", "-q", twt, "-b", "wt/x")
+            write(os.path.join(twt, "lib", "a.py"), "a\n")
+            git(twt, "add", "-A")
+            git(twt, "commit", "-q", "-m", "work")
+            _TEMPLATES[key] = template
+        template = _TEMPLATES[key]
+        shutil.copytree(template, main, symlinks=True)
+        # the worktree came with the copy; its two link files hold absolute paths, so point them at the copy (no git call)
+        for link in (os.path.join(main, ".worktrees", "x", ".git"), os.path.join(main, ".git", "worktrees", "x", "gitdir")):
+            write(link, read(link).replace(template, main))
         if gate is not None:
-            script = os.path.join(self.tmp, "gate.sh")
-            write(script, "#!/bin/sh\n" + gate, stat.S_IRWXU)
-            write(os.path.join(main, ".claude", "kit.toml"), '[gate]\nci = "%s"\n' % script)
-            self.script = script
-        git(main, "add", "-A")
-        git(main, "commit", "-q", "-m", "init")
+            self.script = os.path.join(main, ".ci", "gate.sh")
+            write(self.script, "#!/bin/sh\n" + gate, stat.S_IRWXU)
         self.main = main
         self.wt = os.path.join(main, ".worktrees", "x")
-        git(main, "worktree", "add", "-q", self.wt, "-b", "wt/x")
-        write(os.path.join(self.wt, "lib", "a.py"), "a\n")
-        git(self.wt, "add", "-A")
-        git(self.wt, "commit", "-q", "-m", "work")
 
     @staticmethod
     def _stop(proc):
@@ -296,7 +311,7 @@ class Gate(Fixture):
         log = os.path.join(self.wt, ".relay", "checks", head + ".gate.log")
         lines = read(log).splitlines()
         self.assertEqual(lines[0], "head " + head)
-        self.assertEqual(lines[1], "cmd %s --quick" % self.script)
+        self.assertEqual(lines[1], "cmd %s --quick" % self.SCRIPT_REL)
         self.assertRegex(lines[2], r"^wait \d+\.\d$")      # the slot wait, then the gate's output
         self.assertEqual(lines[3:-1], ["step one ok"])
         self.assertEqual(lines[-1], "exit 0")

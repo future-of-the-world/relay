@@ -12,9 +12,11 @@ from unittest import mock
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "lib"))
+sys.path.insert(0, HERE)
 
 import relay_marks  # noqa: E402
 import relay_queue as rq  # noqa: E402
+import repo_templates  # noqa: E402
 import relay_verdict as rv  # noqa: E402
 
 NOSLEEP = lambda seconds: None  # noqa: E731  (time is a value: the tests never wait)
@@ -62,6 +64,9 @@ def raw_item(text, drop=(), **changes):
     return json.dumps(data, indent=2) + "\n"
 
 
+_TEMPLATES: dict = {}       # (relay, items, seed) -> a finished repository, built once per run and copied for every case
+
+
 class Base(unittest.TestCase):
     def setUp(self):
         self.tmp = os.path.realpath(tempfile.mkdtemp(prefix="relay-queue-test-"))
@@ -72,18 +77,29 @@ class Base(unittest.TestCase):
                                              "GIT_COMMITTER_NAME": "T", "GIT_COMMITTER_EMAIL": "t@example.com"})
         patch.start()
         self.addCleanup(patch.stop)
-        self.main = self.repo("main")
+        self.main = self.make_main()
 
-    def repo(self, name, relay=True, items=None):
+    def make_main(self):
+        return self.repo("main")
+
+    def repo(self, name, relay=True, items=None, seed=None):
+        """A repository with one commit `start` (and a second, `seed`, when files are given). It is built by git once per run; each case
+        gets a copy of that folder (no git call), so a test that writes never shares a repository with another."""
+        key = (relay, tuple(sorted((items or {}).items())), tuple(sorted((seed or {}).items())))
+        if key not in _TEMPLATES:
+            template = tempfile.mkdtemp(prefix="t", dir=repo_templates.template_root("queue"))      # unique even when this file is imported under two names
+            git(template, "init", "-q", "-b", "master")
+            files = {"README.md": "x\n"}
+            if relay:
+                files[".relay/README.md"] = "relay folder\n"
+                for slug, text in (items or {}).items():
+                    files[f".relay/queue/{slug}.json"] = text
+            self.write_commit(template, files, "start")
+            if seed:
+                self.write_commit(template, seed, "seed")
+            _TEMPLATES[key] = template
         path = os.path.join(self.tmp, name)
-        os.makedirs(path)
-        git(path, "init", "-q", "-b", "master")
-        files = {"README.md": "x\n"}
-        if relay:
-            files[".relay/README.md"] = "relay folder\n"
-            for slug, text in (items or {}).items():
-                files[f".relay/queue/{slug}.json"] = text
-        self.write_commit(path, files, "start")
+        shutil.copytree(_TEMPLATES[key], path, symlinks=True)
         return path
 
     def write_commit(self, repo, files, message):
@@ -92,7 +108,7 @@ class Base(unittest.TestCase):
             os.makedirs(os.path.dirname(full), exist_ok=True)
             with open(full, "w") as handle:
                 handle.write(text)
-            git(repo, "add", rel)
+        git(repo, "add", "--", *files)
         git(repo, "commit", "-q", "-m", message)
 
     def worktree(self, name):

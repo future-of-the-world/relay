@@ -6,3 +6,8 @@ max_parallel = 6
 
 [front]
 feature_lanes = 3   # the owner's 3 and 3 split (29 Oct): 3 lanes for features, 3 for fixes
+
+[rules]
+lanes = 6   # changes built at once (1-8, default 4); the owner chose 6 on 27 Oct
+load = ["principles", "python"]
+read = []

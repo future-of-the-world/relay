@@ -54,28 +54,31 @@ class TestDoneJudges(cr.Flow):
 
 
 class TestMergeJudges(cr.Flow):
-    def merge_accepts(self, n, test):
-        """Whether the merge guard lets through branch wt/m<n>, which took a fix item, was checked with Q1 MET, holds tests/t.py with
-        SOURCE and closes the item with `test`."""
-        slug = "job%d" % n
-        self.write_commit(self.main, {".relay/queue/%s.json" % slug: tq.fix_item("Job %d" % n)}, "item %d" % n)
-        self.wa = self.worktree("m%d" % n)
-        rq.take(self.wa, slug, **tq.QUIET)
+    def checked_state(self):
+        """Branch wt/a (it took the fix item `job`) holding tests/t.py with SOURCE and checked with Q1 MET: built once, by one take,
+        one test commit and one check record; returns the item's text as `take` left it."""
         self.write_commit(self.wa, {"tests/t.py": SOURCE}, "test")
-        review = self.review("r%d.json" % n, self.head(), [cr.review_finding(1)])
+        review = self.review("r.json", self.head(), [cr.review_finding(1)])
         self.checked([review], cr.met("Q1", "F1"))
-        # the taken item as `take` left it, closed as `relay queue done` would (the merge hook refuses any other change of its text)
-        taken = open(os.path.join(self.wa, ".relay/queue/%s.json" % slug), encoding="utf-8").read()
+        return open(os.path.join(self.wa, ".relay/queue/job.json"), encoding="utf-8").read()
+
+    def merge_accepts(self, taken, test):
+        """Whether the merge guard lets through branch wt/a closing the item with `test`. The item is closed as `relay queue done` would
+        (the merge hook refuses any other change of its text); the branch is put back to its checked state afterwards."""
+        checked = self.head()
         done = tq.raw_item(taken, closed_at=rq.utcnow(), test=test)
-        self.write_commit(self.wa, {".relay/queue/%s.json" % slug: done}, "close %s" % slug)
+        self.write_commit(self.wa, {".relay/queue/job.json": done}, "close job")
         hook = cr.merge_hook
         try:
-            hook.step_queue(self.main, "master", "wt/m%d" % n)
+            hook.step_queue(self.main, "master", "wt/a")
         except hook.Refused as exc:
             self.assertIn("closed without a test", str(exc))
             return False
+        finally:
+            tq.git(self.wa, "reset", "-q", "--hard", checked)
         return True
 
     def test_merge_accepts_and_refuses_the_same_names(self):
-        for n, (test, accepted) in enumerate(CASES):
-            self.assertEqual(self.merge_accepts(n, test), accepted, test)
+        taken = self.checked_state()
+        for test, accepted in CASES:
+            self.assertEqual(self.merge_accepts(taken, test), accepted, test)

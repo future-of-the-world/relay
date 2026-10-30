@@ -584,6 +584,49 @@ class ReviewFixes(Land):
         self.assertEqual(queue["feat"]["evidence"], git(self.main, "log", "-n1", "--no-merges", "--format=%H", "--", "lib/a.py"))
         self.assertIn("feat", run.stdout)
 
+    def _queue(self):
+        return {i["slug"]: i for i in tls.rq.read_queue(self.main, closed=True)}
+
+    def test_keep_open_feature_stays_open_after_the_lanes_sweep(self):
+        # F1 cases 1, 3: the front's hook runs close_landed after the landing; the kept-open feature must not close and is not "landed, still open"
+        import relay_lanes
+        self.start()
+        self.master_commit(".relay/queue/feat.json", tls.item("feat", "feature", **tls.taken("wt/x")))
+        run = self.land("wt/x", "--keep-open")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        relay_lanes.close_landed(self.main)
+        feat = self._queue()["feat"]
+        self.assertEqual(feat["state"], "open")      # released: the next change starts it with one command
+        self.assertIsNone(feat.get("taken_by"))
+        self.assertIn("wt/x landed at", feat["notes"][-1].text[0])       # the dated record of the intermediate landing
+        self.assertEqual([g.slug for g in relay_lanes.lanes_state(self.main).landed_open], [])
+        self.assertIn("kept open: feat", run.stdout)
+
+    def test_keep_open_on_a_branch_without_a_feature_says_so(self):
+        # F3 case 2 (F1 case 4 is test_f4_landing_closes_the_feature_item_not_the_fix; F1 case 5: relay land already refuses a branch
+        # that still holds an open fix item, before any flag matters)
+        self.start()
+        run = self.land("wt/x", "--keep-open")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("holds no feature item", run.stdout)       # F3 case 2: the flag that did nothing says so
+
+    def test_keep_open_holds_only_its_own_feature(self):
+        # F3 case 1: another landed feature (wt/z, merged earlier, still taken) is closed by this landing's sweep; feat is not
+        self.start()
+        git(self.main, "checkout", "-q", "-b", "wt/z")
+        write(os.path.join(self.main, "lib", "z.py"), "z\n")
+        git(self.main, "add", "-A")
+        git(self.main, "commit", "-q", "-m", "z code")
+        git(self.main, "checkout", "-q", "master")
+        git(self.main, "merge", "--no-ff", "-q", "-m", "Merge branch 'wt/z'", "wt/z")
+        git(self.main, "branch", "-q", "-D", "wt/z")
+        self.master_commit(".relay/queue/feat.json", tls.item("feat", "feature", **tls.taken("wt/x")))
+        self.master_commit(".relay/queue/other.json", tls.item("other", "feature", **tls.taken("wt/z")))
+        run = self.land("wt/x", "--keep-open")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertEqual(self._queue()["feat"]["state"], "open")
+        self.assertEqual(self._queue()["other"]["state"], "done")
+
     def test_f4_refused_landing_closes_nothing(self):
         self.start(gate="exit 1\n")
         self.master_commit(".relay/queue/feat.json", tls.item("feat", "feature", **tls.taken("wt/x")))

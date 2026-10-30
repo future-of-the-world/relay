@@ -21,16 +21,14 @@ class DropPluginsFixes(Fixture):
         self.assertIn("[product]", kit)
         self.assertIn('run_skill = "scr-run"', kit)
         self.assertNotIn("product@amidman", self.plugins(root))
-        from relay_config import projects_file
-        self.assertIn('"product-work"', open(projects_file()).read())
+        self.assertIn('"product-work"', kit)   # the project's rules load now live in its own kit.toml [rules], not the registry
 
     def test_f1_no_screen_no_product(self):
         root = self.git_folder("nos")
         self.write(root, "go.mod", "module x\n")
         self.run_setup(root)
         self.assertNotIn("[product]", self.read(root, ".claude/kit.toml"))
-        from relay_config import projects_file
-        self.assertNotIn("product-work", open(projects_file()).read())
+        self.assertNotIn("product-work", self.read(root, ".claude/kit.toml"))
 
     def test_f1_existing_product_section_kept(self):
         root = self.git_folder("keep")

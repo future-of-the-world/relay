@@ -1,0 +1,63 @@
+{
+  "kind": "fix",
+  "ip": 96,
+  "time": 60,
+  "found_at": "2026-10-30T12:44:03Z",
+  "found_in": "relay queue add",
+  "title": "Python aborts at exit in gates; macOS shows crash dialogs",
+  "what": [
+    "Python 3.14 processes started by Python (parent process Python) abort with SIGABRT at interpreter shutdown: fatal_error in _enter_buffered_busy from _io__Buffered_close, the \"could not acquire lock for <_io.BufferedWriter name='<stderr>'> at interpreter shutdown, possibly due to daemon threads\" case. A daemon thread is still writing to stdout or stderr when the program exits. Find which relay program or test does this (the crashes came in bursts while gates ran, 16:39-16:43 local), stop the daemon thread or join it before exit, and add a check that no gate run leaves a new Python .ips crash report. Also 3 bash SIGSEGV reports the same day: check whether they share the cause."
+  ],
+  "why": [
+    "Each abort opens a macOS \"Python quit unexpectedly. Click Reopen ... Report\" window in front of the owner; 25 on 30 Oct, 1 on 29 Oct."
+  ],
+  "failing_case": [
+    "~/Library/Logs/DiagnosticReports has 25 Python-2026-10-30-*.ips reports, 19 of the last 30 being EXC_CRASH SIGABRT \"Abort trap: 6\" with the triggered thread in _enter_buffered_busy / _io__Buffered_close; the owner sees the macOS dialog \"Click Reopen to open the application again. Click Report ...\" again and again."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "a full relay gate run leaves no new Python-*.ips report in ~/Library/Logs/DiagnosticReports",
+    "the program found as the cause exits without the fatal error when a daemon thread is mid-write (a test reproduces the abort before the fix)"
+  ],
+  "where": [
+    "lib/relay_ci.py daemon threads (candidate)",
+    "tests/test_gate_slots.py",
+    "tests/test_gate_sweep.py",
+    "tests/test_precheck.py",
+    "tests/test_relay_tokens.py"
+  ],
+  "taken_at": "2026-10-30T15:39:06Z",
+  "taken_by": "wt/gates-on-the-vps-hosts-transport-watch-b",
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T12:44:03Z",
+      "said": [
+        "Click Reopen to open the application again. Click Report to see more detailed information and send a report to Apple",
+        "",
+        "Откуда, это появляется раз за разом"
+      ]
+    },
+    {
+      "at": "2026-10-30T12:45:26Z",
+      "said": [
+        "a"
+      ]
+    },
+    {
+      "at": "2026-10-30T12:45:26Z",
+      "fact": [
+        "30 Oct, owner answered \"a\" to: turn the macOS crash dialogs off now and back on after the fix. The front ran `defaults write com.apple.CrashReporter DialogType none` (before: key not set). Crash reports still go to ~/Library/Logs/DiagnosticReports. When this item lands, turn the dialog back on: `defaults delete com.apple.CrashReporter DialogType` (restores the default)."
+      ]
+    },
+    {
+      "at": "2026-10-30T13:35:46Z",
+      "fact": [
+        "30 Oct, cause found and reproduced: the crash reports show a second thread \"Thread-1 (watch_stdin)\" blocked in sys.stdin.buffer.read. watch_stdin is in lib/relay_gate_remote.py:171 on the unlanded branch wt/gates-on-the-vps-hosts-transport-watch-b (VPS gates, changes 3-4), not on master; its tests ran under that branch's gates. A minimal script with a daemon thread in sys.stdin.buffer.read(4096) exits SIGABRT (134) on Python 3.14; with os.read(0, 4096) it exits 0. Fix: watch_stdin uses os.read(0, 4096), plus a test that runs the program with an open stdin pipe and a normal end and asserts exit 0. The fix goes into the VPS change before it lands; this item closes when that change lands with the test (then the crash dialog is turned back on)."
+      ]
+    }
+  ]
+}
