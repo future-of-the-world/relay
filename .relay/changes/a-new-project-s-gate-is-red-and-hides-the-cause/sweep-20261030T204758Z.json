@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0044,
+   "id": "ac3a4e552d3539410",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T19:27:29.461Z",
+   "stop": "2026-10-30T19:36:58.014Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "a-new-project-s-gate-is-red-and-hides-the-cause",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "a-new-project-s-gate-is-red-and-hides-the-cause"
+}

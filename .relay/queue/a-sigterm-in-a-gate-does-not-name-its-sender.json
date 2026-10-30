@@ -23,8 +23,8 @@
     "lib/relay_gate.py",
     "lib/relay_ci.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T20:48:14Z",
+  "taken_by": "wt/a-sigterm-in-a-gate-does-not-name-its-sender",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
