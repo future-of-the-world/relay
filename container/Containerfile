@@ -5,13 +5,15 @@
 #   podman run --rm -v /tmp/gate-src:/src:ro relay-clean-gate sh -c 'git clone -q /src /work/relay && cd /work/relay && bin/ci --quick'
 # The python tag must equal the python3 pin in deps.toml (bin/ci refuses another python3).
 FROM docker.io/library/python:3.14.6-slim
-# git, bash, curl, unzip: what the installers need; procps: ps, which a slim image lacks (deps.toml lists it)
-RUN apt-get update && apt-get install -y --no-install-recommends git bash curl ca-certificates unzip jq procps \
+# git, bash, curl, unzip: what the installers need; procps: ps, lsof: who holds a file; a slim image lacks both (deps.toml lists them)
+RUN apt-get update && apt-get install -y --no-install-recommends git bash curl ca-certificates unzip jq procps lsof \
     && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --shell /bin/bash dev
 USER dev
 ENV HOME=/home/dev PATH=/home/dev/.local/bin:/home/dev/.bun/bin:$PATH
 RUN git config --global user.name probe && git config --global user.email probe@example.invalid
+# tests run git with a HOME of their own (no ~/.gitconfig): the author has to come from the environment, as macOS guesses it from the user
+ENV GIT_AUTHOR_NAME=probe GIT_AUTHOR_EMAIL=probe@example.invalid GIT_COMMITTER_NAME=probe GIT_COMMITTER_EMAIL=probe@example.invalid
 # the rest of deps.toml (uv, ruff, mypy, pytest, bun, claude) is installed by relay's own installer
 COPY --chown=dev:dev install.sh deps.toml /opt/relay-install/
 RUN sh /opt/relay-install/install.sh; true

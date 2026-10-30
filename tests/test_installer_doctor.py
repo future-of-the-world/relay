@@ -26,7 +26,7 @@ ENV_KEYS = ("PATH", "HOME", "CLAUDE_CONFIG_DIR", "RELAY_HOME")
 # what every tool of deps.toml prints for --version when it is at the right version
 GOOD = {"python3": "Python 3.14.6", "git": "git version 2.44.0", "jq": "jq-1.7.1", "uv": "uv 0.8.24 (abc 2025-10-07)",
         "ruff": "ruff 0.13.3", "mypy": "mypy 1.18.2 (compiled: yes)", "pytest": "pytest 8.4.2", "claude": "2.1.0 (Claude Code)",
-        "bun": "1.2.0", "ps": "PID TTY", "coverage": "Coverage.py, version 7.17.0 with C extension"}
+        "bun": "1.2.0", "ps": "PID TTY", "lsof": "lsof version information", "coverage": "Coverage.py, version 7.17.0 with C extension"}
 
 
 class Fakes(unittest.TestCase):
@@ -75,6 +75,9 @@ class DepsFile(unittest.TestCase):
         # a slim Linux image has no ps; the gate's process scans need it, so deps.toml lists it with its apt package
         self.assertEqual(by["ps"]["apt"], "procps")
         self.assertTrue(by["ps"]["presence"])
+        # the slot reclaim asks lsof who holds the lock file; without it a waiting gate hangs, so the image must have it
+        self.assertEqual(by["lsof"]["apt"], "lsof")
+        self.assertTrue(by["lsof"]["presence"])
         for tool in ("ruff", "mypy", "pytest", "coverage"):   # a gate tool is pinned: an exact version, installed through uv
             self.assertTrue(by[tool]["exact"] and by[tool]["uv_tool"].endswith("==" + by[tool]["min"]), tool)
         self.assertEqual(len(by["uv"]["installer_sha256"]), 64)   # the pinned installer carries its checksum
@@ -376,7 +379,8 @@ class BrokenAndMissing(InstallScript):
         good, detail = got["git on PATH"]
         self.assertFalse(good)
         self.assertIn("not working", detail)
-        self.assertIn("xcode-select --install", detail)   # the route the installer takes on macOS
+        # the fix names the route of the machine the test runs on: macOS takes xcode-select, a Linux image apt-get (the Darwin lines below cover the installer's own route)
+        self.assertIn("xcode-select --install" if sys.platform == "darwin" else "apt-get install -y git", detail)
         self.machine("Darwin", "arm64")
         lines = self.dry()
         self.assertIn("install  git (found but not working (prints no version))", lines)

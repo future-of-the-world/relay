@@ -173,8 +173,14 @@ class SyncWaits(unittest.TestCase):
         open(projects, "w").write('[a]\nfile = "%s"\nload = ["quality-gate"]\nread = []\n' % target)
         env = {k: v for k, v in os.environ.items() if k != "RELAY_SKIP_PAID_DUE"}
         # an empty RELAY_HOME holds no green record, so every checked-path commit of this repository is due
-        env.update(RELAY_PROJECTS=projects, RELAY_HOME=os.path.join(t.name, "home"), CLAUDE_CONFIG_DIR=os.path.join(t.name, "claude"), RELAY_ROOT=ROOT)
-        done = subprocess.run(["python3", os.path.join(ROOT, "bin", "relay"), "sync", *args, "a"], env=env, capture_output=True, text=True)
+        # a fresh clone of a detached commit (the clean-image gate) has no branch and no origin/HEAD, so the default branch
+        # could not be told: sync runs from a copy of the repository that has a master at the same commit
+        root = os.path.join(t.name, "root")
+        head = subprocess.run(["git", "-C", ROOT, "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+        subprocess.run(["git", "clone", "-q", ROOT, root], capture_output=True, check=True)
+        subprocess.run(["git", "-C", root, "checkout", "-q", "-B", "master", head], capture_output=True, check=True)
+        env.update(RELAY_PROJECTS=projects, RELAY_HOME=os.path.join(t.name, "home"), CLAUDE_CONFIG_DIR=os.path.join(t.name, "claude"), RELAY_ROOT=root)
+        done = subprocess.run(["python3", os.path.join(root, "bin", "relay"), "sync", *args, "a"], env=env, capture_output=True, text=True)
         return done, os.path.exists(target)
 
     def test_sync_refuses_with_the_due_list_and_writes_nothing(self):

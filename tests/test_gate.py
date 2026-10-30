@@ -111,6 +111,8 @@ class Fixture(unittest.TestCase):
         procs = relay_procs.read_procs()
         candidates = {p.pid: p for p in procs if (numbers and p.pid == numbers[0]) or (len(numbers) > 1 and p.pgid == numbers[1])}
         names = relay_procs.open_names(list(candidates)) or {}
+        # Linux lsof names a file whose folder was removed "<path> (deleted)"; macOS gives the bare path
+        names = {pid: [re.sub(r" \(deleted\)$", "", name) for name in held] for pid, held in names.items()}
         mine = {pid: p for pid, p in candidates.items() if any(os.path.basename(name) == "relay-gate.lock" and (name == path or name.startswith(path)) for name in names.get(pid, []))}
         if numbers and numbers[0] in mine:
             relay_procs.send(numbers[0], False, signal.SIGTERM)

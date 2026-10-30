@@ -82,6 +82,7 @@ class SettingsTest(Base):
         with open(os.path.join(self.home, "gate-slots", "count"), "w") as handle:
             handle.write("2")
         self.write("count", "12")
+        self.write("per-gate", "4")      # the run reads the machine's own cpu count for the default share; 4 per gate is what the 12-cpu layout above assumes
         s = rt.settings(self.home, 2, 12)
         shared = [rt.take_base(self.home, s, rt.SHARED, 1)[0] for _ in range(4)]
         gate_a, _ = rt.take_base(self.home, s, rt.GATE, 4)
