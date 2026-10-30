@@ -432,7 +432,7 @@ class Reader(unittest.TestCase):
         # hour 10: build 10 and 20 min (median 15, total 30), unit costs 1 and 3 (median 2, total 4), one gate of 120 s = 2.0 min; hour 11 empty; hour 12: 30 min, $2
         lines = self.hourly()
         self.assertEqual(lines[1:], ["2026-10-29T10:", "  build: 2 agents, median 15.0 min, p90 20.0 min, total 30.0 min", "  cost per unit: median $2.00, total $4.00",
-                                     "  gate: 1 runs, total 2.0 min", "2026-10-29T11:", "  nothing recorded",
+                                     "  gate runs at landing: 1, total 2.0 min", "2026-10-29T11:", "  nothing recorded",
                                      "2026-10-29T12:", "  build: 1 agents, median 30.0 min, p90 30.0 min, total 30.0 min", "  cost per unit: median $2.00, total $2.00"])
 
     def test_until_cuts_the_window_off(self):

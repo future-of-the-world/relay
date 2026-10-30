@@ -363,15 +363,20 @@ def _bucket_labels(since: float, until: float, by: str) -> list[str]:
     if by == "week":
         t -= (datetime.fromtimestamp(t, timezone.utc).weekday()) * 86400
     out: list[str] = []
+    seen: set[str] = set()
     while t < until:
-        if label(t) not in out:
-            out.append(label(t))
+        name = label(t)
+        if name not in seen:
+            seen.add(name)
+            out.append(name)
         t += step
     return out
 
 
-def coverage_by_week(main: str, rev: str, label: Callable[[float], str] = _week) -> dict[str, list[float]]:
-    """{bucket: coverage percents} from the `ci: coverage N%` lines of the committed gate logs; a log is placed in the bucket (week by default) of the commit that added it."""
+def coverage_by_week(main: str, rev: str, label: Callable[[float], str] = _week,
+                     keep: Callable[[float], bool] = lambda stamp: True) -> dict[str, list[float]]:
+    """{bucket: coverage percents} from the `ci: coverage N%` lines of the committed gate logs; a log is placed in the bucket (week by default) of the commit that added it,
+    and only when `keep` accepts that commit's time."""
     rc, hits = relay_git.git(main, "grep", "-e", "^ci: coverage ", rev, "--", ".relay/checks")
     percent = {m.group(1): float(m.group(2)) for m in re.finditer(r"^[^:\n]*:(\S+\.gate\.log):ci: coverage ([\d.]+)%", hits, re.M)} if rc == 0 else {}
     if not percent:
@@ -387,7 +392,7 @@ def coverage_by_week(main: str, rev: str, label: Callable[[float], str] = _week)
     weeks: dict[str, list[float]] = {}
     for name, value in percent.items():
         name = name.rsplit("/", 1)[-1]
-        if name in when:
+        if name in when and keep(when[name]):
             weeks.setdefault(label(when[name]), []).append(value)
     return weeks
 
@@ -399,6 +404,8 @@ def summary(main: str, rev: str, since: Optional[str] = None, until: Optional[st
     low = parse_moment(since, now) if since else None
     high = parse_moment(until, now) if until else (now if since else float('inf'))     # no window at all keeps every record
     label = BUCKETS[by][0]
+    if low is not None and low >= high:
+        raise ValueError(f"--since {since} is not before --until {until or 'now'}: the window is empty")
 
     def inside(stamp: float) -> bool:
         return (low is None or stamp >= low) and stamp < high
@@ -422,13 +429,14 @@ def summary(main: str, rev: str, since: Optional[str] = None, until: Optional[st
     for rec in records:
         if rec.get("front") and inside(_epoch(rec["front"]["day"] + "T00:00:00Z")):
             front.setdefault(label(_epoch(rec["front"]["day"] + "T00:00:00Z")), []).append(rec["front"])
-    coverage = coverage_by_week(main, rev, label)
+    coverage = coverage_by_week(main, rev, label, inside)
     buckets = {w for w, _ in stage} | set(coverage) | set(front) | set(gates)
+    filled = buckets.copy()
     if low is not None:
         buckets |= set(_bucket_labels(low, high, by))
     for week in sorted(buckets):
         lines.append(week + ":")
-        if week not in {w for w, _ in stage} | set(coverage) | set(front) | set(gates):
+        if week not in filled:
             lines.append("  nothing recorded")
         for (w, name), mins in sorted(stage.items()):
             if w == week:
@@ -439,7 +447,7 @@ def summary(main: str, rev: str, since: Optional[str] = None, until: Optional[st
         if week_cost:
             lines.append(f"  cost per unit: median ${statistics.median(week_cost):.2f}, total ${sum(week_cost):.2f}")
         if week in gates:
-            lines.append(f"  gate: {len(gates[week])} runs, total {_fmt(sum(gates[week]))} min")
+            lines.append(f"  gate runs at landing: {len(gates[week])}, total {_fmt(sum(gates[week]))} min")
         if week in front:
             estimated = sum(1 for f in front[week] if f["basis"] == "estimate")
             lines.append(f"  front: ${sum(f['cost_usd'] for f in front[week]):.2f} over {len(front[week])} days ({estimated} estimated, the rest exact)")
