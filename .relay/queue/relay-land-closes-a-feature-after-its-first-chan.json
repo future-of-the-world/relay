@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 87,
+  "time": 30,
+  "found_at": "2026-10-30T08:48:48Z",
+  "found_in": "relay queue add",
+  "title": "relay land closes a feature after its first change",
+  "what": [
+    "A feature built in several changes stays open until its last change lands: the cycle unit or `relay land` says whether this landing finishes the item (for example `relay land --keep-open` or a unit field), and the default stays closing it as today."
+  ],
+  "why": [
+    "Found by the front 30 Oct: the VPS feature build-time-gates-on-the-vps-landing-gate-on-the is built in 4 changes (design rev 2, section 7); when change 2 landed, `relay land wt/build-time-gates-on-the-vps-landing-gate` printed 'closed build-time-gates-on-the-vps-landing-gate-on-the (feature, ip 90), landed on master at ea468ce7': lib/relay_land.py _close_features closes the feature item of any landed branch, so changes 3-5 lost their item and the front re-queued them by hand as a new item."
+  ],
+  "failing_case": [
+    "A feature item taken by branch B; land B as an intermediate change: the item is closed on master."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "an intermediate landing leaves the feature open and taken",
+    "the last landing closes it as today",
+    "a fix item is unaffected"
+  ],
+  "where": [
+    "lib/relay_land.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
