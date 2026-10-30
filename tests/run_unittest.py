@@ -53,10 +53,11 @@ def run_held(names: list) -> int:
 
 
 def own_pool_home(environ: dict) -> str:
-    """The RELAY_HOME whose test-token pool this run uses: the environment's own when a holder (a gate) passed its pool down,
-    else a new temporary folder (the caller removes it), so a run on a bare machine creates nothing under ~/.relay."""
+    """The RELAY_HOME whose test-token pool this run uses: the environment's own when a holder (a gate) passed its pool down
+    or the pool already exists (a relay machine: the run stays counted by it), else a new temporary folder (the caller removes it),
+    so a run on a bare machine creates nothing under ~/.relay."""
     home = relay_tokens.run_home(environ)
-    if relay_tokens.passed_down(environ, home):
+    if relay_tokens.passed_down(environ, home) or os.path.isdir(relay_tokens.pool_dir(home)):
         return home
     return os.path.realpath(tempfile.mkdtemp(prefix="relay-pool-"))
 

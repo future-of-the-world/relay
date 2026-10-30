@@ -302,6 +302,17 @@ class NestedTest(Base):
         self.assertEqual(rt.jobs_from({}), 4)
 
 
+class ProbeTest(unittest.TestCase):
+    """Run only through RunnerPoolTest: writes the temporary pool folders (relay-pool-*) that exist, while the runner runs this test,
+    in the folder named by RELAY_PROBE_TMP (the TMPDIR the runner was started with) to the file named by RELAY_PROBE_FILE."""
+    def test_probe(self):
+        target, where = os.environ.get("RELAY_PROBE_FILE"), os.environ.get("RELAY_PROBE_TMP")
+        if not target or not where:
+            self.skipTest("only run through RunnerPoolTest")
+        with open(target, "w") as handle:
+            handle.write("\n".join(sorted(n for n in os.listdir(where) if n.startswith("relay-pool-"))))
+
+
 class RunnerPoolTest(unittest.TestCase):
     """tests/run_unittest.py leaves nothing outside its temporary folder."""
     RUNNER = os.path.join(HERE, "run_unittest.py")
@@ -343,6 +354,48 @@ class RunnerPoolTest(unittest.TestCase):
             return {"RELAY_HOME": rh, rt.ENV_HOLD: rt.hold_value(1, rh)}
         outer, _ = self.run_runner(extra)
         self.assertEqual(os.listdir(rt.pool_dir(os.path.join(outer, "rh"))), [])
+
+    def probe_pool(self, make_pool: bool, hold: bool) -> tuple:
+        """Run ProbeTest through the runner with RELAY_HOME=rh; returns (temporary pool folders it made, rh's pool listing)."""
+        outer = tempfile.TemporaryDirectory()
+        self.addCleanup(outer.cleanup)
+        home, rh, tmp = (os.path.join(outer.name, n) for n in ("home", "rh", "tmp"))
+        for folder in (home, tmp, rt.pool_dir(rh) if make_pool else rh):
+            os.makedirs(folder)
+        probe = os.path.join(outer.name, "probe.txt")
+        env = {k: v for k, v in os.environ.items() if k not in ("RELAY_HOME", rt.ENV_HOLD)}
+        env.update({"HOME": home, "RELAY_HOME": rh, "TMPDIR": tmp, "RELAY_PROBE_FILE": probe, "RELAY_PROBE_TMP": tmp})
+        if hold:
+            env[rt.ENV_HOLD] = rt.hold_value(1, rh)
+        done = subprocess.run([sys.executable, self.RUNNER, "tests.test_relay_tokens.ProbeTest.test_probe"],
+                              cwd=os.path.dirname(HERE), env=env, capture_output=True, text=True, timeout=600)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        with open(probe) as handle:
+            made = [n for n in handle.read().split("\n") if n]
+        return made, sorted(os.listdir(rt.pool_dir(rh))) if os.path.isdir(rt.pool_dir(rh)) else []
+
+    def test_runner_keeps_the_gates_pool(self):
+        # F2: with a holder's pool passed down the runner makes no temporary pool while it runs (it would, if it always swapped one in).
+        made, _ = self.probe_pool(make_pool=True, hold=True)
+        self.assertEqual(made, [])
+
+    def test_existing_pool_is_used_without_a_holder(self):
+        # F1: rh/test-tokens exists, no holder: no temporary pool is made, and a SHARED token of rh's pool was taken (token files appear).
+        made, listing = self.probe_pool(make_pool=True, hold=False)
+        self.assertEqual(made, [])
+        self.assertTrue(any(name.startswith("token-") for name in listing), listing)
+
+    def test_no_pool_makes_a_temporary_one(self):
+        # Pass case: nothing exists at rh and no holder: exactly one temporary pool while running, none left in rh.
+        made, listing = self.probe_pool(make_pool=False, hold=False)
+        self.assertEqual(len(made), 1, made)
+        self.assertEqual(listing, [])
+
+    def test_own_pool_environ_existing_pool(self):
+        import run_unittest
+        with tempfile.TemporaryDirectory() as tmp:
+            os.makedirs(rt.pool_dir(tmp))
+            self.assertEqual(run_unittest.own_pool_home({"RELAY_HOME": tmp}), tmp)
 
     def test_own_pool_environ(self):
         import run_unittest
