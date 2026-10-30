@@ -99,6 +99,18 @@ class UnitsByBranch(unittest.TestCase):
         self.assertIsNone(relay_metrics.match_unit(agent("3", a[:40], start="2026-10-28T05:00:00Z"), items, notes))
         self.assertEqual(notes, [])
 
+    def test_take_conflict_unit_named_branch_plus_word_matches_its_item(self):
+        # live case: unit "<branch>-take" (no item on a take unit) must land in the item taken by wt/<branch>, inside its window
+        slug = "one-digest-per-wave-instead-of-status-messages"
+        branch = slug[:40].rstrip("-")
+        items = [{"slug": slug, "taken_at": "2026-10-28T00:00:00Z", "taken_by": "wt/" + branch}]
+        notes = []
+        for unit in (branch + "-take", "fix-" + branch + "-take"):
+            self.assertEqual(relay_metrics.match_unit(agent("1", unit, start="2026-10-28T05:00:00Z"), items, notes), slug)
+        self.assertIsNone(relay_metrics.match_unit(agent("2", branch + "-take", start="2026-10-27T05:00:00Z"), items, notes))  # before the window
+        self.assertIsNone(relay_metrics.match_unit(agent("3", branch + "-more-words", start="2026-10-28T05:00:00Z"), items, notes))
+        self.assertEqual(notes, [])
+
 
 class Guard(unittest.TestCase):
     def setUp(self):

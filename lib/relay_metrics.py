@@ -123,7 +123,10 @@ def match_unit(agent: dict[str, Any], items: list[dict[str, Any]], notes: list[s
     start = _epoch(agent["start"])
     hits = []
     for item in items:
-        if item.get("taken_by") != "wt/" + name or not item.get("taken_at"):
+        taken_by = str(item.get("taken_by") or "")
+        branch = taken_by[len("wt/"):] if taken_by.startswith("wt/") else None
+        # a take-conflict unit has no item: the front names it <branch>-<word> (e.g. "-take")
+        if not branch or not item.get("taken_at") or not (name == branch or re.fullmatch(re.escape(branch) + r"-[a-z]+", name)):
             continue
         end = item.get("closed_at") or item.get("dropped_at")
         if _epoch(item["taken_at"]) <= start <= (_epoch(end) if end else float("inf")):
