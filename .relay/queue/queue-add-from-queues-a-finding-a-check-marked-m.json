@@ -41,6 +41,12 @@
       "said": [
         "А как отчет review хранится, может проблема в том что он хранится не в структурированном виде ?"
       ]
+    },
+    {
+      "at": "2026-10-30T23:26:47Z",
+      "fact": [
+        "2026-10-31 front read: the review is structured JSON with a schema (findings: id, path, line, severity, summary, failing_case, pass_cases); check records are structured JSON committed under .relay/checks/ (432 .check.json). add_from (lib/relay_queue.py:1171) reads only the review finding via find_finding and never reads the branch's check records, so a MET verdict is not seen. Cause is the missing read, not the format."
+      ]
     }
   ]
 }
