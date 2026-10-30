@@ -50,6 +50,17 @@
         "a. Yes, land it.",
         "b. Run 10 more runs first (about $7, 20 min)."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T02:32:56Z",
+      "question": [
+        "Switch the reviewer (critic) from Opus to Fable? Bench on the off-by-one scenario: Fable found the bug in 5 of 5 runs, Opus in 2 of 7; review is $86.63 of $356.51 agent cost this week (24%), and Fable costs about twice Opus per token."
+      ],
+      "options": [
+        "a. Switch the critic to Fable after 10 runs on the cheap set confirm no other job gets worse (about $10).",
+        "b. Switch now.",
+        "c. Keep Opus."
+      ]
     }
   ]
 }
