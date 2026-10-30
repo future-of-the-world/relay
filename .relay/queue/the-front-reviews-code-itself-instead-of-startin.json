@@ -67,6 +67,13 @@
         "a. Switch the critic to Fable after 10 runs on the cheap set confirm no other job gets worse (about $10).",
         "b. Switch now.",
         "c. Keep Opus."
+      ],
+      "answered_at": "2026-10-30T02:38:01Z",
+      "answer": [
+        "- a. Перевести на Fable после 10 прогонов на общем наборе дешёвых сценариев, чтобы убедиться, что другие работы не стали хуже, примерно за $10 (рекомендую)."
+      ],
+      "reading": [
+        "Option a: bench the critic on Fable against Opus over the cheap scenario set (about 10 runs, about $10); adopt Fable for the critic if no other job gets worse."
       ]
     }
   ]
