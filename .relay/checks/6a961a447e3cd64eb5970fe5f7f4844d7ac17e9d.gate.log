@@ -1,0 +1,18 @@
+head 6a961a447e3cd64eb5970fe5f7f4844d7ac17e9d
+cmd bin/ci --quick
+wait 342.4
+ci: types and lint ok (1s)
+ci: lib copies identical ok (0s)
+ci: library tests FAILED (914s, log: .ci/steps/library-tests.log)
+    FAIL: test_has_start_scans_each_day_file_once_and_finds_either_day (test_hook_ledger.Ledger.test_has_start_scans_each_day_file_once_and_finds_either_day)
+        raise AssertionError(text) from error
+    AssertionError: 1 failed asserts:
+    ERROR: test_main_refuses_an_unknown_option_with_the_usage_line (test_metrics.Reader.test_main_refuses_an_unknown_option_with_the_usage_line)
+    FAILED (failures=1, errors=1)
+ci: coverage 89.6% of lib, bin, plugins (14226 of 15879 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (2s)
+ci: plugin validate ok (4s)
+ci: inert ok (67s)
+ci: RED
+exit 1
