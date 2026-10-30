@@ -175,7 +175,7 @@ class NoOldName(unittest.TestCase):
 
 class RenderedRules(Scratch):
     def test_global_target_carries_no_openspec_rule(self):
-        self.setenv("RELAY_PROJECTS", os.path.join(ROOT, "projects.toml"))
+        self.setenv("RELAY_PROJECTS", os.path.join(ROOT, "defaults", "projects.toml"))
         spec = self.rules.targets()["global"]
         text = self.rules.render_target("global", spec, self.rules.rules(), {})
         self.assertNotIn("rules/openspec.md", text)   # neither in full nor in the "read when they apply" list
@@ -196,7 +196,7 @@ class RenderedRules(Scratch):
         # Q1 of spec-writing-leaves-the-main-pipeline-sdd-become. Failing case: ~/.claude/CLAUDE.md told every project
         # "A behaviour change goes through an OpenSpec change before code". Pass: the global text and a project
         # without spec steps have no OpenSpec rule and no spec step; a project that turns them on gets them.
-        self.setenv("RELAY_PROJECTS", os.path.join(ROOT, "projects.toml"))
+        self.setenv("RELAY_PROJECTS", os.path.join(ROOT, "defaults", "projects.toml"))
         global_text = self.rules.render_target("global", self.rules.targets()["global"], self.rules.rules(), {})
         without = self.render(self.project("plain"))
         for text in (global_text, without):
