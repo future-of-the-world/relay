@@ -1,0 +1,21 @@
+head 9587142632f6b949ba6345578ba00706c0242d38
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (1s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (353s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_gate_stopped_at_its_limit_during_the_tests_leaves_this_gates_step_log (test_gate.Inert.test_a_gate_stopped_at_its_limit_during_the_tests_leaves_this_gates_step_log)
+    AssertionError: 'OLD-GATE-OUTPUT' unexpectedly found in 'OLD-GATE-OUTPUT\n'
+    FAIL: test_a_test_listing_the_queue_turns_the_gate_red (test_gate.Inert.test_a_test_listing_the_queue_turns_the_gate_red)
+        self.assertIn("ci: library tests FAILED", self.gate_log())
+        raise AssertionError("git %s: %s" % (" ".join(args), done.stderr))
+    AssertionError: git rev-parse HEAD~1: fatal: ambiguous argument 'HEAD~1': unknown revision or path not in the working tree.
+    FAIL: test_a_test_reading_the_handover_from_git_head_turns_the_gate_red (test_gate.Inert.test_a_test_reading_the_handover_from_git_head_turns_the_gate_red)
+        self.assertIn("ci: library tests FAILED", self.gate_log())
+ci: coverage 89.1% of lib, bin, plugins (16059 of 18024 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ran on a copy without queue, handover and check records; covers every commit with the same code
+ci: RED
+exit 1

@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0039,
+   "id": "a1a50fb193700a8ba",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T21:44:29.766Z",
+   "stop": "2026-10-30T21:52:12.189Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "the-relay-wrapper-looks-up-extraknownmarketplace",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-relay-wrapper-looks-up-extraknownmarketplace"
+}

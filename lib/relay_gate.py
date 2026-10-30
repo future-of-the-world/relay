@@ -72,7 +72,10 @@ def quick_binding(worktree):
 
 def refuse_bad_settings(worktree: str) -> None:
     """A branch whose .claude/kit.toml holds a mistake does not pass: the typo would land. The refusal names each line."""
-    message = relay_gate_settings.refusal(worktree)
+    try:
+        message = relay_gate_settings.refusal(worktree)
+    except RuntimeError as exc:
+        raise GateRefused(str(exc))
     if message:
         raise GateRefused(message)
 

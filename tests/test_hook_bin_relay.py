@@ -97,5 +97,58 @@ class BinRelayHook(SoftCases):
         self.assertTrue(os.path.exists(index + ".lock"))
 
 
+class WrapperLookup(SoftCases):
+    """The plugin's bin/relay wrapper finds the repository through the amidman marketplace entry."""
+
+    WRAPPER = os.path.join(ROOT, "plugins", "front", "bin", "relay")
+
+    def setUp(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.tmp = os.path.realpath(tmp.name)
+        self.home = os.path.join(self.tmp, "home")
+        os.makedirs(os.path.join(self.home, ".claude"))
+
+    def repo(self, name: str) -> str:
+        path = os.path.join(self.tmp, name)
+        os.makedirs(os.path.join(path, "bin"))
+        exe = os.path.join(path, "bin", "relay")
+        with open(exe, "w") as handle:
+            handle.write(f"#!/bin/sh\necho ran {name}\n")
+        os.chmod(exe, 0o755)
+        return path
+
+    def settings(self, path: str) -> None:
+        # the key setup writes: the marketplace's own name, so a rename that misses the wrapper turns these tests red
+        with open(os.path.join(ROOT, ".claude-plugin", "marketplace.json")) as handle:
+            name = json.load(handle)["name"]
+        data = {"extraKnownMarketplaces": {name: {"source": {"source": "directory", "path": path}}}}
+        with open(os.path.join(self.home, ".claude", "settings.json"), "w") as handle:
+            json.dump(data, handle)
+
+    def run_wrapper(self, **extra: str) -> subprocess.CompletedProcess:
+        env = {"PATH": os.environ["PATH"], "HOME": self.home, **extra}
+        return subprocess.run(["bash", self.WRAPPER], env=env, capture_output=True, text=True)
+
+    def test_settings_marketplace_path(self) -> None:
+        # failing case: relay lives elsewhere, only the amidman entry points at it, no ~/relay
+        self.settings(self.repo("opt"))
+        self.assertEqual(self.run_wrapper().stdout, "ran opt\n")
+
+    def test_relay_root_wins(self) -> None:
+        self.settings(self.repo("opt"))
+        other = self.repo("other")
+        self.assertEqual(self.run_wrapper(RELAY_ROOT=other).stdout, "ran other\n")
+
+    def test_falls_back_to_home_relay(self) -> None:
+        # no settings file: ~/relay is used
+        os.makedirs(os.path.join(self.home, "relay", "bin"))
+        exe = os.path.join(self.home, "relay", "bin", "relay")
+        with open(exe, "w") as handle:
+            handle.write("#!/bin/sh\necho ran home\n")
+        os.chmod(exe, 0o755)
+        self.assertEqual(self.run_wrapper().stdout, "ran home\n")
+
+
 if __name__ == "__main__":
     unittest.main()

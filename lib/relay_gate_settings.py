@@ -5,14 +5,14 @@ from typing import Optional
 
 import relay_git
 import relay_kit
+from relay_gate_kit import settings_problems
 
 
 def refusal(worktree: str) -> Optional[str]:
     """The refusal naming each mistake in the branch's .claude/kit.toml (an unknown key, a wrong type, a value outside the allowed ones), None when it holds none."""
-    problems = relay_kit.load(worktree).problems
-    if not problems:
+    lines = settings_problems(worktree, relay_kit)  # the branch's own lib/relay_kit.py; RuntimeError when it cannot be run
+    if not lines:
         return None
-    lines = [p.line() for p in problems]
     if any("is an old name" in line for line in lines) and kit_unchanged_from_default(worktree):
         # the branch did not write the old name, it inherited it: the step is to take the default branch, not `relay setup`
         lines = [line.replace("`relay setup` renames it", "this branch did not write it: take the default branch") for line in lines]
