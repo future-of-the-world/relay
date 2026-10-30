@@ -35,6 +35,16 @@
       "said": [
         "Почему мы вообще кладем plan в md в docs, для чего используется docs ? почему бы просто не добавлять содержимое markdown в json задачи ? Или не хранить план в .relay/queue РЯДОМ с задачей в формате <slug>.plan.md"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T05:33:28Z",
+      "question": [
+        "Are a change's working reports kept in the repository after it lands, or only its plan (design) and design review?"
+      ],
+      "options": [
+        "a. plans and their reviews only, next to the queue item (recommended: no code reads change reports after landing; check records already hold 546 of 569 review findings)",
+        "b. also briefs, build and fix reports (about +0.4 MiB a week, about 60 agent minutes more to build; a guess)"
+      ]
     }
   ]
 }
