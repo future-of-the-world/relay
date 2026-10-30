@@ -691,22 +691,31 @@ def copy_template(name, dest, mode_exec=False, replacements=None):
     return True
 
 
+AGENTS_FILES = ("AGENTS.md", ".claude/AGENTS.md")
+
+
 def agents_import(root: str) -> str:
-    """The first lines of a new CLAUDE.md: it imports the project's AGENTS.md, which Claude Code stops loading by itself once CLAUDE.md exists."""
-    return "@AGENTS.md\n\n" if os.path.isfile(os.path.join(root, "AGENTS.md")) else ""
+    """The first lines of a new CLAUDE.md: it imports the project's AGENTS.md files, which Claude Code stops loading by itself once CLAUDE.md exists."""
+    lines = [f"@{name}\n" for name in AGENTS_FILES if os.path.isfile(os.path.join(root, name))]
+    return "".join(lines) + "\n" if lines else ""
 
 
 def agents_md_loaded(root: str) -> bool:
-    """True when the project has no AGENTS.md, or CLAUDE.md imports it, or the claude-md-and-agents-md setting is on in a project settings file."""
-    if not os.path.isfile(os.path.join(root, "AGENTS.md")):
-        return True
-    try:
-        text = open(os.path.join(root, "CLAUDE.md"), encoding="utf-8").read()
-    except FileNotFoundError:
-        text = ""
-    if any(line.strip() == "@AGENTS.md" for line in text.splitlines()):
-        return True
-    return any(read_json(os.path.join(root, ".claude", f)).get("claude-md-and-agents-md") for f in ("settings.json", "settings.local.json"))
+    """True when every AGENTS.md the project has (root, .claude/) is imported by an @-token in CLAUDE.md, .claude/CLAUDE.md or CLAUDE.local.md.
+    The claude-md-and-agents-md option lives in Claude Code's plugin config, not in project settings, so it is not read here."""
+    text = ""
+    for name in ("CLAUDE.md", ".claude/CLAUDE.md", "CLAUDE.local.md"):
+        try:
+            text += open(os.path.join(root, name), encoding="utf-8").read() + "\n"
+        except FileNotFoundError:
+            pass
+    for name in AGENTS_FILES:
+        if os.path.isfile(os.path.join(root, name)):
+            # an import is @path anywhere in the text; the path may start with ./ (or ../ for the root file from .claude/)
+            pattern = r"(^|\s)@(\./|\.\./)?AGENTS\.md\b" if name == "AGENTS.md" else r"(^|\s)@(\./)?\.claude/AGENTS\.md\b"
+            if not re.search(pattern, text, re.M):
+                return False
+    return True
 
 
 def strip_stored_spec_rules(name):
@@ -1309,7 +1318,7 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
             path = os.path.join(root, cfg.get("gate", {}).get(s, f"bin/{s}"))
             ok(f"gate.{s} exists and is executable", os.path.isfile(path) and os.access(path, os.X_OK), path)
         ok("AGENTS.md is loaded (imported by CLAUDE.md)", agents_md_loaded(root),
-           "the project has AGENTS.md but CLAUDE.md does not import it, so Claude Code skips it: add a line `@AGENTS.md` at the top of CLAUDE.md")
+           "the project has an AGENTS.md (root or .claude/) that CLAUDE.md does not import, so Claude Code skips it: add a line `@AGENTS.md` (or `@.claude/AGENTS.md`) at the top of CLAUDE.md")
         ok("docs/handover.md exists", d["handover"], "the front desk keeps state there")
         old_agents = [a for a in d["agents"] if a.startswith(d["name"] + "-")]
         ok("no old prefixed agents left", not old_agents, ", ".join(old_agents) + " -> relay migrate --apply" if old_agents else "")

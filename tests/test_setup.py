@@ -77,6 +77,40 @@ class Setup(Base):
         names = {n: ok for n, ok, _ in relay_setup.doctor(proj, profile={})}
         self.assertTrue(names["AGENTS.md is loaded (imported by CLAUDE.md)"])
 
+    def _loaded(self, claude, agents_in=("AGENTS.md",), extra=None):
+        import relay_setup
+        proj = os.path.join(self.tmp, "loaded%d" % len(os.listdir(self.tmp)))
+        os.makedirs(os.path.join(proj, ".claude"))
+        for name in agents_in:
+            open(os.path.join(proj, name), "w").write("rules\n")
+        for name, text in dict(extra or {}, **({"CLAUDE.md": claude} if claude is not None else {})).items():
+            open(os.path.join(proj, name), "w").write(text)
+        return relay_setup.agents_md_loaded(proj)
+
+    def test_agents_md_loaded_ignores_fake_settings_key(self):
+        # F1: claude-md-and-agents-md is a value of a plugin option, not a project settings key: it must not count.
+        self.assertFalse(self._loaded("# x\n", extra={".claude/settings.json": '{"claude-md-and-agents-md": true}'}))
+
+    def test_agents_md_loaded_import_forms(self):
+        # F2: Claude Code imports @path anywhere in the text, with ./, and from .claude/CLAUDE.md
+        self.assertTrue(self._loaded("@./AGENTS.md\n# x\n"))
+        self.assertTrue(self._loaded("Team rules: @AGENTS.md\n"))
+        self.assertTrue(self._loaded("# x\n", extra={".claude/CLAUDE.md": "@../AGENTS.md\n"}))
+        self.assertTrue(self._loaded("@AGENTS.md\n# x\n"))
+        self.assertFalse(self._loaded("# x\nsee AGENTS.md\n"))
+        self.assertTrue(self._loaded("# x\n", agents_in=()))
+
+    def test_dot_claude_agents_md_is_imported_and_checked(self):
+        # F3: .claude/AGENTS.md is also lost once CLAUDE.md exists
+        import relay_setup
+        proj = os.path.join(self.tmp, "dotclaude")
+        os.makedirs(os.path.join(proj, ".claude"))
+        open(os.path.join(proj, ".claude", "AGENTS.md"), "w").write("rules\n")
+        self.assertEqual(relay_setup.agents_import(proj), "@.claude/AGENTS.md\n\n")
+        self.assertFalse(self._loaded("# x\n", agents_in=(".claude/AGENTS.md",)))
+        self.assertTrue(self._loaded("@.claude/AGENTS.md\n", agents_in=(".claude/AGENTS.md",)))
+        self.assertFalse(self._loaded("@AGENTS.md\n", agents_in=("AGENTS.md", ".claude/AGENTS.md")))
+
     def test_setup_then_doctor(self):
         import relay_setup
         proj = os.path.join(self.tmp, "proj")
