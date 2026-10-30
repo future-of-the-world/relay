@@ -201,5 +201,30 @@ class KitSchema(unittest.TestCase):
             self.assertIn("env RELAY_CTX_STEP", red)
 
 
+class GateUsesBranchSchema(unittest.TestCase):
+    def _worktree(self, tmp: str, with_kit: bool) -> str:
+        os.makedirs(os.path.join(tmp, ".claude"))
+        with open(os.path.join(tmp, ".claude", "kit.toml"), "w") as handle:
+            handle.write("[delegate]\nrenamed_key = 1\n")
+        if with_kit:
+            os.makedirs(os.path.join(tmp, "lib"))
+            with open(os.path.join(tmp, "lib", "relay_kit.py"), "w") as handle:
+                # a branch schema that accepts renamed_key (the installed one does not know it)
+                handle.write("class _K:\n    problems = []\ndef load(root):\n    return _K()\n")
+        return tmp
+
+    def test_branch_schema_decides(self) -> None:
+        import relay_gate
+        with tempfile.TemporaryDirectory() as tmp:
+            relay_gate.refuse_bad_settings(self._worktree(tmp, True))   # no refusal: the branch's schema accepts the key
+
+    def test_installed_schema_when_branch_has_none(self) -> None:
+        import relay_gate
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(relay_gate.GateRefused) as ctx:
+                relay_gate.refuse_bad_settings(self._worktree(tmp, False))
+            self.assertIn("renamed_key", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

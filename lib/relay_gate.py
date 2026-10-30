@@ -19,6 +19,7 @@ takes its slot only and gets no variable: what its bin/ci checks and how paralle
 from __future__ import annotations
 
 import fcntl
+import importlib.util
 import os
 import shlex
 import signal
@@ -70,10 +71,27 @@ def quick_binding(worktree):
     return value
 
 
+def _branch_kit(worktree: str) -> Any:
+    """The settings schema to check the branch with: the branch's own lib/relay_kit.py (the code under test, so a branch that
+    renames or adds a key passes), the installed relay_kit only when the branch has none."""
+    path = os.path.join(worktree, "lib", "relay_kit.py")
+    if not os.path.isfile(path):
+        return relay_kit
+    spec = importlib.util.spec_from_file_location("relay_kit_of_branch", path)
+    if spec is None or spec.loader is None:
+        raise GateRefused("cannot load %s" % path)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:  # the branch's code is under test: a module that does not even load is a refusal, not a crash
+        raise GateRefused("the branch's lib/relay_kit.py cannot be loaded: %s" % exc)
+    return module
+
+
 def refuse_bad_settings(worktree: str) -> None:
     """A branch whose .claude/kit.toml holds a mistake (an unknown key, a wrong type, a value outside the allowed ones) does not pass:
     the typo would land. The refusal names each line."""
-    problems = relay_kit.load(worktree).problems
+    problems = _branch_kit(worktree).load(worktree).problems
     if problems:
         raise GateRefused("settings problem in the branch's .claude/kit.toml: " + "; ".join(p.line() for p in problems))
 
