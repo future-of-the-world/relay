@@ -1,0 +1,340 @@
+{
+  "branch": "wt/a-sigterm-in-a-gate-does-not-name-its-sender",
+  "findings": [
+    {
+      "details": [
+        "Owner, 30 Oct, answered \"a\" to: land the gate-lock fix and record the sender next time. The 29 Oct SIGTERM (exit 143) of tests/test_gate.py::test_f11_a_project_that_does_not_ignore_ci_can_run_the_gate_twice and tests/test_land.py::test_land_inert_take_reuses_gate in a quick gate was never traced; the gate log now records the signal but says \"sender unknown\" (lib/relay_gate.py:428, review F2 of a-gate-test-is-stopped-by-an-unknown-sigterm).",
+        "Also: lib/relay_ci.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Quick gate on 29 Oct: two tests red with 143 != 0 while each passes alone; the log does not say who sent the SIGTERM."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "A test that stops a gate through each of relay's own senders finds that sender named in the log",
+        "A SIGTERM sent from outside relay is logged as not sent by relay"
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_stops.py:77 RunnerStopped::test_a_stop_relay_sends_to_the_command_is_named_in_the_gate_log; without the fix (8669dee6) it does not finish (hung, killed)."
+      ],
+      "severity": "HIGH",
+      "since": "8669dee63ce126c03810c7f27700014918734b92",
+      "source": "queue",
+      "summary": "A SIGTERM in a gate does not name its sender",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a repro: recording with RELAY_HOME=testA and reading with RELAY_HOME=testB gives \"not sent by relay\".",
+        "The per-test switch is documented in tests/conftest.py:1 and done in tests/tmp_default.py temporary_environment",
+        "(RELAY_HOME per test), which does not list RELAY_SIGNAL_LOG. Inside a gate the inherited RELAY_SIGNAL_LOG hides it,",
+        "but the worker's own loop (bin/check, plain pytest) is where flaky SIGTERMs are first met, and the line there states a",
+        "false fact. The cleanest fix is one log per test run, fixed before the per-test switch; where it lives is Q in F2.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "$ python3 -I scratchpad/sig/split.py <worktree> <scratch>",
+        "gate command ended by SIGTERM, not sent by relay (no record of it in .../sig/testB/.relay/signals.log)",
+        "tests/tmp_default.py:43: \"RELAY_HOME\": os.path.join(base, \".relay\"),   (per test; RELAY_SIGNAL_LOG not handled)",
+        "lib/relay_procs.py:138: return os.environ.get(SIGNAL_LOG_ENV) or os.path.join(...RELAY_HOME..., \"signals.log\")"
+      ],
+      "failing_case": [
+        "A worker loops on bin/check --tests tests/test_gate.py (no outer gate, so RELAY_SIGNAL_LOG is unset). tests/tmp_default.py",
+        "gives every test its own RELAY_HOME, so signal_log() is <test-temp>/.relay/signals.log, different per test. Test A's",
+        "gate sweeps a leftover and SIGTERMs pid 4242, recording it in A's log; test B's gate, whose command is 4242, reads B's",
+        "log. Now: \"gate command ended by SIGTERM, not sent by relay (no record of it in .../testB/.relay/signals.log)\".",
+        "Should: name relay's sweep as the sender (or at least not claim it was not relay)."
+      ],
+      "fix_hint": [
+        "Pin RELAY_SIGNAL_LOG once per run before the per-test switch (tests/conftest.py pytest_sessionstart and",
+        "tests/run_unittest.py / parallel_unittest.py: if unset, set it to the run's log), so every test of a run and its",
+        "workers share one file. Where that file is: see F2."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 136,
+      "pass_cases": [
+        "1. Two processes with different RELAY_HOME and no RELAY_SIGNAL_LOG inside one test run: one records a SIGTERM to pid N, the other's signal_line(15, N, t0) says \"sent by relay: ... leftover sweep\" (both resolve the same log for the run).",
+        "2. Under a gate (RELAY_SIGNAL_LOG set by relay_gate.run): unchanged, tests and the gate share that log.",
+        "3. A SIGTERM with no record anywhere: still \"not sent by relay\" (test_a_gate_command_ended_by_a_signal_leaves_a_line_in_the_gate_log).",
+        "4. test_a_stop_relay_sends_to_the_command_is_named_in_the_gate_log keeps passing."
+      ],
+      "path": "lib/relay_procs.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_signal_log_run.py:40 (fails on base: reader returns None); one run-wide log via tmp_default.pin_signal_log."
+      ],
+      "severity": "MEDIUM",
+      "since": "5a1919d095ff04f71252355096524feabac96280",
+      "source": "review-a-sigterm-in-a-gate-does-not-name-its-sender.json",
+      "source_id": "F1",
+      "summary": "outside a gate each test has its own RELAY_HOME, so the signal log is split per test and a stop relay sent from another test is reported as 'not sent by relay'",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (measured 48 lines for one test file of 37 tests). Why this is a question: the 29 Oct SIGTERM hit a nested gate",
+        "inside a test, and the sender may have been another lane's gate (its sweep). Only a machine-wide log (the live",
+        "~/.relay one) lets a test's nested gate see a stop another lane sent; a run-wide temporary log keeps tests out of",
+        "~/.relay but cannot attribute a cross-lane stop, and its records vanish with the run. The change took the first",
+        "without saying so and without a bound on the file.",
+        "Intro for the owner: relay now keeps one shared file of every stop signal it sends, and a gate log line says",
+        "\"sent by relay: <that line>\" or \"not sent by relay\". Tests run gates inside gates; for the record to reach the nested",
+        "gate, tests must write the same file. Live example: one test file wrote 48 lines.",
+        "Options: (a) tests write the machine-wide file (cross-lane stops are named; the file needs a size bound; the test",
+        "harness rule gets one named exception); (b) each test run has its own temporary file (tests never touch ~/.relay;",
+        "a stop from another lane's gate is still reported as \"not sent by relay\").",
+        "Size: 15 minutes either way."
+      ],
+      "evidence": [
+        "$ RELAY_SIGNAL_LOG=scratch/sig/signals.log pytest -q -x tests/test_gate.py   -> 37 passed in 132.07s",
+        "$ wc -l signals.log -> 48;  uniq -c: 37 \"sent SIGKILL to group N: gate: its command ended, ...\", 6 \"sent SIGTERM to pid N: no reason given\", 5 \"bin/ci: the time limit of the gate ran out\"",
+        "tests/conftest.py:1-2: \"so a test that forgets to set them cannot read or write the owner's ~/.claude, ~/.relay\""
+      ],
+      "failing_case": [
+        "relay gate runs bin/ci with RELAY_SIGNAL_LOG=~/.relay/signals.log (relay_gate.py:476); pytest inherits it and the",
+        "per-test switch does not touch it. Running tests/test_gate.py alone wrote 48 lines (37 \"gate: its command ended\" SIGKILL",
+        "cleanups, 6 leftover stops, 5 bin/ci time-limit stops) into the log the environment named. Under a real gate these go",
+        "to the owner's live ~/.relay/signals.log, which tests/conftest.py:1-2 says a test cannot write. Nothing ever trims it."
+      ],
+      "fix_hint": [
+        "(a) keep the inheritance, add a cap in record_sent (trim to the last N lines when the file passes a size) and name the",
+        "exception in tests/conftest.py; or (b) temporary_environment sets RELAY_SIGNAL_LOG to a run-wide file in RUN_TEMP."
+      ],
+      "id": "F2",
+      "kind": "question",
+      "line": 43,
+      "pass_cases": [
+        "1. The owner's choice is written down in tests/conftest.py's docstring (the exception, or none).",
+        "2. If the run-wide temp log is chosen: a gate's tests write no line to $RELAY_HOME/signals.log of the outer gate; a nested gate in a test still finds a stop another test of the same run sent.",
+        "3. If the live log is kept: the log has a bound (for example kept to the last N lines or N days) and a test shows an old line is dropped."
+      ],
+      "path": "tests/tmp_default.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_signal_log_run.py:21, :30, :36 (fail on base); a gate-passed owner log is replaced by a temp-folder log, a run log already passed down is kept."
+      ],
+      "severity": "MEDIUM",
+      "since": "5a1919d095ff04f71252355096524feabac96280",
+      "source": "review-a-sigterm-in-a-gate-does-not-name-its-sender.json",
+      "source_id": "F2",
+      "summary": "under a gate every test now appends to the owner's ~/.relay/signals.log, against the test harness's promise that no test writes the owner's ~/.relay; the file is never pruned",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: 6 \"no reason given\" lines in one run of tests/test_gate.py. The queue item promises one line naming the",
+        "sender, the target and the reason; this sender is exactly the class suspected for the 29 Oct stop (leftovers stopped in",
+        "a test run). Size: 5 minutes."
+      ],
+      "evidence": [
+        "tests/leaked_gates.py:47:    relay_procs.stop([(pid, False) for pid, _ in found])",
+        "signals.log: 6 x \"relay pid <n> sent SIGTERM to pid <n>: no reason given\""
+      ],
+      "failing_case": [
+        "run_unittest / parallel_unittest end a run with leaked_gates.stop(run_dir), which calls relay_procs.stop(targets)",
+        "with no reason. The test_gate.py run wrote 6 lines \"relay pid <worker> sent SIGTERM to pid N: no reason given\".",
+        "A reader tracing a 143 sees a pid of a worker that is long gone and no sender. Should: \"test run leak scan: still",
+        "running under the run's temporary folder <dir>\" (or similar naming the sender)."
+      ],
+      "fix_hint": [
+        "Pass a reason in tests/leaked_gates.py:47 naming the leak scan and the folder; consider making `reason` required in",
+        "relay_procs.stop/send so a new caller cannot leave it out."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 47,
+      "pass_cases": [
+        "1. leaked_gates.stop(folder) on a sleeping process under folder writes one line naming the leak scan and the folder.",
+        "2. relay_procs.stop(targets) called with no reason by any caller in lib/ or tests/ no longer exists (git grep shows every call passes a reason), or the default names the caller.",
+        "3. test_procs.py Stop tests keep passing."
+      ],
+      "path": "tests/leaked_gates.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_stops.py:239 (fails on base)."
+      ],
+      "severity": "MEDIUM",
+      "since": "5a1919d095ff04f71252355096524feabac96280",
+      "source": "review-a-sigterm-in-a-gate-does-not-name-its-sender.json",
+      "source_id": "F3",
+      "summary": "the test runners' leftover stop calls relay_procs.stop with no reason, so its lines read 'relay pid N ... no reason given' and do not name the sender",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by git grep (list above). In the gate path the change covered (relay_procs.stop, relay_ci.stop_tree, the",
+        "gate's group cleanup) a stop of a gate's command is now found. The other senders do not reach a relay_gate.run command",
+        "directly today (it runs in its own session), so the practical risk of a false \"not sent by relay\" in a gate log is low,",
+        "but the item's promise is every sender, and the shared log is the only place a later trace can look. bin/check is a",
+        "hang bound by name. Size: 30 minutes. relay_gate_ssh.py is being changed by the fresh-container lane: expect a merge."
+      ],
+      "evidence": [
+        "git grep -nE 'os\\.kill\\(|killpg\\(|\\.terminate\\(\\)|\\.kill\\(\\)' -- lib bin templates tests/parallel_unittest.py",
+        "bin/check:50 os.killpg(proc.pid, signal.SIGTERM); bin/check:57 SIGKILL",
+        "lib/relay_precheck.py:139 os.killpg(proc.pid, signal.SIGKILL)",
+        "lib/relay_gate_ssh.py:216 proc.terminate(); :232 proc.kill()",
+        "lib/relay_gate_remote.py:75, :176 os.killpg(..., signal.SIGKILL)",
+        "tests/parallel_unittest.py:270 proc.kill()"
+      ],
+      "failing_case": [
+        "The queue item: \"Every place relay itself sends SIGTERM or SIGKILL (hang bounds, the leftover sweep, test-token waits,",
+        "gate stops) writes one line\". Not recorded today: bin/check stop_group (SIGTERM then SIGKILL, the worker's hang bound,",
+        "bin/check:50,57); lib/relay_precheck.py:139 (SIGKILL, the types-lint time limit); lib/relay_gate_ssh.py:216,232",
+        "(terminate/kill, the remote gate's backstop); lib/relay_gate_remote.py:75,176 (SIGKILL of the build and the command);",
+        "tests/parallel_unittest.py:270 (kill of a worker after 600 s); templates/bin-check:44,51 (the projects' bin/check).",
+        "A process ended by any of them is reported as \"not sent by relay\"."
+      ],
+      "fix_hint": [
+        "Route each through relay_procs.send(pid, group, sig, reason) or call relay_procs.record_sent before the signal. bin/check",
+        "and templates/bin-check are standalone scripts: they can append the same line format themselves (a 5-line helper) when",
+        "RELAY_SIGNAL_LOG or RELAY_HOME is set."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 50,
+      "pass_cases": [
+        "1. bin/check with CHECK_TIMEOUT=1 on a step that sleeps: the signal log gains \"sent SIGTERM to group <step pid>: bin/check: the step passed its time bound\".",
+        "2. relay_precheck's types-lint time limit: a SIGKILL line naming the precheck step.",
+        "3. git grep for os.kill( / os.killpg( / .terminate() / .kill() with a real signal in lib/, bin/, templates/, tests/*.py helpers shows each one next to a record_sent (or through relay_procs.send); os.kill(pid, 0) probes and the gate's re-raise to itself excepted.",
+        "4. The new test_gate_stops tests keep passing."
+      ],
+      "path": "bin/check",
+      "rank": "medium",
+      "reason": [
+        "several-of-relay-s-own-senders-still-signal-with"
+      ],
+      "severity": "MEDIUM",
+      "since": "5a1919d095ff04f71252355096524feabac96280",
+      "source": "review-a-sigterm-in-a-gate-does-not-name-its-sender.json",
+      "source_id": "F4",
+      "summary": "several of relay's own senders still signal without a line in the signal log, so 'not sent by relay' is not a proof",
+      "verdict": "QUEUED"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the mocks in tests/test_gate_sweep.py and tests/test_procs.py discard the new argument.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "tests/test_gate_sweep.py:37: mock.patch.object(relay_procs, \"stop\", lambda targets, reason=\"\": (self.targets.extend(targets), self.killed)[1])"
+      ],
+      "failing_case": [
+        "Change relay_gate.py:311 to relay_procs.stop(targets) (no reason) or :219 likewise: tests/test_gate_sweep.py FakeSweep",
+        "mocks stop with `lambda targets, reason=\"\"` and ignores it, so the suite stays green. The item's pass case asks for",
+        "\"a test that stops a gate through each of relay's own senders finds that sender named in the log\"; the tests cover",
+        "relay_procs.stop with a test reason and relay_ci.stop_tree into the signal log only."
+      ],
+      "fix_hint": [
+        "Have FakeSweep keep (targets, reason) and assert the reason in one sweep test and one reclaim test."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 79,
+      "pass_cases": [
+        "1. FakeSweep records the reason: a sweep of a leftover in a deleted folder is stopped with a reason starting \"leftover sweep: \" and holding the leftover's why.",
+        "2. reclaim of a held lock stops the group with reason \"reclaim: the gate that held the worktree lock ended\".",
+        "3. A gate run writes \"sent SIGKILL to group <command pid>: gate: ...\" for its cleanup."
+      ],
+      "path": "tests/test_gate_stops.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_stops.py:251, :266, :286 pass; they pin existing reasons (pass on base by design)."
+      ],
+      "severity": "LOW",
+      "since": "5a1919d095ff04f71252355096524feabac96280",
+      "source": "review-a-sigterm-in-a-gate-does-not-name-its-sender.json",
+      "source_id": "F5",
+      "summary": "no test pins the reasons the sweep, the reclaim and the gate's cleanup write; dropping any of them passes every test",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading run(): returncode is unknown on the exception path but the same reason is written. A reader",
+        "tracing a SIGKILL of a command would be told the wrong cause. Size: 10 minutes."
+      ],
+      "evidence": [
+        "lib/relay_gate.py:565-568 finally: record_sent(proc.pid, True, SIGKILL, \"gate: its command ended, ...\") on every exit path"
+      ],
+      "failing_case": [
+        "relay gate gets SIGTERM while bin/ci runs: the handler raises, the finally SIGKILLs the command's group and writes",
+        "\"gate: its command ended, the command's group is cleaned up\". The command had not ended; the gate was stopped.",
+        "Should read e.g. \"gate: the gate was stopped (SIGTERM), its command's group is ended\"."
+      ],
+      "fix_hint": [
+        "Choose the reason from whether proc.returncode is set (proc.poll() is not None) before the record."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 567,
+      "pass_cases": [
+        "1. A gate stopped by SIGTERM while its command sleeps: the signal log line for the command's group names the gate's stop.",
+        "2. A gate whose command ended by itself: the line keeps \"its command ended\"."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_stops.py:298 (fails on base); relay_gate.py:568 names the stop when the command still ran."
+      ],
+      "severity": "LOW",
+      "since": "5a1919d095ff04f71252355096524feabac96280",
+      "source": "review-a-sigterm-in-a-gate-does-not-name-its-sender.json",
+      "source_id": "F6",
+      "summary": "the gate's group SIGKILL is logged as 'its command ended' also when the gate itself was stopped and is killing a running command",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Edge cases only. Size: 10 minutes."
+      ],
+      "evidence": [
+        "lib/relay_procs.py:160-161 except OSError: return None",
+        "lib/relay_procs.py: re.match(r\"t=([0-9.]+) (relay pid .* sent \\S+ to (?:pid|group) (\\d+): .*)\", line)"
+      ],
+      "failing_case": [
+        "record_sent swallows OSError (unwritable ~/.relay) and sent_by_relay returns None on OSError; signal_line then states",
+        "\"not sent by relay\". Also record_sent writes \"sent signal 99 to ...\" for an unnamed signal, which the reader's regex",
+        "(`sent \\S+ to`) cannot match."
+      ],
+      "fix_hint": [
+        "Return a distinct value for an unreadable log and word the line accordingly; use `sent .+? to` in the regex."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 155,
+      "pass_cases": [
+        "1. sent_by_relay on a missing log: signal_line says the log could not be read, not \"not sent by relay\".",
+        "2. record_sent(pid, False, 99, \"x\") then sent_by_relay(pid, 0) finds the line.",
+        "3. A readable log with no matching line: still \"not sent by relay\"."
+      ],
+      "path": "lib/relay_procs.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_gate_stops.py:319, :326 (fail on base); FileNotFoundError only means none sent, other OSError says it could not be read."
+      ],
+      "severity": "LOW",
+      "since": "5a1919d095ff04f71252355096524feabac96280",
+      "source": "review-a-sigterm-in-a-gate-does-not-name-its-sender.json",
+      "source_id": "F7",
+      "summary": "a log that cannot be read or written, or a signal with no name, is reported as 'not sent by relay'",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "7f918be0b968522e3b89d8d45e0c556c439f9426.gate.log",
+  "head": "9cadce952aa8785dc89453f46088c2c5f63cb3fc",
+  "item": "a-sigterm-in-a-gate-does-not-name-its-sender",
+  "notes": [
+    "F4 is queued as several-of-relay-s-own-senders-still-signal-with (owner/front decision). F5 tests pin existing behaviour and pass on the base by design; they guard against dropping a reason."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 5a1919d0..HEAD (9cadce95). Gate log head 7f918be0 ends exit 0; relay changed from it lists no file (HEAD adds only the gate log). relay precheck run: green (types and lint, python 3.9, plugin lib links, changed tests ok). Changed files are only the findings' code and tests. Base proofs: tests/test_signal_log_run.py and the SenderReasons tests copied onto 5a1919d0: 2 failures + 2 errors in test_signal_log_run, 3 failures + 1 error in SenderReasons. Q1 test run on 8669dee6 with the head test file: did not finish (hung, killed)."
+  ],
+  "type": "check"
+}
