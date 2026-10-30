@@ -58,6 +58,12 @@
       "fact": [
         "30 Oct, cause found and reproduced: the crash reports show a second thread \"Thread-1 (watch_stdin)\" blocked in sys.stdin.buffer.read. watch_stdin is in lib/relay_gate_remote.py:171 on the unlanded branch wt/gates-on-the-vps-hosts-transport-watch-b (VPS gates, changes 3-4), not on master; its tests ran under that branch's gates. A minimal script with a daemon thread in sys.stdin.buffer.read(4096) exits SIGABRT (134) on Python 3.14; with os.read(0, 4096) it exits 0. Fix: watch_stdin uses os.read(0, 4096), plus a test that runs the program with an open stdin pipe and a normal end and asserts exit 0. The fix goes into the VPS change before it lands; this item closes when that change lands with the test (then the crash dialog is turned back on)."
       ]
+    },
+    {
+      "at": "2026-10-30T17:07:04Z",
+      "fact": [
+        "30 Oct 2026: after the fix landed on master (~16:45Z, with the VPS branch), no new ~/Library/Logs/DiagnosticReports/Python-*.ips appeared through the next landing gate (branch-names, ~17:05Z); the crash dialog was turned back on (defaults delete com.apple.CrashReporter DialogType)."
+      ]
     }
   ]
 }
