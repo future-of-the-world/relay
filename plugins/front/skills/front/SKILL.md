@@ -27,6 +27,12 @@ agents (load the `delegate` skill).
 - One screen at most. Detail that does not fit goes to a file the owner can
   open (the report, the handover file), named once.
 
+## A review request goes to a critic
+
+Asked to review code (a function, a file, a diff, a branch), start a
+`delegate:critic` with a brief; never read the code and judge it yourself,
+however short it is. You then pass on the critic's findings in plain words.
+
 ## Few requests, not many small commands
 
 Every request of this session re-reads the whole context, so the count of

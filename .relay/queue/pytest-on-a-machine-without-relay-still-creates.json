@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 82,
+  "time": 20,
+  "found_at": "2026-10-30T03:41:03Z",
+  "found_in": "finding F3 of review-the-test-runner-leaves-test-tokens-outsi.json",
+  "title": "Pytest on a machine without relay still creates and…",
+  "what": [
+    "tests/conftest.py:40: MEDIUM: F3 pytest on a machine without relay still creates and leaves $HOME/.relay/test-tokens (the same VPS failure, other runner)"
+  ],
+  "why": [
+    "Found by the review of the test-token fix (30 Oct): the fix covers tests/run_unittest.py, but pytest on a machine without relay still creates and leaves $HOME/.relay/test-tokens, the same leak seen on the VPS ai.amidman.com. Its twin finding F4 (relay_ledger binds ledger_dir at import) is item a-test-leaves-relay-ledger-bound-to-a-patched-le."
+  ],
+  "failing_case": [
+    "HOME=<empty scratch folder>, RELAY_HOME and RELAY_TEST_TOKENS unset:",
+    "`pytest -q tests/test_relay_tokens.py -k 'test_defaults or RunnerPool'` -> 5 passed, and afterwards",
+    "<HOME>/.relay/test-tokens/token-8 and <HOME>/.relay/test-tokens/waiting exist. Expected: HOME left empty."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. Empty HOME, RELAY_HOME unset: after a pytest run HOME is empty.",
+    "2. Under relay gate (RELAY_TEST_TOKENS passed), the pytest session still uses the gate's pool and takes no token.",
+    "3. On a machine whose pool exists, a pytest session still takes one SHARED token of it."
+  ],
+  "where": [
+    "tests/conftest.py:40"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
