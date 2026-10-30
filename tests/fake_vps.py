@@ -91,7 +91,9 @@ if a[0] == "rm":
     name = a[-1]
     pid = st + "/containers/" + name + ".pid"
     if os.path.exists(pid):
-        try: os.kill(int(open(pid).read()), signal.SIGKILL)
+        held = open(pid).read()
+        try:
+            if held.endswith("\n"): os.kill(int(held), signal.SIGKILL)   # a pid is whole only with its newline
         except OSError: pass
     for ext in (".json", ".bundle", ".pid", ".run"):
         if os.path.exists(st + "/containers/" + name + ext): os.remove(st + "/containers/" + name + ext)
@@ -100,7 +102,7 @@ if a[0] == "start":
     name = a[-1]
     spec = json.load(open(st + "/containers/" + name + ".json"))
     open(st + "/containers/" + name + ".run", "w").close()
-    open(st + "/containers/" + name + ".pid", "w").write(str(os.getpid()))
+    open(st + "/containers/" + name + ".pid", "w").write(str(os.getpid()) + "\n")
     if mode.get("start_exit"):
         sys.exit(mode["start_exit"])
     if mode.get("forged"):
