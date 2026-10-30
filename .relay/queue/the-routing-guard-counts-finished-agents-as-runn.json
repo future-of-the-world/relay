@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-30T18:37:42Z",
   "taken_by": "wt/the-routing-guard-counts-finished-agents-as-runn",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T19:07:51Z",
+  "test": "tests/test_running_agents.py::RunningNow::test_start_alone_older_than_limit_does_not_count",
   "dropped_at": null,
   "dropped_why": null
 }
