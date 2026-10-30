@@ -51,7 +51,7 @@ KINDS = ("inside", "outside", "design", "feature", "question")
 VERDICTS = ("MET", "NOT MET", "DISPUTED", "GAP", "OUTSIDE", "QUEUED")
 SHA = re.compile(r"^[0-9a-f]{40}\Z")
 FINDING_ID = re.compile(r"^[FQMN]\d+\Z")
-GATE_NAME = re.compile(r"^[0-9a-f]{40}\.gate\.log\Z")
+GATE_NAME = re.compile(r"^([0-9a-f]{40})(?:\.remote)?\.gate\.log\Z")      # a Mac gate log or a remote one (docs/plans/vps-build-gates.md 5.1)
 PIPELINE = re.compile(r"^pipeline #[0-9]+ on ([0-9a-f]{40}) passed\Z")
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
 SLUG = re.compile(r"^[a-z0-9][a-z0-9-]*\Z")
@@ -741,7 +741,8 @@ def _gate(wt, head, gate, since=None):
         if "/" not in gate and not GATE_NAME.match(gate):
             raise VerdictError("nothing recorded: `gate` must be \"none\", a pipeline line or the path of a gate log, got %r" % (gate,))
         path = gate if os.path.isabs(gate) else os.path.join(wt, gate) if "/" in gate else checks
-        inside = GATE_NAME.match(base) and os.path.realpath(path) == os.path.realpath(checks)
+        named = GATE_NAME.match(base)
+        inside = named and os.path.realpath(path) == os.path.realpath(checks)
         shown = ".relay/checks/" + base if inside else path
         kept = base if inside else "log " + path
         try:
@@ -751,7 +752,7 @@ def _gate(wt, head, gate, since=None):
             return None, [(shown, "the gate log is missing", ["The check names the gate log %s but it cannot be read." % shown])]
         logged = lines[0].strip()[len("head "):] if lines and lines[0].strip().startswith("head ") else None
         code = lines[-1].strip() if lines else ""
-        if (inside and logged != base[:-len(".gate.log")]) or not is_sha(logged) or not code.startswith("exit ") or not code[5:].isdigit():
+        if (inside and logged != named.group(1)) or not is_sha(logged) or not code.startswith("exit ") or not code[5:].isdigit():
             return None, [(shown, "the gate log is not in the gate's form", ["%s must start with `head <sha>` (of its own name, in .relay/checks) and end with `exit <n>`." % shown])]
         if int(code[5:]) != 0:
             problems.append((shown, "the gate is red", ["The gate for %s ended with `%s`." % (logged[:12], code)]))

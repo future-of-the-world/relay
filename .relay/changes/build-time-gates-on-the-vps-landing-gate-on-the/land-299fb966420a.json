@@ -1,0 +1,26 @@
+{
+ "agents": [],
+ "before": "fc0b42f6d48005848744afbedfef07ee32aecdbf",
+ "branch": "wt/build-time-gates-on-the-vps-landing-gate",
+ "head": "299fb966420ae0e35183ba5a77cb67ba73abef55",
+ "item": "build-time-gates-on-the-vps-landing-gate-on-the",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T07:34:23+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T07:44:59+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T08:05:49+00:00",
+   "gate_seconds": 1197.739158499986,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "build-time-gates-on-the-vps-landing-gate-on-the"
+}

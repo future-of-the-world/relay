@@ -1,0 +1,25 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 240,
+  "found_at": "2026-10-30T08:48:46Z",
+  "found_in": "relay queue add",
+  "title": "Gates on the VPS: hosts, transport, watch, bring-up",
+  "what": [
+    "Change 3: `relay hosts add/remove/status` (schema, one writer), lib/relay_gate_remote.py (framing, end line, slot and build locks, recipe from the default branch, podman cp, container checkout), the Mac side with fallback lines, tests with fake ssh and podman. Change 4: `relay gate --watch-default` started from relay land, its log, a fix item through the queue writer. Change 5: bring-up on ai.amidman.com with the owner's yes for the root commands; 3 gates on commits the Mac also gated; times and results as fact notes."
+  ],
+  "why": [
+    "Continues build-time-gates-on-the-vps-landing-gate-on-the, which relay land closed on 30 Oct when its change 2 of 5 landed (remote log name and its readers, master ea468ce7). Owner, 30 Oct, answered \"a\": the VPS ai.amidman.com decides build-time gates; and \"a\": relay creates the relay-gate account itself. Reviewed design rev 2 (30 Oct), section 7: change 3 hosts, transport, remote program, fallback (sections 5.3-5.5, 5.7; about 150 agent minutes); change 4 the Linux watch of the default branch (5.6; about 45); change 5 bring-up on the VPS after the clean-Linux quick gate is green (5.9; about 40 plus gate time; 3 root commands shown to the owner first). Measured 30 Oct: one git start 27 ms on this Mac against 1.5 ms on the VPS; a test slice 158 s here against 34 s there; a landing gate on this Mac went red once from fork exhaustion (Errno 35). IP as the closed item's (90)."
+  ],
+  "where": [
+    "lib/relay_gate.py",
+    "lib/relay_land.py",
+    "bin/relay"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

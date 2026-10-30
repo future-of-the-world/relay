@@ -20,8 +20,8 @@
   ],
   "taken_at": "2026-10-30T05:22:30Z",
   "taken_by": "wt/the-change-cycle-script-lands-a-ready-ch",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T07:18:38Z",
+  "test": "tests/test_land_waits.py::test_held_branch_exits_5_and_master_stays",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

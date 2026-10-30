@@ -1,0 +1,318 @@
+{
+  "branch": "wt/the-change-cycle-script-lands-a-ready-ch",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by reading: cycle.js:284 and :290 prompts; the limits recipe (judge base \"Limits\"); relay_land.py Result lines for RED",
+        "(\"land: the gate of {branch} is red (exit {code}); log {log}\", code = the gate's) and LANDED (_landed: the landed line first, then",
+        "cleanup, closed and change-record lines). The front used Bash run_in_background, which reports the real exit code; the runner has",
+        "no such tool use allowed (detached recipe), so the move to the cycle lost the code. Principle 5 (fact to code, meaning to the model):",
+        "an exit code is a fact. Size: 15 minutes."
+      ],
+      "evidence": [
+        "grep -n \"const prompt = \" cycle.js -> 284: ... detached with the limits recipe, log ${log}. ... Report code (the exit code of relay land)",
+        "grep -n \"def _landed\" -A25 lib/relay_land.py -> Result(LANDED, [f\"landed {branch} on {default} at ...\", *lines, *closed], units)",
+        "lib/relay_land.py _locked: raise Stop(RED, [f\"land: the gate of {branch} is red (exit {code}); log {log}\", *red[:5]])"
+      ],
+      "failing_case": [
+        "The land runner follows its prompt: \"run relay land <branch> -C <wt> detached with the limits recipe, log <log> ... Report code",
+        "(the exit code of relay land)\". The limits recipe is `nohup <command> > <log> 2>&1 < /dev/null & echo $!`, then `kill -0` loops in",
+        "later Bash calls. A process started that way is not a child of the later shells: its exit status cannot be read, and relay land",
+        "prints no line with its exit code (on red it prints \"land: the gate of X is red (exit 1); log ...\" where \"exit 1\" is the GATE's",
+        "code; on landing \"landed X on master at ...\"). So `code` is what the runner model infers from the text. Example: a landing that",
+        "ends red prints the gate's own \"(exit 2)\" for a failing pytest step; a runner reading \"exit 2\" reports code 2 and the unit stops",
+        "at `land` instead of getting its land fixer. The recovery prompt (line 290, step 1) has the same gap: \"report its exit code if you",
+        "can read it from its log\" - the log never holds it.",
+        "Now: the branch decision of the land stage rests on a model's reading of prose. Should: the code is a fact written by the shell.",
+        "Also: `landed: first` takes the first non-blank of the LAST 5 lines; a landing that prints the cleanup output, closed items and the",
+        "change-record lines after \"landed <branch> on master at <sha>\" pushes that line out, so the front's merged line is built from a",
+        "cleanup line."
+      ],
+      "fix_hint": [
+        "Wrap the command so the log ends with its code (`sh -c '...; echo \"relay land exit $?\"'`), report code from that line, in both the",
+        "land and the recovery prompt; for exit 0 report the line that starts \"landed \"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 284,
+      "pass_cases": [
+        "1. The land prompt makes the detached command write its own code: e.g. `sh -c 'relay land <b> -C <wt>; echo \"relay land exit $?\"'`",
+        "   detached, log <log>; the prompt says to report code from the last line \"relay land exit <n>\". A test in",
+        "   tests/test_cycle_workflow.py asserts the land runner's prompt contains that wrapper text and \"relay land exit\".",
+        "2. The recovery prompt's step 1 reads that same \"relay land exit <n>\" line from <log> (test asserts the text).",
+        "3. Exit 0 still gives {landed: <the \"landed <branch> on ...\" line>}: the prompt asks for the line that starts \"landed \" (or the",
+        "   whole output), and a stub whose lines put \"landed wt/x on master at abc\" first among more lines gives landed = that line.",
+        "4. The existing stubbed-code tests (exit 0, 1, 3, 4, 5, 6, 2) keep their outcomes."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py test_f1_* pass at head, fail at 817cf7a6; the prompts wrap the command in sh -c with an echo of relay land exit, and read the last line."
+      ],
+      "severity": "MEDIUM",
+      "since": "817cf7a6264612beffb3b7e7f58be7d370fc1cf3",
+      "source": "review-the-change-cycle-script-lands-a-ready-ch.json",
+      "source_id": "F1",
+      "summary": "the land runner is told to report relay land's exit code but nothing records it: a detached run's code is guessed from the text (principle 5)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading bin/relay cmd_land (--hold branch: no rev-parse of refs/heads/<branch>) and relay_land_waits.hold/held_words",
+        "(exact match on event.branch). Branch names in this project are truncated slugs with a `wt/` prefix (this branch:",
+        "wt/the-change-cycle-script-lands-a-ready-ch for item the-change-cycle-script-lands-a-ready-change-its), so a mismatch is an",
+        "ordinary slip. The hold is the owner's word (CLAUDE.md Git: \"When I say hold, wait for my word on that change\"); the only new",
+        "safeguard of that word once the cycle lands by itself is this event. Size: 10 minutes."
+      ],
+      "evidence": [
+        "bin/relay:697  relay_land_waits.hold(main, args[1], args[2]); print(f\"{args[1]} is on hold: ...\")",
+        "lib/relay_land_waits.py held_words: `if event.branch != branch: continue`"
+      ],
+      "failing_case": [
+        "The owner says \"hold\" on the change of item the-change-cycle-script-lands-a-ready-change-its. The front runs",
+        "`relay land --hold the-change-cycle-script-lands-a-ready-ch \"hold it\"` (the slug without `wt/`, or the full item slug, whose",
+        "branch name is truncated). bin/relay calls relay_land_waits.hold(main, args[1], args[2]) with no check; it prints",
+        "\"the-change-... is on hold: relay land ... now exits 5\". The cycle's land runner then runs `relay land wt/the-change-cycle-...`;",
+        "held_words matches event.branch exactly, finds no hold, and the branch lands. Now: the owner's hold is broken while the front was",
+        "told it holds. Should: a hold of a name that is no branch is refused, naming the next step."
+      ],
+      "fix_hint": [
+        "In cmd_land (or hold()), refuse when `git rev-parse --verify -q refs/heads/<branch>` fails, listing the branches that contain the",
+        "given text; a test in tests/test_land_waits.py."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 697,
+      "pass_cases": [
+        "1. `relay land --hold nosuch \"w\"` in a repo with no branch nosuch exits 2 (or the usage error code) with a line naming that no",
+        "   branch nosuch exists (and the branches whose name contains it, e.g. wt/nosuch-x), and writes no hold event.",
+        "2. `relay land --hold wt/x \"w\"` for an existing branch wt/x writes the hold; `relay land wt/x` exits 5 (today's test still passes).",
+        "3. `relay land --release wt/x` after a hold still releases; `relay land wt/x` lands.",
+        "4. A hold on wt/a does not stop wt/b (today's test)."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "tests/test_land_waits.py Hold::test_a_hold_on_a_name_that_is_no_branch_is_refused_and_writes_no_event passes, fails before; existing hold/release tests pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "817cf7a6264612beffb3b7e7f58be7d370fc1cf3",
+      "source": "review-the-change-cycle-script-lands-a-ready-ch.json",
+      "source_id": "F2",
+      "summary": "relay land --hold accepts any name: a hold on a mistyped or prefix-less branch is recorded, read by nothing, and the real branch lands",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: the diff touches no file under evals/. Principle 5 (fact to code, meaning to the model): \"meaning goes into a description",
+        "of the intent, tested with paid checks in several languages, with typos, and with phrases that must not trigger\". The brief's Done",
+        "when lists \"tests cover each case the design lists\". The cases run in the next paid wave (no paid run in this change). Size: 20",
+        "minutes plus the paid run."
+      ],
+      "evidence": [
+        "git -C <wt> diff --stat master...HEAD -- evals | tail -1 -> (empty)",
+        "design 5.3 (c) and section 7 (\"the paid cases for person_facing (about 10 ...)\")"
+      ],
+      "failing_case": [
+        "The checker's person_facing answer now decides whether a change lands without the owner. The design (5.3 c): \"The checker's",
+        "judgment is tested the way meaning is: paid cases with a change that must say true, one that must say false, in two languages\";",
+        "section 7 budgets them. The change adds no case under evals/plugin (git diff --stat master...HEAD -- evals: nothing). Now: a checker",
+        "that answers false for a rewrite of the merge question screen (or true for a role text) is caught by nothing before it lands",
+        "changes unseen. Should: cases exist and ride in the next paid wave."
+      ],
+      "fix_hint": [
+        "Two or three cases in evals/plugin modelled on an existing role case, grading the checker's person_facing field."
+      ],
+      "id": "F3",
+      "kind": "feature",
+      "line": 1,
+      "pass_cases": [
+        "1. An eval case under evals/plugin/ where the checker checks a change that rewrites the merge question screen of the front skill:",
+        "   the graded answer is person_facing = true.",
+        "2. A case where the change edits only a fixer's role text or a lib function: person_facing = false.",
+        "3. One of the two in a second language (the owner's Russian prompt to the front, or the change text), and one phrase that must not",
+        "   trigger (e.g. \"reply\" in a worker's instructions)."
+      ],
+      "path": "evals/plugin",
+      "rank": "medium",
+      "reason": [
+        "Eval cases evals/plugin/person-facing-{true,false-ru,false-reply-word} added; test_f3_* passes, fails before. Paid run pending."
+      ],
+      "severity": "MEDIUM",
+      "since": "817cf7a6264612beffb3b7e7f58be7d370fc1cf3",
+      "source": "review-the-change-cycle-script-lands-a-ready-ch.json",
+      "source_id": "F3",
+      "summary": "no paid cases test the checker's person_facing judgment, which design 5.3(c) and principle 5 require for a meaning the model decides",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by git grep -n \"relay land\" -- plugins: delegate/SKILL.md:130-136 and :213-219 unchanged by the change. The change must",
+        "touch it to keep its promise (the front lands nothing the cycle landed). The brief limits files to what the design names; this",
+        "file is a caller the design missed. Size: 5 minutes."
+      ],
+      "evidence": [
+        "plugins/delegate/skills/delegate/SKILL.md:136 `built` takes `built`. It does not land a change: the merge is the",
+        "plugins/delegate/skills/delegate/SKILL.md:213 8. **Take the default branch.** The front's `relay land` takes it"
+      ],
+      "failing_case": [
+        "The front reads the delegate skill when it starts the cycle. It says (line 136) \"It does not land a change: the merge is the",
+        "front's.\" and step 8 (line 213) \"The front's `relay land` takes it\"; the unit fields list has no `land`, and the settings land,",
+        "land_fixes, land_reruns are not named. The front skill now says the opposite (\"The cycle lands a ready change itself ... start no",
+        "relay land\"). Now: two texts the front loads disagree on who lands; a front that follows the delegate skill starts a second relay",
+        "land for a unit the cycle already landed or is landing (it waits for the lock, then is refused or lands nothing), or does not know",
+        "how to keep a unit from landing (land: false). Should: the delegate skill says the cycle lands in relay mode and names the field",
+        "and settings."
+      ],
+      "fix_hint": [
+        "Edit the two passages and the unit-field line."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 136,
+      "pass_cases": [
+        "1. plugins/delegate/skills/delegate/SKILL.md no longer contains \"It does not land a change\"; it says that in relay mode the cycle",
+        "   lands a ready unit through relay land as its last stage, and that `land: false` (run setting or unit field) keeps it at ready.",
+        "2. The unit fields line names `land`; the settings land, land_fixes, land_reruns are named where the skill names the cycle's args.",
+        "3. Step 8 says the cycle's land stage (or the front, for a unit stopped at land) runs relay land."
+      ],
+      "path": "plugins/delegate/skills/delegate/SKILL.md",
+      "rank": "medium",
+      "reason": [
+        "test_f4_the_delegate_skill_says_the_cycle_lands_in_relay_mode passes, fails before."
+      ],
+      "severity": "MEDIUM",
+      "since": "817cf7a6264612beffb3b7e7f58be7d370fc1cf3",
+      "source": "review-the-change-cycle-script-lands-a-ready-ch.json",
+      "source_id": "F4",
+      "summary": "the delegate skill still says the cycle does not land a change and that the front's relay land takes the default branch",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading bin/paid-cost main (\"touches\": return 1 on no default branch and on GitError; return 0 if files else 1) and",
+        "relay_land_waits.touches_paid_paths. Rare today (the branch exists after preflight), hence LOW. Size: 10 minutes."
+      ],
+      "evidence": [
+        "bin/paid-cost: print(\"paid-cost: the default branch cannot be told\"); return 1 ... except GitError: return 1 ... return 0 if files else 1",
+        "lib/relay_land_waits.py: return done.returncode == 0"
+      ],
+      "failing_case": [
+        "touches_paid_paths returns `returncode == 0`. bin/paid-cost touches exits 1 both for \"no file on the paid paths\" and for \"the",
+        "default branch cannot be told\" or a git error, and python exits 2 when the script cannot be opened. Example: a git diff error of",
+        "`refs/heads/master...wt/x` during a going paid run gives exit 1 -> False -> check() returns -> the branch lands. Should: an error",
+        "stops the landing (refused or exit 6), never lets it through."
+      ],
+      "fix_hint": [
+        "Give touches an error exit of 2 and treat anything but 0/1 as a refusal."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 62,
+      "pass_cases": [
+        "1. touches exits with a distinct code (e.g. 2) on an error, and touches_paid_paths raises Stop(REFUSED, [\"land: cannot tell whether",
+        "   <b> touches the paid paths: <stderr>\"]) for it; a test stubs PAID_COST to a script that exits 2.",
+        "2. A branch touching only lib/ in a going run still lands (today's test).",
+        "3. A branch touching plugins/ in a going run still exits 6 (today's test)."
+      ],
+      "path": "lib/relay_land_waits.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_land_waits.py Paid::test_an_error_of_paid_cost_touches_refuses_and_does_not_land and test_paid_cost_touches_exits_2_on_an_error pass, fail before."
+      ],
+      "severity": "LOW",
+      "since": "817cf7a6264612beffb3b7e7f58be7d370fc1cf3",
+      "source": "review-the-change-cycle-script-lands-a-ready-ch.json",
+      "source_id": "F5",
+      "summary": "an error of bin/paid-cost touches reads as 'touches no paid path', so a failure lands a paid-path branch during a paid run",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (no second relay-mode project yet). The owner's answer was to \"which of relay's own texts count\". Size: 5 minutes."
+      ],
+      "evidence": [
+        "cycle.js:53 const PERSON_FACING = 'true only when the change alters what the owner reads in the conversation: ...'",
+        "grep -n \"^\\[\" projects.toml -> [global], [relay]"
+      ],
+      "failing_case": [
+        "The PERSON_FACING description says true \"only when the change alters what the owner reads in the conversation: the merge question",
+        "screen, the digest, the reply rules\". The cycle is the shared plugin; once a product project (an app with screens) has .relay/, a",
+        "change to a screen its users see is judged false by this text and lands with no owner look, against rules/product-work.md",
+        "(\"checked by the owner before merge\"). Not reachable today: projects.toml lists only relay."
+      ],
+      "fix_hint": [
+        "One clause in the description."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 53,
+      "pass_cases": [
+        "1. The description keeps the owner's 30 Oct definition for relay's own texts and adds: in a project whose product has screens or",
+        "   texts for people, a change to what they see is true.",
+        "2. The test that asserts the owner's definition (test_person_facing_question_is_the_owners_definition) still passes."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "test_f6_person_facing_also_covers_what_the_people_of_a_product_project_see passes, fails before."
+      ],
+      "severity": "LOW",
+      "since": "817cf7a6264612beffb3b7e7f58be7d370fc1cf3",
+      "source": "review-the-change-cycle-script-lands-a-ready-ch.json",
+      "source_id": "F6",
+      "summary": "the person_facing definition names only relay's own screens, so in another relay-mode project an app screen change would land unseen",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: depends on how bin/eval-record separates \"not judged\" from \"a case failed\" (ci prints one message for both). The landing",
+        "outcome for ordinary branches is the same (exit 6); only the --paid-fix way is wrong. Size: 15 minutes."
+      ],
+      "evidence": [
+        "lib/relay_paid.py:172-173 if not judge(data): return State(RED, ...)",
+        "plugins/front/skills/front/SKILL.md \"Not judged (money ceiling, runs not judged, the day's cap): the waiting changes keep waiting\""
+      ],
+      "failing_case": [
+        "A paid run on master whose money ceiling trips writes an eval record that is not green (partial). state() returns RED: \"the paid",
+        "run begun <ts> was red\", and relay land's exit 6 line adds \"the fix item lands with relay land <b> --paid-fix\". The front skill",
+        "says a not-judged run has no fix item: \"the waiting changes keep waiting; run again on the same head\". A front that follows the",
+        "line lands an unrelated branch with --paid-fix. Should: a not-judged record gives its own line (run again on the same head) and",
+        "--paid-fix is refused for it."
+      ],
+      "fix_hint": [
+        "Read the reason from bin/eval-record and give a NOT_JUDGED state, or word the RED line to cover both."
+      ],
+      "id": "F7",
+      "kind": "inside",
+      "line": 173,
+      "pass_cases": [
+        "1. An eval record that bin/eval-record judges \"not judged\" (the ceiling or unjudged runs) gives a state whose line says to run the",
+        "   paid run again on the same head; --paid-fix is refused in it; paid-path branches exit 6.",
+        "2. A record with a case that failed its majority stays RED with the --paid-fix line (today's test)."
+      ],
+      "path": "lib/relay_paid.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_land_waits.py Paid::test_a_record_that_was_not_judged_is_not_red_and_paid_fix_is_refused and tests/test_relay_paid.py State tests pass, fail before."
+      ],
+      "severity": "LOW",
+      "since": "817cf7a6264612beffb3b7e7f58be7d370fc1cf3",
+      "source": "review-the-change-cycle-script-lands-a-ready-ch.json",
+      "source_id": "F7",
+      "summary": "a run that was not judged (money ceiling, day's cap mid-run) is reported as red with the --paid-fix way, which the front skill gives only to a fix item",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "16f7c932b85a81f18ecc5ff12d0927734508595c.gate.log",
+  "head": "a6fba289e2d9475527ba8212350306d4fb1af265",
+  "item": null,
+  "notes": [
+    "Fixer reports Disputed/Gap/Outside: none. The F3 paid cases run only in the next paid wave; their recorded good/bad answers are checked by the test and graders, not yet by a paid run."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 817cf7a6..HEAD (fix commit 16f7c932 plus the gate-log commit a6fba289, inert). Gate log head 16f7c932, exit 0; only the inert gate log came after. Ran pytest on tests/test_cycle_workflow.py, test_land_waits.py, test_relay_paid.py at head: 109 passed. Ran the same three test files at 817cf7a6 (before the fix): 18 failed, including every new/changed test named by the fixer. Changed files are all those the findings name, their tests, and the eval cases. Callers of paid-cost touches (only relay_land_waits) and PERSON_FACING/state names read."
+  ],
+  "type": "check"
+}
