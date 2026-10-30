@@ -46,6 +46,12 @@
       "said": [
         "a"
       ]
+    },
+    {
+      "at": "2026-10-30T12:45:26Z",
+      "fact": [
+        "30 Oct, owner answered \"a\" to: turn the macOS crash dialogs off now and back on after the fix. The front ran `defaults write com.apple.CrashReporter DialogType none` (before: key not set). Crash reports still go to ~/Library/Logs/DiagnosticReports. When this item lands, turn the dialog back on: `defaults delete com.apple.CrashReporter DialogType` (restores the default)."
+      ]
     }
   ]
 }
