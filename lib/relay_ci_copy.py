@@ -1,9 +1,9 @@
-"""Records of the gate's inert-probe worktrees and their clean-up (split from relay_ci).
+"""Records of the gate's copy worktrees and their clean-up (split from relay_ci).
 
-A probe is a temporary worktree registered in the MAIN repository, so its record is kept twice: in the gated worktree
-(<root>/.ci/inert-probe, the path of its temporary folder) and in the repository's shared git folder
-(<common>/relay-inert-probes/<folder name>: the owner's root, then the folder). The first is cleaned by the next gate of
-the same worktree; the second lets the next gate of ANY worktree remove a probe whose owner worktree is gone."""
+A gate copy is a temporary worktree registered in the MAIN repository, so its record is kept twice: in the gated worktree
+(<root>/.ci/gate-copy, the path of its temporary folder) and in the repository's shared git folder
+(<common>/relay-gate-copies/<folder name>: the owner's root, then the folder). The first is cleaned by the next gate of
+the same worktree; the second lets the next gate of ANY worktree remove a copy whose owner worktree is gone."""
 from __future__ import annotations
 
 import os
@@ -18,9 +18,9 @@ def _run(root: str, *args: str) -> subprocess.CompletedProcess[str]:
 
 
 def shared_dir(root: str) -> str:
-    """<shared git folder>/relay-inert-probes of the repository `root` belongs to."""
+    """<shared git folder>/relay-gate-copies of the repository `root` belongs to."""
     common = _run(root, "rev-parse", "--git-common-dir").stdout.strip() or ".git"
-    return os.path.join(os.path.realpath(os.path.join(root, common)), "relay-inert-probes")
+    return os.path.join(os.path.realpath(os.path.join(root, common)), "relay-gate-copies")
 
 
 def write_shared_record(root: str, tmpd: str) -> None:
@@ -37,20 +37,20 @@ def drop_shared_record(root: str, tmpd: str) -> None:
         pass
 
 
-def _remove_probe(root: str, tmpd: str) -> None:
+def _remove_copy(root: str, tmpd: str) -> None:
     if tmpd and os.path.isdir(tmpd):
         _run(root, "worktree", "remove", "--force", os.path.join(tmpd, "wt"))
         shutil.rmtree(tmpd, ignore_errors=True)
     _run(root, "worktree", "prune")
 
 
-def remove_leftover_probe(root: str) -> None:
-    """Remove the probe worktree of an earlier run of THIS worktree that was killed before it could clean up, and the probes
-    of worktrees that no longer exist. A probe of a live other worktree is never touched (it has its own record)."""
-    record = os.path.join(root, ".ci", "inert-probe")
+def remove_leftover_copy(root: str) -> None:
+    """Remove the copy worktree of an earlier run of THIS worktree that was killed before it could clean up, and the copies
+    of worktrees that no longer exist. A copy of a live other worktree is never touched (it has its own record)."""
+    record = os.path.join(root, ".ci", "gate-copy")
     lines = _read_lines(record)
     if lines:
-        _remove_probe(root, lines[0].strip())
+        _remove_copy(root, lines[0].strip())
         drop_shared_record(root, lines[0].strip())
     if os.path.exists(record):
         os.remove(record)
@@ -59,7 +59,7 @@ def remove_leftover_probe(root: str) -> None:
         owner = _read_lines(os.path.join(folder, name))
         if len(owner) == 2 and not os.path.isdir(owner[0]):
             try:
-                os.remove(os.path.join(folder, name))   # claim the record: only the gate that removed it cleans the probe
+                os.remove(os.path.join(folder, name))   # claim the record: only the gate that removed it cleans the copy
             except FileNotFoundError:
                 continue   # another gate claimed it between our listing and now
-            _remove_probe(root, owner[1])
+            _remove_copy(root, owner[1])

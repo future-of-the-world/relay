@@ -25,10 +25,18 @@
   "where": [
     "tests/conftest.py:40"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T16:32:40Z",
+  "taken_by": "wt/pytest-on-a-machine-without-relay-still",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T16:33:10Z",
+      "fact": [
+        "Reproduced 30 Oct 2026 on master: HOME=<empty folder>, RELAY_HOME and RELAY_TEST_TOKENS unset, pytest -q tests/test_relay_tokens.py -k 'test_defaults or RunnerPool' -> 9 passed (not 5: the selection now holds 9 of 32 tests) and HOME was left with .relay/test-tokens/token-8 and .relay/test-tokens/waiting."
+      ]
+    }
+  ]
 }

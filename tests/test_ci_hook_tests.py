@@ -33,7 +33,7 @@ def run_ci(args, drop=(), env_extra=None):
         d = os.path.join(tmp, "tests"); os.makedirs(d)
         with open(os.path.join(d, "hooks_live.py"), "w") as f:
             f.write("print('STUB-RAN hooks-live')\n")
-        env = dict(os.environ); env.pop("RELAY_GATE", None); env.pop("RELAY_INERT_FULL_HOOKS", None); env.update(env_extra or {})
+        env = dict(os.environ); env.pop("RELAY_GATE", None); env.update(env_extra or {})
         if drop:  # hide tools by shadowing them with a PATH that lacks their directories' copies
             bindir = os.path.join(tmp, "fakebin"); os.makedirs(bindir)
             for tool in ("bash", "env", "dirname", "mkdir", "date", "cat", "grep", "head", "sed", "python3", "git", "jq", "claude", "bun", "cmp", "rm", "sort", "diff", "mktemp"):
@@ -66,14 +66,9 @@ class HookTestsStep(unittest.TestCase):
         self.assertIn("FAIL tests/hooks_live.py needs claude on PATH", log)
         self.assertNotIn("STUB-RAN hooks-live", log)
 
-    def test_the_inert_probes_nested_quick_run_never_runs_hooks_live(self):
-        _, log = run_ci(["--quick"], env_extra={"RELAY_INERT_FULL_HOOKS": "1"})
-        self.assertNotIn("STUB-RAN hooks-live", log)
-        self.assertIn("hooks_live.py (left for the full bin/ci", log)
-
-    def test_full_gate_runs_hooks_live_once_and_the_inert_comparison_ignores_its_ok_lines(self):
-        # Under RELAY_GATE the full run runs the (stub) hooks-live, which prints an "ok" line; the nested quick run does not.
-        # The inert step must still say "the same results". Fake claude (exit 0) so the full run reaches the inert step.
+    def test_full_gate_runs_hooks_live_once_under_relay_gate(self):
+        # Under RELAY_GATE the full run runs the (stub) hooks-live once, on the gate copy (no second run beside it).
+        # Fake claude (exit 0) so the full run reaches the hook step.
         tmp = tempfile.mkdtemp()
         try:
             fake = os.path.join(tmp, "fake"); os.makedirs(fake)
@@ -87,12 +82,10 @@ class HookTestsStep(unittest.TestCase):
             for c in (["init", "-q"], ["add", "-A"], ["commit", "-q", "-m", "x"]):
                 subprocess.run(g[:5] + c if c[0] == "commit" else ["git"] + c, cwd=tree, check=True, capture_output=True)
             head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=tree, check=True, capture_output=True, text=True).stdout.strip()
-            env = dict(os.environ, RELAY_GATE=head, PATH=fake + os.pathsep + os.environ["PATH"]); env.pop("RELAY_INERT_FULL_HOOKS", None)
+            env = dict(os.environ, RELAY_GATE=head, PATH=fake + os.pathsep + os.environ["PATH"])
             subprocess.run(["bash", "bin/ci"], cwd=tree, env=env, capture_output=True, text=True)
             with open(os.path.join(tree, ".ci", "steps", "hook-tests.log")) as f:
                 self.assertEqual(f.read().count("STUB-RAN hooks-live"), 1)
-            with open(os.path.join(tree, ".ci", "steps", "inert.log")) as f:
-                self.assertIn("inert: the same results", f.read())
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

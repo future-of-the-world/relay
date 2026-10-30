@@ -14,8 +14,12 @@ A link not yet committed is not seen: the gate gates the commit.
 """
 
 import glob
+import importlib.util
 import os
 import posixpath
+import re
+import shutil
+import signal
 import subprocess
 import sys
 import time
@@ -47,17 +51,99 @@ def _tail(text: str) -> list[str]:
     return ["    " + ln for ln in text.strip().splitlines()[-TAIL:]]
 
 
+def _find_uv() -> str | None:
+    return shutil.which("uv") or next((p for p in [os.path.join(os.path.expanduser("~"), ".local", "bin", "uv")] if os.access(p, os.X_OK)), None)
+
+
+def _pinned(worktree: str) -> dict[str, str]:
+    """The tool specs bin/types_lint.py runs through uv, as uv takes them, read from its MYPY and RUFF constants; the unpinned
+    name when the file cannot be loaded or lacks them."""
+    mypy, ruff = "", ""
+    try:
+        spec = importlib.util.spec_from_file_location("_precheck_types_lint", os.path.join(worktree, "bin", "types_lint.py"))
+        if spec and spec.loader:
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            mypy, ruff = str(getattr(module, "MYPY", "")), str(getattr(module, "RUFF", ""))
+    except Exception:  # noqa: BLE001  # a worktree file we do not control: any failure to load means "unpinned", never a crash
+        pass
+    return {"mypy": "mypy==" + mypy if mypy else "mypy", "ruff": "ruff@" + ruff if ruff else "ruff"}
+
+
+def _running_tool(root_pid: int) -> str | None:
+    """The tool (mypy or ruff) named in the command line of the step's process or one of its descendants, or None."""
+    try:
+        listing = subprocess.run(["ps", "-A", "-o", "pid=,ppid=,command="], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    rows: dict[int, tuple[int, str]] = {}
+    for line in listing.splitlines():
+        parts = line.split(None, 2)
+        if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+            rows[int(parts[0])] = (int(parts[1]), parts[2])
+    family = {root_pid}
+    grew = True
+    while grew:
+        grew = False
+        for pid, (ppid, _) in rows.items():
+            if ppid in family and pid not in family:
+                family.add(pid)
+                grew = True
+    for pid in sorted(family):
+        command = rows.get(pid, (0, ""))[1]
+        for tool in ("mypy", "ruff"):
+            if re.search(r"(^|[\s/=@])" + tool + r"([\s=@]|$)", command):
+                return tool
+    return None
+
+
+PROBE_TIMEOUT = 3       # seconds one offline "is it cached" probe may take; a probe that hangs says nothing and prints nothing
+
+
+def _timeout_lines(worktree: str, running: str | None) -> list[str]:
+    """What follows the timeout line. A tool that was still running is the cause the timeout saw: it is named first and alone (its
+    first run can block for minutes on a fresh download), and no probe runs it again. With none running, a tool uv cannot find
+    offline (cold cache) is named with its install step."""
+    specs = _pinned(worktree)
+    if running:
+        return ["    still running: %s (%s), the first run of a fresh download can take minutes; wait, or run relay doctor" % (running, specs[running])]
+    uv = _find_uv()
+    if uv is None:
+        return ["    uv is not installed: install uv (https://docs.astral.sh/uv/), then run relay doctor"]
+    out: list[str] = []
+    for tool, spec in specs.items():
+        try:
+            probe = subprocess.run([uv, "tool", "run", "--offline", spec, "--version"], capture_output=True, timeout=PROBE_TIMEOUT)
+        except subprocess.TimeoutExpired:
+            continue
+        if probe.returncode != 0:
+            out.append("    %s is not installed (not in the uv cache): run uv tool install %s, or relay doctor" % (tool, spec))
+    return out
+
+
 def check_types(worktree: str) -> list[str]:
     script = os.path.join(worktree, "bin", "types-lint")
     if not os.path.exists(script):
         return ["skipped: no bin/types-lint here"]
     try:
-        done = subprocess.run(["bash", script], cwd=worktree, capture_output=True, text=True, timeout=_left())
+        proc = subprocess.Popen(["bash", script], cwd=worktree, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                                start_new_session=True)
+    except OSError as err:
+        what = err.filename or "bash"
+        return ["FAIL types and lint could not start: %s is not installed or not on PATH (run: relay doctor)" % what]
+    try:
+        output, _ = proc.communicate(timeout=_left())
     except subprocess.TimeoutExpired:
-        return ["FAIL types and lint took longer than %d s" % STEP_TIMEOUT]
-    if done.returncode == 0:
+        running = _running_tool(proc.pid)
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)   # the step's own session: uv and mypy die with bash, none is left holding the pipe
+        except OSError:
+            proc.kill()
+        proc.wait()
+        return ["FAIL types and lint took longer than %d s" % STEP_TIMEOUT] + _timeout_lines(worktree, running)
+    if proc.returncode == 0:
         return []
-    return ["FAIL types and lint (bin/types-lint):"] + _tail(done.stdout + done.stderr)
+    return ["FAIL types and lint (bin/types-lint):"] + _tail(output)
 
 
 def old_python() -> bool:

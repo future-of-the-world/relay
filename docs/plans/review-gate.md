@@ -48,7 +48,7 @@ seeds); 11 worktree cleanup; 12 tests; 13 proof plan; 14 build plan;
 | F4 | the merging session's own worktree is locked and removed at that session's end; the sweep never removes a locked worktree (coordinator, 22 Oct) | 11, 14 |
 | F5, F10 | the "closed without a test" step runs before the all-inert step and covers every added `fix` item not dropped; the all-inert test lists files without rename detection | 7.1, 7.5 |
 | F6 | merge 2's own gate log and outside findings, before relay's master has `.relay/` | 14 |
-| F7 | the inert probe runs only under `relay gate` (a clean commit), one level deep | 5, 12.6 |
+| F7 | the gate copy (the single test run without the inert files) is made only under `relay gate` (a clean commit) | 5, 12.6 |
 | F8 | the one-finding recipe covers a file both sides changed, not only a conflict | 7.2, 12.2 |
 | F9 | the front publishes the page (an HTML file built by code) with its Artifact tool | 8, 14 |
 | F11 | the merge gate judges only merges in the main checkout on the default branch | 7, 12.2 |
@@ -180,7 +180,7 @@ and the owner says so.
 | Step | Who | What is stored on the task branch | Cost (agent min, money) |
 |---|---|---|---|
 | 1 Build | worker | code commits | per brief |
-| 2 Gate | runner starts `relay gate` (detached); red goes back to the worker or a fixer, then 2 again | `<G1>.gate.log` | 4-8 runner (the inert probe doubles the plain 2-4, 12.6), free |
+| 2 Gate | runner starts `relay gate` (detached); red goes back to the worker or a fixer, then 2 again | `<G1>.gate.log` | 2-4 runner (the single run happens on a copy, 12.6), free |
 | 3 Review | judges, once, over `<default>...HEAD`, only after a green step 2; each records its findings with `relay check record review --input <file.toml>` (`<report>.json` only, 4.3) | (copied in step 6) | 15-20 |
 | 4 Fix | fixer, when HIGH or MEDIUM inside the change | fix commits | 10-15 |
 | 5 Gate again | runner, `relay gate`, when step 4 made commits | `<G2>.gate.log` | 4-8, free |
@@ -1249,30 +1249,31 @@ into the default branch without a conflict. Regression proof: the
 precondition read once before the tries: Q10's race fails; `update-ref`
 without the zero old value: Q9's same-title case loses a text.
 
-### 12.6 Wording and the inert probe
+### 12.6 Wording and the gate copy
 
 - A6 (part 1's test) gains the part-2 phrases: "follow-up with an id",
   "follow-up id"; `rules/queue.md` holds neither "tech debt" nor
   "technical debt".
-- A11 `bin/ci` step `inert`, last, in `--quick` too, but only when
+- A11 `bin/ci` runs its six free steps on a copy of the gated commit, but only when
   `RELAY_GATE` is set, that is under `relay gate` (5), which refuses a
-  worktree with changes: so HEAD is exactly the tree the outer run tested.
-  Without `RELAY_GATE` (a worker's loop on `bin/ci --quick`) it prints
-  "inert: skipped (runs under relay gate)" and the loop keeps today's speed.
-  The step: in a temporary worktree at `RELAY_GATE`'s commit, every inert
-  file gets a line appended and each inert folder probe files
-  (`.relay/queue/zz-probe.json` malformed, `.relay/checks/zz.json`,
-  `zz.review.md`, `zz.gate.log`); `bin/ci --quick` runs there with
-  `RELAY_GATE` unset (so the nested run skips `inert`: one level only);
-  fails when a step's result or the test count differs from the outer
-  run's (read from `.ci/steps/`). Proves that no outcome depends on an
-  inert file, which keeping a mark relies on. Cost: the gate takes about
-  twice the plain quick run (estimated 4-8 minutes instead of 2-4; B5
-  measures it), free. Cases: (1) `bin/ci --quick` without `RELAY_GATE`:
-  the skip line, green; (2) a committed test that reads `docs/handover.md`
-  and asserts on its content, under a fixture `relay gate`: `inert` RED;
-  (3) under `relay gate`, exactly one nested run (counted by a marker
-  file); (4) nothing changed: `inert` green.
+  worktree with changes: so HEAD is exactly the tree gated. Without
+  `RELAY_GATE` (a worker's loop on `bin/ci --quick`) there is no copy and
+  the loop keeps today's speed. The copy (Owner, 30 Oct: "Копия без служебных
+  файлов"): a temporary worktree at `RELAY_GATE`'s commit where every inert
+  file (`docs/handover.md`, `.relay/queue/**`, `.relay/checks/**`,
+  `.relay/changes/**`) is deleted, committed as "gate copy"; the steps run
+  there once, with `RELAY_GATE` unset; the step logs and the gate log are
+  written in the real worktree; the paid steps run in the real worktree after
+  the copy is removed. Two commits that differ only in inert files give the
+  same copy, so a green gate also stands for them (reuse), and a test that
+  reads an inert file goes red on its first gate. This replaces the earlier
+  second run with appended lines and planted files (the `inert` step), which
+  doubled the plain quick run. Cases: (1) `bin/ci --quick` without
+  `RELAY_GATE`: no copy, green; (2) a committed test that reads
+  `docs/handover.md` and asserts on its content, under a fixture
+  `relay gate`: the library tests step RED; (3) under `relay gate`, exactly
+  one test run (counted by a marker file); (4) the copies of two commits that
+  differ only in inert files are the same tree.
 - A15 `test_judge_base_part2`: `roles/judge.md` names `relay changed --own`
   in check step 1 and the linter line in "Each finding"; the checker's flow
   part and the delegate skill name `relay gate`.

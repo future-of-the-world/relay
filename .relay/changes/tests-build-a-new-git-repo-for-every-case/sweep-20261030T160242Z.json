@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0066,
+   "id": "a045c5c9c2ed20f5c",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "land",
+   "start": "2026-10-30T13:04:24.642Z",
+   "stop": "2026-10-30T13:32:05.157Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": "tests-build-a-new-git-repo-for-every-case",
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "tests-build-a-new-git-repo-for-every-case"
+}

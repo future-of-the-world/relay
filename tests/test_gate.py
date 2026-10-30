@@ -1,4 +1,4 @@
-"""`relay gate` (R1-R5) and the inert probe of bin/ci (A11) of docs/plans/review-gate.md sections 12.4 and 12.6.
+"""`relay gate` (R1-R5) and the gate copy of bin/ci (A11) of docs/plans/review-gate.md sections 12.4 and 12.6.
 
 Every repository is built in a temp directory; the gate commands are fixtures, never the real bin/ci of this repo
 except as the file the A11 fixture copies.
@@ -29,7 +29,7 @@ import repo_templates
 from fake_tools import install_fake
 from pidfile import wait_pid
 
-GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its nested probe) takes about a minute
+GATE_TIMEOUT = 900      # seconds a test waits for its gate; the slowest (a copied bin/ci with its gate copy) takes about a minute
 LEAK_GRACE = 5.0        # seconds a correct gate command (a loop that checks its folder) gets to end after the fixture's folder is removed
 GATE_STOP_GRACE = 600   # seconds the stopped gate has to end its command and free its slot
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t",
@@ -504,7 +504,7 @@ class Gate(Fixture):
 
 
 class Inert(Fixture):
-    """A11: bin/ci's last step `inert` runs only under `relay gate`, once, and is RED when a test reads an inert file."""
+    """A11: under `relay gate` bin/ci runs the tests once, on a copy without the inert files, so a test that reads one is RED."""
 
     TEST = (
         "import os, unittest\n\n"
@@ -525,16 +525,17 @@ class Inert(Fixture):
         write(os.path.join(main, ".gitignore"), ".ci/\n.worktrees/\n__pycache__/\n.ruff_cache/\n")      # what a real run of the copied gate leaves behind
         write(os.path.join(main, ".relay", "README.md"), "x\n")
         write(os.path.join(main, "docs", "handover.md"), "state\n")
+        write(os.path.join(main, ".relay", "queue", "x.json"), "{}\n")
         write(os.path.join(main, "tests", "test_x.py"), self.TEST % body)
         write(os.path.join(main, "evals", "plugin", "graders.py"), "raise SystemExit(0)\n")
         os.makedirs(os.path.join(main, "bin"))
         shutil.copy(os.path.join(ROOT, "bin", "ci"), os.path.join(main, "bin", "ci"))
         shutil.copy(os.path.join(ROOT, "deps.toml"), os.path.join(main, "deps.toml"))   # bin/ci reads the python pin
-        # the fixture tests the probe, not coverage: under coverage the test process's parent is `uv`, so the signal case below would kill uv
+        # the fixture tests the copy, not coverage: under coverage the test process's parent is `uv`, so the signal case below would kill uv
         # and not the gate program
         write(os.path.join(main, ".claude", "kit.toml"), '[metrics]\ncoverage = "off"\n')
         os.makedirs(os.path.join(main, "lib"))
-        for module in ("relay_ci.py", "relay_ci_lines.py", "relay_ci_python.py", "relay_ci_probe.py"):   # the wrapper runs relay_ci, which imports the others
+        for module in ("relay_ci.py", "relay_ci_lines.py", "relay_ci_python.py", "relay_ci_copy.py"):   # the wrapper runs relay_ci, which imports the others
             shutil.copy(os.path.join(ROOT, "lib", module), os.path.join(main, "lib", module))
         # the copied gate's library tests run through the unittest runner that gives every test its temporary folders
         for name in ("run_unittest.py", "parallel_unittest.py", "tmp_default.py", "leaked_gates.py"):
@@ -558,92 +559,78 @@ class Inert(Fixture):
     def runs(self):
         return len(read(self.marker).splitlines()) if os.path.exists(self.marker) else 0
 
-    def test_without_relay_gate_the_step_is_skipped(self):
-        """A11 (1): plain `bin/ci --quick` prints the skip line, is green, and runs the tests once."""
+    def gate_log(self):
+        head = git(self.wt, "rev-parse", "HEAD~1")
+        return read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
+
+    def test_without_relay_gate_there_is_no_copy_and_the_tests_run_once(self):
+        """A plain `bin/ci --quick` makes no copy and runs the tests once."""
         self.project()
         run = subprocess.run(["bash", "bin/ci", "--quick"], capture_output=True, text=True, cwd=self.wt, env=self.env)
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-        self.assertIn("inert: skipped (runs under relay gate)", run.stdout)
+        self.assertNotIn("ran on a copy", run.stdout)
         self.assertEqual(self.runs(), 1)
 
-    def test_under_relay_gate_one_nested_run_and_green(self):
-        """A11 (3) and (4): under `relay gate` with nothing reading an inert file: `inert` ok, and exactly one nested run
-        (the marker file has the outer run's line and the nested run's: 2)."""
+    def test_under_relay_gate_the_tests_run_once_on_a_copy_and_the_gate_is_green(self):
+        """The test runner appends a line per start to a file: exactly one line (two with the old second run). The gate's
+        last lines say it ran on a copy."""
         self.project()
         run = self.gate(self.wt, "--", "--quick")
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-        self.assertEqual(self.runs(), 2)
-        head = git(self.wt, "rev-parse", "HEAD~1")
-        self.assertIn("ci: inert ok", read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
+        self.assertEqual(self.runs(), 1)
+        self.assertIn("ran on a copy without queue, handover and check records; covers every commit with the same code", self.gate_log())
+        self.assertNotIn("inert", self.gate_log())
+        self.assertEqual(len(git(self.wt, "worktree", "list").splitlines()), 2)   # the copy is gone: main + the task's worktree
 
-    def test_a_test_reading_an_inert_file_turns_inert_red(self):
-        """A11 (2): a committed test asserts on docs/handover.md. The outer run passes ("state"); the nested run, where
-        the file got a probe line, fails: the step results differ, so `inert` is RED and so is the gate."""
+    def test_a_test_reading_the_handover_turns_the_gate_red(self):
+        """A committed test asserts on docs/handover.md. The real file says "state"; the copy has none: library tests RED."""
         self.project("        with open('docs/handover.md') as handle:\n"
                      "            self.assertEqual(handle.read(), 'state\\n')\n")
         run = self.gate(self.wt, "--", "--quick")
         self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
-        head = git(self.wt, "rev-parse", "HEAD~1")
-        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
-        self.assertIn("ci: inert FAILED", log)
-        self.assertIn("ci: library tests ok", log)       # the outer run itself was green
-        self.assertEqual(self.runs(), 2)
+        self.assertIn("ci: library tests FAILED", self.gate_log())
+        self.assertEqual(self.runs(), 1)
 
-    def test_an_inert_red_shows_the_whole_diff_and_keeps_the_nested_log(self):
-        """Case 5: the red `inert` line is followed by every line of the difference (the probe's step result), not only the
-        lines with FAIL in them, and the probe's own output stays in .ci/steps/inert-nested.log."""
-        self.project("        with open('docs/handover.md') as handle:\n"
-                     "            self.assertEqual(handle.read(), 'state\\n')\n")
-        self.gate(self.wt, "--", "--quick")
-        head = git(self.wt, "rev-parse", "HEAD~1")
-        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
-        # the probe's "library tests FAILED" line is a '+' line of the diff; it has no FAIL-matching word besides that one
-        self.assertIn("+++ probe run", log)
-        self.assertIn("+library tests FAILED", log)
-        self.assertIn("-library tests ok", log)
-        self.assertIn("ci: library tests FAILED", read(os.path.join(self.wt, ".ci", "steps", "inert-nested.log")))   # the probe run itself, as it printed it
-
-    def test_a_probe_that_is_killed_turns_inert_red_and_leaves_no_worktree(self):
-        """Case 2: the nested run is killed (SIGKILL) halfway: `inert` is FAILED, not ok, and `git worktree list` shows only
-        the main checkout and the task's worktree. Only the nested run lacks RELAY_GATE, so only it kills its own parent
-        (the gate program)."""
-        self.env["RELAY_TEST_JOBS"] = "1"     # the test kills its parent: with one job that is the nested run's own test process
-        self.project("        if not os.environ.get('RELAY_GATE'):\n"
-                     "            os.kill(os.getppid(), 9)\n")
+    def test_a_test_listing_the_queue_turns_the_gate_red(self):
+        self.project("        self.assertEqual(os.listdir('.relay/queue'), ['x.json'])\n")
         run = self.gate(self.wt, "--", "--quick")
         self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
-        head = git(self.wt, "rev-parse", "HEAD~1")
-        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
-        self.assertIn("ci: inert FAILED", log)
-        self.assertNotIn("ci: inert ok", log)
-        self.assertIn("stopped by signal 9", log)
+        self.assertIn("ci: library tests FAILED", self.gate_log())
+
+    def test_a_test_reading_the_handover_from_git_head_turns_the_gate_red(self):
+        """The copy's HEAD is the "gate copy" commit, which has no handover."""
+        self.project("        import subprocess\n"
+                     "        out = subprocess.run(['git', 'show', 'HEAD:docs/handover.md'], capture_output=True, text=True).stdout\n"
+                     "        self.assertEqual(out, 'state\\n')\n")
+        run = self.gate(self.wt, "--", "--quick")
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        self.assertIn("ci: library tests FAILED", self.gate_log())
+
+    def test_the_copy_has_no_relay_gate_in_its_environment(self):
+        self.project("        self.assertNotIn('RELAY_GATE', os.environ)\n")
+        run = self.gate(self.wt, "--", "--quick")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    def test_the_copys_commit_is_named_gate_copy(self):
+        self.project("        import subprocess\n"
+                     "        out = subprocess.run(['git', 'log', '-1', '--format=%s'], capture_output=True, text=True).stdout\n"
+                     "        self.assertEqual(out.strip(), 'gate copy')\n")
+        run = self.gate(self.wt, "--", "--quick")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+
+    def test_a_gate_stopped_at_its_limit_during_the_tests_leaves_this_gates_step_log(self):
+        """Review F7: the step log is written in the real worktree, so a stop leaves this gate's output, not the last one's."""
+        self.project("        print('THIS-GATE-OUTPUT', flush=True)\n"
+                     "        import time\n"
+                     "        time.sleep(600)\n")
+        write(os.path.join(self.wt, ".ci", "steps", "library-tests.log"), "OLD-GATE-OUTPUT\n")
+        self.env["RELAY_CI_QUICK_LIMIT"] = "60"
+        self.env["RELAY_TEST_JOBS"] = "1"
+        run = self.gate(self.wt, "--", "--quick")
+        self.assertNotEqual(run.returncode, 0, run.stdout + run.stderr)
+        text = read(os.path.join(self.wt, ".ci", "steps", "library-tests.log"))
+        self.assertNotIn("OLD-GATE-OUTPUT", text)
         self.assertEqual(len(git(self.wt, "worktree", "list").splitlines()), 2)
-
-    def test_a_full_run_is_probed_with_its_hook_suites_in_full(self):
-        """The case count must not depend on the mode: a test file with 2 tests in full mode and 1 under RELAY_QUICK=1
-        (as guard-main's shared cases) gives "Ran 3" in a full outer run (1 sample test of the fixture + 2); the nested
-        probe run is quick for the paid steps only, so it must count the same, else `inert` was red. The full outer run
-        ends red here (the fixture has no eval-record); only the `inert` line is asserted."""
-        self.project()
-        write(os.path.join(self.wt, "tests", "test_y.py"),
-              "import os, unittest\n\nclass Y(unittest.TestCase):\n    def test_one(self):\n        pass\n\n"
-              "if os.environ.get('RELAY_QUICK') != '1':\n    Y.test_two = lambda self: None\n")
-        git(self.wt, "add", "-A")
-        git(self.wt, "commit", "-q", "-m", "mode dependent suite")
-        self.gate(self.wt, "--")
-        head = git(self.wt, "rev-parse", "HEAD~1")
-        log = read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log"))
-        self.assertIn("ci: inert ok", log)
-
-    def test_f9_the_probe_plants_files_under_the_stored_json_names(self):
-        """F9: a test that breaks on an unknown queue item or check JSON (as a reader listing the folders would) turns
-        `inert` red: the probe planted .relay/queue/zz-probe.json, .relay/checks/zz.review.json and zz.check.json."""
-        self.project("        for rel in ('.relay/queue/zz-probe.json', '.relay/checks/zz.review.json', '.relay/checks/zz.check.json'):\n"
-                     "            self.assertFalse(os.path.exists(rel), rel)\n")
-        run = self.gate(self.wt, "--", "--quick")
-        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
-        head = git(self.wt, "rev-parse", "HEAD~1")
-        self.assertIn("ci: inert FAILED", read(os.path.join(self.wt, ".relay", "checks", head + ".gate.log")))
 
 
 class LeakedGates(Fixture):

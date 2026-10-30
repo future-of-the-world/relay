@@ -1937,3 +1937,26 @@ Each branch waits for its answer; then a fix unit with the review's other findin
 ### Next steps
 1. When the VPS change lands: confirm no new Python-*.ips crash reports, close the python-aborts item, turn the crash dialog back on.
 2. Next handover worktree: handover-51.
+
+## Addendum 39 (30 Oct, ~16:00 UTC; session 6c217ef4)
+
+### Landed since addendum 38
+- Red paid run fixed: plugin lib symlinks are swapped for real files while plugin evals run (plan-one-line passes 3 of 3).
+- A branch with no own commit is never "landed" (the live case: a design-mode start whose plan landed on master; the hook advised closing an item still being built).
+- The precheck's 60 s timeout names the step still running and the next step.
+
+### Front decisions (owner can reverse)
+- Kept the just-started-branch item open for its live cause instead of closing on a narrower fix (review F3).
+- The fix for the Python 3.14 SIGABRT crash windows (watch_stdin uses os.read) went into the VPS change; item python-aborts-at-exit-in-gates-macos-shows-crash is taken by wt/gates-on-the-vps-hosts-transport-watch-b and closes there with tests/test_gate_ssh.py::test_a_normal_end_with_standard_input_still_open_exits_0.
+
+### In progress
+- VPS changes 3-4 (wt/gates-on-the-vps-hosts-transport-watch-b): ready except a gate and check of bin/relay after the merge of master (f0057d83); then `relay queue done python-aborts-... --test tests/test_gate_ssh.py::test_a_normal_end_with_standard_input_still_open_exits_0` on that branch, then `relay land wt/gates-on-the-vps-hosts-transport-watch-b --keep-open` (the feature has change 5 left: bring-up on the real VPS, owner's root-access question open). After it lands: confirm no new ~/Library/Logs/DiagnosticReports/Python-*.ips during a gate, then `defaults delete com.apple.CrashReporter DialogType` to bring the crash dialog back.
+- Quick gate build (wt/speed-up-the-quick-gate), precheck fix landing, paid run on master 6f1799bf (log in the session scratchpad logs/paid-6f1799bf.log; green -> relay sync; red -> one fix item at the top).
+- Digest branch on hold for the owner's look at the new preview (waiting questions printed in full with their intro).
+
+### Queued today
+- the-cycle-s-closer-names-tests-as-class-test-don (ip 86): the cycle closes with <file>::<Class>.<test>, relay queue done wants <file>::<test>; twice closed by hand.
+
+### Next steps
+1. Fill free fix lanes in ip order (86 closer test names, 84 branch names, 82 pytest without relay).
+2. Next handover worktree: handover-52.
