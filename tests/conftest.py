@@ -6,6 +6,7 @@ for its own duration; no test needs the real folders, so there is no opt-out.
 The autouse fixture also applies to unittest-style classes."""
 
 import os
+import shutil
 import sys
 import tempfile
 from typing import Iterator
@@ -16,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import relay_tokens  # the machine-wide pool of test tokens (lib/relay_tokens.py)
+import run_unittest  # own_pool_home: the same pool choice as bin/ci's unittest runner
 import tmp_default  # the shared definition; bin/ci's unittest runner (tests/run_unittest.py) uses it too
 
 tmp_default.RUN_TEMP = tempfile.gettempdir()      # before any test's own TMPDIR
@@ -35,12 +37,19 @@ def _temporary_relay_and_claude(tmp_path_factory: pytest.TempPathFactory, monkey
 
 
 _session_base: list[relay_tokens.RunBase] = []
+_session_temp_homes: list[str] = []      # a pool folder made for a machine without relay; removed at the end
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
     """A pytest session is one test run: it takes one shared token of the machine's pool (waiting, with a line saying so) unless a
-    holder above it passed a base down. This runs before the per-test RELAY_HOME switch, so it reads the real pool."""
-    base = relay_tokens.acquire_run_base(dict(os.environ), lambda line: print("pytest: " + line, file=sys.stderr, flush=True))
+    holder above it passed a base down. This runs before the per-test RELAY_HOME switch, so it reads the real pool; on a machine
+    with no pool yet (and none passed down) it uses a temporary one, so HOME is left as it was."""
+    environ = dict(os.environ)
+    home = run_unittest.own_pool_home(environ)
+    if home != relay_tokens.run_home(environ):
+        _session_temp_homes.append(home)
+        environ["RELAY_HOME"] = home
+    base = relay_tokens.acquire_run_base(environ, lambda line: print("pytest: " + line, file=sys.stderr, flush=True))
     _session_base.append(base)
     if not base.passed:      # the session's children (tests that start runners on this pool) find the base it holds
         os.environ[relay_tokens.ENV_HOLD] = relay_tokens.hold_value(1, base.home)
@@ -50,3 +59,6 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     for base in _session_base:
         base.held.release()
     _session_base.clear()
+    for home in _session_temp_homes:
+        shutil.rmtree(home, ignore_errors=True)
+    _session_temp_homes.clear()
