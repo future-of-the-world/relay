@@ -1,0 +1,43 @@
+{
+  "kind": "feature",
+  "ip": 90,
+  "time": 120,
+  "found_at": "2026-10-30T05:18:42Z",
+  "found_in": "relay queue add",
+  "title": "Documentation leaves the repository",
+  "what": [
+    "Each file under docs/ is either removed, or its needed content moves where relay ships it (a command's --help, an error or refusal text, install.sh output, a plugin's skill or rule, the queue), or it stays with a stated reason. Readers of docs/ in code, hooks, skills and tests are changed to match."
+  ],
+  "why": [
+    "Owner, 30 Oct: the vector is no documentation in the repository: what a person or an agent needs ships with relay itself (install.sh, `relay --help`, `relay setup --help`, error hints, plugin texts); \"why\" questions are answered by an agent reading the code and by the queue's recorded decisions; the handover's role goes to the queue or to local files. In line with the owner's manifesto of 29 Oct (\"Никаких документаций, исключения - --help и подсказки в командах ... максимум ... краткий набор инструкций в README.md\")."
+  ],
+  "pass_cases": [
+    "`ls docs` lists only files with a recorded reason to stay.",
+    "No hook, skill, test or program reads a removed file.",
+    "A fresh session can set up relay and answer \"how does X work\" from relay's own texts and code."
+  ],
+  "where": [
+    "docs/setup.md",
+    "docs/design.md",
+    "docs/delegation.md",
+    "docs/handover.md"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T05:18:42Z",
+      "said": [
+        "Почему setup.md лежит в репозитории, я бы хотел чтобы вся документация шла в комплекте с утилитой relay, install.sh и relay setup --help или relay --help уже содержат всю необходимую информацию, design.md - разве это нельзя воспроизвести за один прого Haiku, он будет стоить меньше 5$ для ответа на любой вопрос, delegation.md тоже самое - вся информация уже хранится в плагинах",
+        "",
+        "handover.md - задача уже заведена, думаю что задачи вполне могут выполнять эту функцию, или же впоследствии это будет делегировано локальным файлам на компьютере",
+        "",
+        "Мой вектор это избавление от документации в репозитории, проведи анализ"
+      ]
+    }
+  ]
+}

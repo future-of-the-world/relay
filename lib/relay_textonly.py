@@ -32,6 +32,7 @@ RULE_TESTS = (
     "tests.test_session_profile",
     "tests.test_net_retry",
     "tests.test_delegate_small_builds",
+    "tests.test_review_goes_to_critic.ReviewGoesToACritic",
     "tests.test_queue.TestStructuredRule",
     "tests.test_lanes.Lanes",
     "tests.test_rules.Rules",

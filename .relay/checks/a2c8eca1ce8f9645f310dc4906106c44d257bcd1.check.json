@@ -1,0 +1,163 @@
+{
+  "branch": "wt/the-front-reviews-code-itself-instead-of",
+  "findings": [
+    {
+      "details": [
+        "30 Oct, bench review-offbyone (reports ~/.relay/bench/2026-10-29T23-05-04Z and 2026-10-29T23-11-39Z, 6 runs per profile): the Opus front started no critic in 5 of 12 runs (4 of 6 with the active profile, 1 of 6 with the Fable-judge profile) and reviewed the code itself; the grader delegated-to-a-critic failed. This also spoils any comparison of judge models: only 2 of 6 active runs reached an Opus critic. IP chosen by the front (agent-chosen).",
+        "Also: plugins/delegate/skills/delegate/SKILL.md"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay bench active --scenario review-offbyone --runs 4 (30 Oct): delegated-to-a-critic failed in runs 0 and 1 of the active profile."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "10 runs of review-offbyone with the active profile: delegated-to-a-critic passes in at least 9"
+      ],
+      "path": "plugins/front/skills/front/SKILL.md",
+      "rank": "high",
+      "reason": [
+        "tests/test_review_goes_to_critic.py:26 and :33 pass; the rule text is absent on the base commit, so they fail without the fix. Owner's bench: critic started 5 of 5 with the rule."
+      ],
+      "severity": "HIGH",
+      "since": "2ded9fe5f969c76e76eb77dbeb14b44723d57d7f",
+      "source": "queue",
+      "summary": "The front reviews code itself instead of starting a critic",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED that the changed texts are not read in the failing case; PLAUSIBLE that the always-loaded rule changes the outcome (only a bench run shows it, see F2).",
+        "The test's docstring gives the cause as the delegate row saying only \"a review before merge\", \"which a request 'review this function' did not match\". But the scenario's prompt is \"Review it before I merge\", which the old row matched word for word; and the front never loaded that skill anyway. The real cause seen in the transcripts is that the front decides at turn 1 from the system prompt alone: the 4 failing runs made 0 Skill calls, and the 2 passing runs started Agent(critic) before loading delegate:delegate. The always-loaded text (rules/delegation.md, lines 12-19) says the main session \"does not read long files ... or write code\" and that size is no reason to build itself, but says nothing about reviewing: a 6-line diff is not a \"long file\", so the front reads it.",
+        "The project already met this exact pattern on 24 Oct (add-function built by the front itself): that fix went into rules/delegation.md (\"Size is no reason to do it yourself\"), with tests/test_delegate_small_builds.py on the rule text. This change follows the skill half of that fix and leaves out the rule half.",
+        "Size: 15 minutes (one sentence in rules/delegation.md, one test, relay sync)."
+      ],
+      "evidence": [
+        "cat evals/scenarios/review-offbyone/prompt.md -> \"... Review it before I merge: tell me what is wrong, with the file and line ...\"",
+        "lib/relay_bench.py:476 cmd += [\"--append-system-prompt\", <rules file>]  (skills come only through --plugin-dir and must be invoked)",
+        "Tool calls per transcript (~/.claude/projects/*/<session>.jsonl):",
+        "  f6feeeb9 (05-04Z run 0, failed): Bash x4, no Skill, no Agent",
+        "  28a52cdb (05-04Z run 1, failed): Read, Bash ... no Skill, no Agent",
+        "  8a99e46f (11-39Z run 0, failed): Bash x6, no Skill, no Agent",
+        "  e7fc8466 (11-39Z run 1, failed): Read, Bash ... no Skill, no Agent",
+        "  a51e9320 (11-39Z run 2, passed): Read, Bash, Agent(critic), Skill(delegate:delegate), Agent(delegate:critic)",
+        "  276a59ce (11-39Z run 3, passed): Bash, Agent(critic), Skill(delegate:delegate), Agent(delegate:critic)",
+        "grep -n review ~/.relay/bench/2026-10-29T23-05-04Z/rules-active.md -> only \"One good review, not several ...\" (line 171) and design-track lines; nothing says the front does not review itself."
+      ],
+      "failing_case": [
+        "relay bench active --scenario review-offbyone, prompt \"Review it before I merge: ...\". In every failing run the front calls Bash on `git diff master...wt/paging` at turn 1 and never calls the Skill tool, so neither plugins/front/skills/front/SKILL.md nor plugins/delegate/skills/delegate/SKILL.md enters its context; the new lines are never read and the front reviews the diff itself, as before. Expected: the text that forbids the front its own review sits where the front reads it before its first tool call: rules/delegation.md, which the bench passes through --append-system-prompt and relay sync writes into CLAUDE.md."
+      ],
+      "fix_hint": [
+        "Add one sentence to the first bullet of rules/delegation.md, beside \"Size is no reason to do it yourself\": \"A request to review code (a function, a file, a diff, a branch) goes to a `critic` however small; the main session never reads the code and judges it itself.\" Assert it in tests/test_review_goes_to_critic.py, correct the docstring's cause, and run relay sync so CLAUDE.md carries it."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 12,
+      "pass_cases": [
+        "1. rules/delegation.md (the always-loaded text) holds a line saying a request to review code (a function, a file, a diff, a branch), however small, goes to a `critic` and the main session never reads the code and judges it itself; a test in tests/test_review_goes_to_critic.py asserts it, like tests/test_delegate_small_builds.py does for small builds.",
+        "2. The rules file the bench builds for the active profile (rules-<profile>.md, from rules/*.md) contains that line: a test builds it with relay_bench's rules function and asserts the line is there.",
+        "3. The delegate skill row and the front skill section added by this change stay (they help once a skill is loaded); the existing tests in tests/test_review_goes_to_critic.py still pass.",
+        "4. tests/test_delegate_small_builds.py and tests/test_agents.py still pass (the delegation rule keeps its existing lines)."
+      ],
+      "path": "rules/delegation.md",
+      "rank": "high",
+      "reason": [
+        "rules/delegation.md:16-18 carries the line; tests/test_review_goes_to_critic.py:26 (rule text) and :33 (active-profile bench rules file) pass."
+      ],
+      "severity": "HIGH",
+      "since": "6325bd8c3b49a2ddeab09a49ce0f2236ba3bab33",
+      "source": "review-the-front-reviews-code-itself-instead-of.json",
+      "source_id": "F1",
+      "summary": "the fix is written only into two skills that the failing front never loads, so the bench failure it targets cannot change",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Question for the owner. The item's promise is a behaviour rate, which only a paid bench run can show; the brief said \"no paid run\", and the project rule gives agent and skill texts one paid run after a wave, but that paid run (bin/ci) does not include the bench scenarios, so nothing in the flow ever measures this pass case. Cost, measured from the cited bench: $0.31 per active run, so 10 runs are about $3 and about 6 minutes of wall time (33 s each).",
+        "Options: (a) after F1 is fixed, run the 10-run bench once before closing the item (about $3), recommended, because 2 of 6 runs is the current rate and the wording tests cannot show a change; (b) close it on the wording tests and leave the rate to the next bench the owner asks for.",
+        "PLAUSIBLE until measured. Size: 10 minutes of agent time plus the bench run."
+      ],
+      "evidence": [
+        "grep -n \"scenarios|bench\" bin/ci lib/relay_ci.py -> no match",
+        "~/.relay/bench/2026-10-29T23-05-04Z/report.md: cost $ active $0.31, time 33s; failed: delegated-to-a-critic run 0, run 1",
+        "~/.relay/bench/2026-10-29T23-11-39Z/report.md: delegated-to-a-critic: run 0: started: none; run 1: started: none"
+      ],
+      "failing_case": [
+        "After merge the cycle closes the queue item with `relay queue done` on the strength of tests/test_review_goes_to_critic.py, which checks that three phrases exist. The pass case \"10 runs of review-offbyone with the active profile: delegated-to-a-critic passes in at least 9\" is not run by the gate, and bin/ci's paid run does not run evals/scenarios (grep of bin/ci for \"scenarios\" or \"relay bench\" finds nothing). So the item is marked fixed while the measured rate is unknown; today it is 2 of 6 (active profile, 30 Oct). Expected: the item closes only after a bench measurement meets 9 of 10, or stays open with the measurement still owed."
+      ],
+      "fix_hint": [
+        "Owner's choice; with (a) the front runs `relay bench active --scenario review-offbyone --runs 10` on the default branch after merge and records the count in the item before `relay queue done`."
+      ],
+      "id": "F2",
+      "kind": "question",
+      "line": 1,
+      "owner": [
+        {
+          "date": "2026-10-30",
+          "words": [
+            "- a. \u0414\u0430, \u043e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c (\u0440\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u044e): 5 \u0438\u0437 5 \u043f\u0440\u043e\u0442\u0438\u0432 7 \u0438\u0437 12 \u2014 \u044f\u0432\u043d\u0430\u044f \u0440\u0430\u0437\u043d\u0438\u0446\u0430. (Owner, 30 Oct, on the Gap \"the rate is not measured\": bench 2026-10-30T02-11-19Z, the front started a critic in 5 of 5 runs with the new rule, 7 of 12 without.)"
+          ]
+        }
+      ],
+      "pass_cases": [
+        "1. relay bench active --scenario review-offbyone --runs 10 on the merged rule text: delegated-to-a-critic passes in at least 9 of 10 (the item's own pass case), recorded in the item.",
+        "2. If it passes in fewer than 9, the item is not closed; the result (n of 10) is recorded in the item."
+      ],
+      "path": "tests/test_review_goes_to_critic.py",
+      "rank": "medium",
+      "reason": [
+        "Rate was measured by the owner's bench (5 of 5 vs 7 of 12) and the owner said it is not wrong; no test in the gate, view: acceptable."
+      ],
+      "severity": "MEDIUM",
+      "since": "6325bd8c3b49a2ddeab09a49ce0f2236ba3bab33",
+      "source": "review-the-front-reviews-code-itself-instead-of.json",
+      "source_id": "F2",
+      "summary": "the item's only pass case (critic started in at least 9 of 10 bench runs) is never run: the item closes on wording tests alone",
+      "verdict": "GAP"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Correct today, only a project-rule breach; cheap. Size: 5 minutes."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "def test_delegate_row_covers_any_review_request(self): and def test_front_skill_forbids_reviewing_itself(self): have no `-> None`; the project rule (CLAUDE.local.md, Python) says every new or changed function has types. The types lint does not catch test methods, so the gate stays green."
+      ],
+      "fix_hint": [
+        "Add `-> None` to both methods."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 20,
+      "pass_cases": [
+        "1. Both test methods read `def ...(self) -> None:`.",
+        "2. The file's tests still pass under bin/ci --quick."
+      ],
+      "path": "tests/test_review_goes_to_critic.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_review_goes_to_critic.py:19,24,... all test methods have -> None."
+      ],
+      "severity": "LOW",
+      "since": "6325bd8c3b49a2ddeab09a49ce0f2236ba3bab33",
+      "source": "review-the-front-reviews-code-itself-instead-of.json",
+      "source_id": "F3",
+      "summary": "the two new test methods have no return type, against the project's Python rule that every new function has types",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "ee112763629b094dd3c1c19c654b787fe68fafba.gate.log",
+  "head": "a2c8eca1ce8f9645f310dc4906106c44d257bcd1",
+  "item": "the-front-reviews-code-itself-instead-of-startin",
+  "notes": [
+    "The rule line in rules/delegation.md is not present on the base, so the new tests fail without the fix."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 6325bd8c..HEAD and 2ded9fe5..HEAD. Ran tests.test_review_goes_to_critic, test_delegate_small_builds, test_agents: 17 OK. Gate log head ee112763 exit 0; relay changed lists no file after it. Extra files (evals/plugin prompts, lib/relay_textonly.py) are the regenerated rules copy and test registration, needed by the fix."
+  ],
+  "type": "check"
+}
