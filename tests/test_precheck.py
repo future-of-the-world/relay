@@ -142,6 +142,9 @@ class TestTypesStep(Base):
         with open(uv, "w") as f:
             f.write('#!/bin/sh\ncase "$*" in *--offline*%s*) exit 2;; esac\nexit 0\n' % (missing or "NOTHING"))
         os.chmod(uv, 0o755)
+        # the first run of a freshly written executable can take seconds on macOS (the system scans it); pay that here, not inside the
+        # code's 3 s probe, which would then time out and name no cause
+        subprocess.run([uv, "warm-up"], capture_output=True, timeout=120)
         return {"PATH": bindir + os.pathsep + os.environ["PATH"]}
 
     def timed_out(self, body: str, missing: str) -> list[str]:
