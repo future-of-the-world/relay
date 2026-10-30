@@ -8,6 +8,9 @@ dir="$root/.worktrees"
 case "${1:-}" in
   new)
     name="${2:?name}"; base="${3:-{{branch}}}"
+    case "$name" in
+      queue-*) echo "bin/wt: the name prefix 'queue-' is reserved for queue-landing branches; pick another name (e.g. task-${name})" >&2; exit 2 ;;
+    esac
     mkdir -p "$dir"
     git -C "$root" worktree add "$dir/$name" -b "wt/$name" "$base" >/dev/null
     # TODO ({{stack}}): prepare the worktree so its check runs (dependencies, env). Examples:
