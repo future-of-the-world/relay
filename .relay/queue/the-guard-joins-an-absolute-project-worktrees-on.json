@@ -23,8 +23,8 @@
   "where": [
     "plugins/relay/hooks/guard_main.py:231"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T18:01:32Z",
+  "taken_by": "wt/the-guard-joins-an-absolute-project-worktrees-on",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
