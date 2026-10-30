@@ -24,8 +24,9 @@
   ],
   "taken_at": "2026-10-30T05:07:52Z",
   "taken_by": "wt/build-time-gates-on-the-vps-landing-gate",
-  "closed_at": null,
+  "closed_at": "2026-10-30T08:05:48Z",
   "test": null,
+  "evidence": "09441c929da37c12a3849cc2116ea1189a731112",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

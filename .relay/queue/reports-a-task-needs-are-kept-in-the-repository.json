@@ -11,8 +11,8 @@
   "why": [
     "30 Oct: designs, reviews (with the owner's words recorded against findings), fix reports and briefs live in the session's temporary folder, which macOS clears on restart; queue items and check records point at them by name. Measured 30 Oct: this session's folder holds 1354 report files (15 MB with briefs); all sessions' temporary folders for relay take 1.1 GB. A manual copy was made to the relay backup folder the same day. IP chosen by the front (agent-chosen)."
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T08:49:34Z",
+  "taken_by": "wt/reports-a-task-needs-are-kept-in-the-rep",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

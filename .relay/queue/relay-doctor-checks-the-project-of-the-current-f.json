@@ -21,5 +21,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T08:20:50Z",
+      "fact": [
+        "Reproduced 30 Oct by the trial on a copy of relay cleaned of relay: `cd proj && relay doctor` printed only '# This machine' (rc 1); the project section appears only with `relay doctor <dir>`, while setup's own closing line says 'Check: relay doctor <dir>'."
+      ]
+    }
+  ]
 }

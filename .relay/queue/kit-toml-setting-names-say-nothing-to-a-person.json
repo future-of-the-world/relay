@@ -1,0 +1,51 @@
+{
+  "kind": "fix",
+  "ip": 80,
+  "time": 60,
+  "found_at": "2026-10-30T08:58:03Z",
+  "found_in": "relay queue add",
+  "title": "kit.toml setting names say nothing to a person",
+  "what": [
+    "Plain names with units, chosen by the front (owner: \"ты можешь перефразировать эти названия полей по своему\"; owner can reverse): typed_only -> typed_agents_only (the owner's name); fork_limit -> no_session_copy_above_tokens; max_parallel -> max_agents_per_change; build_tier_opus = escalate|allow|deny -> opus_for_builders = \"after_a_failure\" | \"always\" | \"never\". Every key in the kit.toml setup writes gets a one-line comment saying what it does for the person; the other keys are read the same way and renamed where their name needs relay's internals. A migration renames them in existing kit.toml files with one line; old names are refused with the new name in the message."
+  ],
+  "why": [
+    "Owner, 30 Oct, reading the kit.toml relay setup writes (shown on the setup walkthrough page): the [delegate] keys name how the code is built, carry no units and need relay's internals to read (principle 10: a message to the user that needs the program's internal names). Facts, 30 Oct: lib/relay_config.py:118-122 defaults typed_only = true, fork_limit = 100000 (tokens), max_parallel = 4, build_tier_opus = \"escalate\" (escalate | allow | deny); readers: lib/relay_config.py, lib/relay_analyze.py, plugins/delegate/hooks/route-guard.py; only relay is registered in projects.toml, so one existing kit.toml to migrate."
+  ],
+  "failing_case": [
+    "The kit.toml `relay setup` writes holds [delegate] fork_limit = 100000 and build_tier_opus = \"escalate\" with no comment; the owner could not tell what build_tier_opus does."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "setup writes the new names, each with a comment",
+    "an old kit.toml is migrated with one line",
+    "an old name left in a file is refused naming its new name",
+    "the route guard reads the new names"
+  ],
+  "where": [
+    "lib/relay_config.py",
+    "lib/relay_setup.py",
+    "plugins/delegate/hooks/route-guard.py",
+    "lib/relay_analyze.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T08:58:03Z",
+      "said": [
+        "Измени названия полей",
+        "",
+        "typed_only - typed_agents_only",
+        "fork_limit - session_fork_limit",
+        "max_parallel - max_parallel_agents_per_change",
+        "build_tier_opus - я даже не знаю что это такое",
+        "",
+        "Отчасти я думаю что такое переименование бессмысленно - ведь читает его агент, а ему наверное всё равно, но думаю ты понял на какой дефект я хочу указать, ты можешь перефразировать эти названия полей по своему"
+      ]
+    }
+  ]
+}

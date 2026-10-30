@@ -24,10 +24,10 @@
     "plugins/delegate/workflows/cycle.js",
     "plugins/delegate/agents/checker.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T08:07:56Z",
+  "taken_by": "wt/a-feature-s-check-stops-the-cycle-with-n",
+  "closed_at": "2026-10-30T08:45:48Z",
+  "test": "tests/test_cycle_workflow.py::test_feature_item_with_empty_q1_test_is_picked_by_the_closer",
   "dropped_at": null,
   "dropped_why": null
 }

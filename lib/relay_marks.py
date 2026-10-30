@@ -6,6 +6,7 @@ This module is the only code that reads or writes the folder `.relay/checks/` on
                           check names the record below; the counts are the record's own (relay_verdict.open_of)
     <commit>.check.json   the check record (relay_verdict.py): the item's problem, the reviews' findings, one verdict for
                           each, the gate; the only stored form of a check, read by `relay_verdict.load_record`
+    <commit>.remote.gate.log  a gate run on the VPS (never read by the merge hook)
     <commit>.gate.log     the gate log: first line `head <commit>`, last line `exit <n>`
 
 Writes are git commits made with `add` then `commit --no-verify --only -- <files>`: other staged changes stay
@@ -236,6 +237,24 @@ def gate_logs(repo, ref):
     return found
 
 
+def remote_gate_logs(repo: str, ref: str) -> list[tuple[str, int, str]]:
+    """[(commit, exit, host)] for every remote gate log (`<commit>.remote.gate.log`) at `ref` in the gate's form, as `gate_logs`
+    reads Mac logs. The merge hook never calls this: only `gate_logs` decides a merge."""
+    found = []
+    for name in _names(repo, ref):
+        if not (name.endswith(".remote.gate.log") and is_sha(name[:-16])):
+            continue
+        text = _show(repo, ref, name)
+        lines = text.splitlines() if text else []
+        if not lines or lines[0].strip() != "head " + name[:-16]:
+            continue
+        match = re.match(r"^exit (\d+)$", lines[-1].strip())
+        if match:
+            host = next((l.split()[1] for l in lines[:6] if l.startswith("host ") and len(l.split()) > 1), "the remote host")
+            found.append((name[:-16], int(match.group(1)), host))
+    return found
+
+
 def newest(repo, ref, items):
     """The item of `items` ((commit, value) pairs) whose commit is the newest ancestor of `ref` (git's own order from
     `ref` back), or None."""
@@ -313,6 +332,10 @@ def show(repo: str, branch: str, sleep=time.sleep) -> list[str]:
     except ValueError as exc:
         raise MarkError(str(exc))
     lines = ["gate %s: exit %d" % gate if gate else "gate: none yet"]
+    remote = newest(repo, ref, [(c, (code, host)) for c, code, host in remote_gate_logs(repo, ref)])
+    if remote and (gate is None or remote[0] != gate[0] and relay_git.git(repo, "merge-base", "--is-ancestor", gate[0], remote[0])[0] == 0):
+        # the newest gate ran on the VPS: say where, and show the newest Mac log (the one the merge hook reads) on a line of its own
+        lines = ["gate %s: exit %d (on %s)" % (remote[0], remote[1][0], remote[1][1]), "landing gate (this Mac): %s" % ("%s exit %d" % gate if gate else "none yet")]
     fork = relay_git.git(repo, "merge-base", default, ref)[1].strip()
     if not relay_inert.changed(repo, fork, ref):    # the merge hook's step 3: nothing but inert files, no mark is asked for
         return lines + ["mark: none needed, no code changed", "outside: none to count"]

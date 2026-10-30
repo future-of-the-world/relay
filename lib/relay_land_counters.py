@@ -56,19 +56,21 @@ def code_landings(main: str, default: str, since: Optional[str], until: Optional
     return found
 
 
-def gate_counts(main: str, spans: list[tuple[str, str]]) -> tuple[int, int]:
-    """(all gate logs, take gates) in the spans: a take gate is a gate log whose head is a merge commit."""
-    every = takes = 0
+def gate_counts(main: str, spans: list[tuple[str, str]]) -> tuple[int, int, int]:
+    """(all Mac gate logs, take gates, remote gate logs) in the spans: a take gate is a Mac gate log whose head is a merge commit."""
+    every = takes = remote = 0
     for old, new in spans:
         rc, out = relay_git.git(main, "log", "--format=%s", f"{old}..{new}")
         for subject in out.splitlines() if rc == 0 else []:
-            if subject.startswith("relay: gate of "):
+            if subject.startswith("relay: remote gate of "):
+                remote += 1
+            elif subject.startswith("relay: gate of "):
                 every += 1
                 head = subject[len("relay: gate of "):].strip()
                 rc, parents = relay_git.git(main, "rev-list", "--parents", "-n", "1", head)
                 if rc == 0 and len(parents.split()) > 2:
                     takes += 1
-    return every, takes
+    return every, takes, remote
 
 
 @dataclass
@@ -132,11 +134,12 @@ def stats(repo: str, since: Optional[str], until: Optional[str]) -> list[str]:
     import relay_queue
     main, default = relay_queue._context(repo)
     spans = code_landings(main, default, since, until)
-    every, takes = gate_counts(main, spans)
+    every, takes, remote = gate_counts(main, spans)
     n = len(spans)
     lines = [f"{LABELS['landings']}: {n}",
              f"{LABELS['all']}: {_fmt(every / n) if n else 'none'} ({every} gate logs)",
-             f"{LABELS['take']}: {_fmt(takes / n) if n else 'none'} ({takes} take gates)"]
+             f"{LABELS['take']}: {_fmt(takes / n) if n else 'none'} ({takes} take gates)",
+             f"remote gate logs: {remote}"]
     events, unreadable = read_events(main)
     low, high = _when(since), _when(until)
     events = [e for e in events if (low is None or datetime.fromisoformat(e.ts).timestamp() >= low) and (high is None or datetime.fromisoformat(e.ts).timestamp() <= high)]

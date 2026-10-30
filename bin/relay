@@ -653,7 +653,8 @@ def cmd_gate(args):
         code, log, red = relay_gate.run(worktree, extra, quick=quick, again=again)
     except relay_gate.GateRefused as exc:
         raise ValueError(str(exc))
-    print("gate %s: exit %d" % (os.path.basename(log)[:-len(".gate.log")], code))
+    sha, host = relay_gate.log_sha_host(log)
+    print("gate %s: exit %d%s" % (sha, code, " (on %s)" % host if host else ""))
     print(log)
     for line in red:
         print(line)

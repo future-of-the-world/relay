@@ -40,6 +40,12 @@
       "fact": [
         "Measured 25 Oct in the same throwaway project: `relay doctor shop` gave 31 ok and 6 to fix. The fixes: mypy not installed (the machine), the ledger empty (no sessions), and 4 plugins (core, delegate, front, observe) not installed at project scope: setup only switched them on in settings and neither ran `claude plugin install ... --scope project` nor listed it as a to-do."
       ]
+    },
+    {
+      "at": "2026-10-30T08:20:50Z",
+      "fact": [
+        "Reproduced 30 Oct by the trial on a copy of relay cleaned of relay (sandbox HOME, claude stubbed to fail): `relay setup` printed no 'enabled but not installed' to-do, and `relay doctor <dir>` right after reported 4 FIX '<plugin>@amidman installed (claude plugin install ... --scope project)'."
+      ]
     }
   ]
 }
