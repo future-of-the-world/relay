@@ -93,7 +93,7 @@ def _sha(repo, rev):
     return sha
 
 
-def _merge_base(repo, one, other):
+def _merge_base(repo: str, one: str, other: str) -> str:
     base = relay_git.merge_base(repo, one, other)
     if base is None:
         raise ValueError(f"git merge-base {one} {other} failed in {repo}")
