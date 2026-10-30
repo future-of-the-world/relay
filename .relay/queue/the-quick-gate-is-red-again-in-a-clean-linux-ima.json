@@ -31,5 +31,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T03:58:39Z",
+      "fact": [
+        "Front decision (owner can reverse; principle 1 cheap before expensive): \"keep it green\" is one step of the paid run (once per wave) running the clean-image quick gate, not a step of every gate: a container quick gate took ~21 min at load 30-43 on this Mac (30 Oct). The VPS Linux watch (item build-time-gates-on-the-vps-landing-gate-on-the) replaces it later. First cycle (30 Oct) ended open 2: no step ran the image, the lock wait in lib/relay_gate.py has no bound without lsof, and the image result was not reproduced."
+      ]
+    }
+  ]
 }
