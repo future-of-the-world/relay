@@ -1,5 +1,6 @@
 """A project of plain .py files is a python project, and an unfilled template gate step fails (queue: python green check)."""
 import os
+import signal
 import subprocess
 import sys
 import tempfile
@@ -193,13 +194,54 @@ class PythonGate(Base):
         self.assertIn('"tests"', red[0])
 
     def test_setup_todo_has_no_red_warning_when_the_test_tool_is_installed(self):
-        todo = self.setup_proj({"tally.py": "", "test_tally.py": ""}) if self.python_has_pytest() else None
-        if todo is None:
-            self.skipTest("python3 on this machine has no pytest")
+        # python3 = this interpreter with a stand-in pytest on PYTHONPATH, so the case runs on every machine
+        self.install_shim()
+        shim = os.path.join(self.proj, ".shim")
+        with mock.patch.dict(os.environ, {"PATH": shim + os.pathsep + os.environ["PATH"], "PYTHONPATH": shim}):
+            todo = self.setup_proj({"tally.py": "", "test_tally.py": ""})
         self.assertEqual([t for t in todo if "stays red" in t], [])
 
-    def python_has_pytest(self):
-        return subprocess.run(["python3", "-c", "import pytest"], capture_output=True).returncode == 0
+    def render_ci(self, steps):
+        dest = os.path.join(self.proj, "bin", "ci")
+        self.rs.copy_template("bin-ci", dest, mode_exec=True, replacements={"tool": "x", "stack": "x", "branch": "main", "ci_steps": steps})
+        return dest
+
+    def test_ci_log_keeps_the_output_of_a_step_killed_at_the_time_limit(self):
+        # the gate kills the process group of bin/ci with SIGKILL; a hung step's lines must already be in .ci/ci.log
+        dest = self.render_ci('step "tests" sh -c "echo \\$$ > step.pid; echo test_slow.py started; exec sleep 30"')
+        proc = subprocess.Popen([dest], cwd=self.proj, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        log = os.path.join(self.proj, ".ci", "ci.log")
+        try:
+            while True:  # wait on the condition: the line reaches the log while the step still runs
+                if os.path.exists(log) and "test_slow.py started" in open(log).read():
+                    break
+                self.assertIsNone(proc.poll(), "the line never reached the log while the step ran")
+            # the step (sh, pid in step.pid) must still be running when its line is already in the log
+            os.kill(int(open(os.path.join(self.proj, "step.pid")).read()), 0)
+        finally:
+            os.killpg(proc.pid, signal.SIGKILL)
+            proc.wait()
+            step_pid = int(open(os.path.join(self.proj, "step.pid")).read())
+            while True:  # wait until the step (exec'd into sleep) is gone, so nothing outlives the test
+                try:
+                    os.kill(step_pid, 0)
+                except (ProcessLookupError, PermissionError):
+                    break
+        self.assertIn("test_slow.py started", open(log).read())
+
+    def test_ci_summary_of_a_failing_step_does_not_show_an_earlier_steps_errors(self):
+        dest = self.render_ci('step "a" sh -c "echo error: old"\nstep "b" sh -c "echo boom; exit 1"')
+        r = subprocess.run([dest], cwd=self.proj, capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn("boom", r.stdout)
+        self.assertNotIn("error: old", r.stdout)
+
+    def test_ci_green_step_prints_one_line_and_logs_its_output(self):
+        dest = self.render_ci('step "a" sh -c "echo hello"')
+        r = subprocess.run([dest], cwd=self.proj, capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertRegex(r.stdout.splitlines()[0], r"^ci: a ok \(\d+s\)$")
+        self.assertIn("hello", open(os.path.join(self.proj, ".ci", "ci.log")).read())
 
 
 if __name__ == "__main__":
