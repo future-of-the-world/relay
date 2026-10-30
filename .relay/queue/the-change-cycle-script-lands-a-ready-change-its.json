@@ -86,6 +86,13 @@
         "a. only the screens and the reply rules the owner reads (about 3 stops per 55 landings; recommended)",
         "b. any text of the front plugin (about 18 stops per 55 landings, an upper bound: 18 commits touching the front plugin landed in 36 hours)",
         "c. none: relay's own texts never stop a landing"
+      ],
+      "answered_at": "2026-10-30T05:51:15Z",
+      "answer": [
+        "Мне не нравится какими порядками ты рассуждаешь, для меня важно не только что ты мне присылаешь но вопросы дизайна relay, я не пишу текстов твоих инструкций, но именно я регулирую систему и куда оно движется, водитель машины не крутит колеса но поворачивает руль, направляя всю систему"
+      ],
+      "reading": [
+        "none of a/b/c: the framing (texts the owner reads) is rejected; the owner steers relay's design and direction, not only what is sent to them; the boundary is to be redesigned around design decisions. Sent back to the design track."
       ]
     },
     {
