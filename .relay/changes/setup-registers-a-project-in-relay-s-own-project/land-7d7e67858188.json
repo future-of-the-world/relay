@@ -1,0 +1,237 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2742,
+   "id": "ae5ec02323c6fd538",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T09:58:56.108Z",
+   "stop": "2026-10-30T10:07:49.938Z"
+  },
+  {
+   "cost_usd": 0.0065,
+   "id": "a4571c7019600536b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T10:07:53.378Z",
+   "stop": "2026-10-30T10:22:55.842Z"
+  },
+  {
+   "cost_usd": 0.2307,
+   "id": "aedad437935365363",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 18,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T10:22:58.658Z",
+   "stop": "2026-10-30T10:28:29.322Z"
+  },
+  {
+   "cost_usd": 0.0047,
+   "id": "a3cb6181b82700ec1",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T10:28:31.638Z",
+   "stop": "2026-10-30T10:44:37.009Z"
+  },
+  {
+   "cost_usd": 0.8519,
+   "id": "af3d8cdbb687bd833",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 15,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T10:44:39.915Z",
+   "stop": "2026-10-30T10:47:26.563Z"
+  },
+  {
+   "cost_usd": 0.2017,
+   "id": "ac4625083de529305",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T10:47:29.355Z",
+   "stop": "2026-10-30T10:49:47.519Z"
+  },
+  {
+   "cost_usd": 0.0061,
+   "id": "a53c3e8c9dfbcdf8f",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T10:49:49.969Z",
+   "stop": "2026-10-30T11:17:39.693Z"
+  },
+  {
+   "cost_usd": 0.121,
+   "id": "a3f041006c95d75b9",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T11:17:42.539Z",
+   "stop": "2026-10-30T11:19:29.618Z"
+  },
+  {
+   "cost_usd": 0.5014,
+   "id": "a7bce95c3733f5007",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 22,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T11:24:58.308Z",
+   "stop": "2026-10-30T11:33:05.542Z"
+  },
+  {
+   "cost_usd": 0.0048,
+   "id": "a4b4c42b9d175ec4b",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T11:33:10.127Z",
+   "stop": "2026-10-30T11:48:39.016Z"
+  },
+  {
+   "cost_usd": 0.1446,
+   "id": "ab64f76ac63bef3be",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T11:48:44.355Z",
+   "stop": "2026-10-30T11:51:09.124Z"
+  },
+  {
+   "cost_usd": 0.0063,
+   "id": "af4d00011ee74ad1d",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T11:51:12.105Z",
+   "stop": "2026-10-30T12:15:58.007Z"
+  },
+  {
+   "cost_usd": 0.1516,
+   "id": "a96aabc476e535ae7",
+   "model": "claude-sonnet-5-5",
+   "n": 2,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix red gate",
+   "start": "2026-10-30T12:16:02.248Z",
+   "stop": "2026-10-30T12:20:16.941Z"
+  },
+  {
+   "cost_usd": 0.0054,
+   "id": "a452ec90164fb570a",
+   "model": "claude-haiku-5-5",
+   "n": 3,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T12:20:24.094Z",
+   "stop": "2026-10-30T12:36:22.461Z"
+  },
+  {
+   "cost_usd": 0.1865,
+   "id": "a5c3b4a5ef1cdf3b5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T12:36:40.260Z",
+   "stop": "2026-10-30T12:44:00.284Z"
+  },
+  {
+   "cost_usd": 0.0049,
+   "id": "ab1a2628917ab2206",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T12:44:03.438Z",
+   "stop": "2026-10-30T13:03:16.721Z"
+  },
+  {
+   "cost_usd": 0.1717,
+   "id": "aa5d133747608c00f",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T13:03:19.545Z",
+   "stop": "2026-10-30T13:07:24.609Z"
+  },
+  {
+   "cost_usd": 0.0021,
+   "id": "a5dedbc0d83e67e80",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T13:07:27.963Z",
+   "stop": "2026-10-30T13:07:34.772Z"
+  }
+ ],
+ "before": "4bb55b1f2c2443adb8cbc2342e2dcf45f344f3f6",
+ "branch": "wt/setup-registers-a-project-in-relay-s-own",
+ "head": "7d7e67858188cea385f7cccfd0a306114d579fa1",
+ "item": "setup-registers-a-project-in-relay-s-own-project",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T08:48:00+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/setup-silently-turns-off-a-project-s-age",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T09:37:47+00:00",
+   "file": "lib/relay_config.py",
+   "holder": "the-lane-pick-ignores-the-owner-s-3-and-3-lane-s",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T13:08:02+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T13:31:58+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T13:44:41+00:00",
+   "gate_seconds": 720.1569903329946,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "setup-registers-a-project-in-relay-s-own-project"
+}
