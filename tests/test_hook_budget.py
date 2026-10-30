@@ -31,6 +31,11 @@ class Budget(SoftCases):
     def prompt(self) -> dict:
         return {"hook_event_name": "UserPromptSubmit", "session_id": "s", "transcript_path": self.t, "cwd": "/tmp"}
 
+    def test_bad_step_exits_zero_uses_the_default_and_says_so(self) -> None:
+        self.write(self.t, line(100000))
+        out = run_hook(os.path.join(HOOKS, "budget.py"), json.dumps(self.prompt()), {"RELAY_HOME": self.home, "RELAY_CTX_STEP": "abc"})
+        self.assertIn("RELAY_CTX_STEP", out)
+
     def test_under_the_line_silent(self) -> None:
         self.write(self.t, line(100000))
         self.assertEqual(self.send("budget.py", self.prompt()), "")

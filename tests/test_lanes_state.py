@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import test_queue as tq  # noqa: E402
 
 sys.path.insert(0, os.path.join(tq.ROOT, "lib"))
+import relay_kit  # noqa: E402
 import relay_lanes as rl  # noqa: E402
 import relay_git  # noqa: E402
 import relay_tidy  # noqa: E402
@@ -339,17 +340,19 @@ class Lanes(LaneBase):
         self.assertEqual(rl.lanes_setting(self.main), 6)
 
     def test_setting_bounds(self):
-        self.assertEqual(rl.setting({"front": {"stop_nudge": 5}}, "stop_nudge"), 2)
-        self.assertEqual(rl.setting({"front": {"stop_nudge": True}}, "stop_nudge"), 1)
-        self.assertEqual(rl.setting({"front": {"lanes_line_items": 0}}, "lanes_line_items"), 0)
-        self.assertEqual(rl.setting({"front": {"lanes_line_items": 10}}, "lanes_line_items"), 10)
-        # out of bounds: the default is used, and the note says so
-        for bad in (11, -1, "5", True):
-            cfg = {"front": {"lanes_line_items": bad}}
-            self.assertEqual(rl.setting(cfg, "lanes_line_items"), 3)
-            self.assertIn("lanes_line_items", rl.setting_note(cfg, "lanes_line_items") or "")
-        self.assertIsNone(rl.setting_note({"front": {"lanes_line_items": 0}}, "lanes_line_items"))
-        self.assertIsNone(rl.setting_note({}, "lanes_line_items"))
+        def front(text):
+            return relay_kit.parse("[front]\n" + text)
+        self.assertEqual(front("stop_nudge = 5\n").get("front", "stop_nudge"), 2)
+        self.assertEqual(front("stop_nudge = true\n").get("front", "stop_nudge"), 1)
+        self.assertEqual(front("lanes_line_items = 0\n").get("front", "lanes_line_items"), 0)
+        self.assertEqual(front("lanes_line_items = 10\n").get("front", "lanes_line_items"), 10)
+        # out of bounds: the default is used, and the problem names the key
+        for bad in ("11", "-1", '"5"', "true"):
+            kit = front(f"lanes_line_items = {bad}\n")
+            self.assertEqual(kit.get("front", "lanes_line_items"), 3)
+            self.assertIn("[front] lanes_line_items", kit.problems[0].line())
+        self.assertEqual(front("lanes_line_items = 0\n").problems, ())
+        self.assertEqual(relay_kit.parse("").problems, ())
 
     def stuck_queue(self):
         # X is first by ip and carries a "not reproduced" fact; Y, Z, W follow; one lane is free
@@ -396,12 +399,13 @@ class Lanes(LaneBase):
         self.assertIn("reproduced is yes or no, on a fact note", rq.parse_note({"at": "2026-10-29T10:00:00Z", "said": ["x"], "reproduced": "no"})[1])
         self.assertIn("    reproduced: no", rq.notes_text({"notes": [note]}, datetime.timezone.utc))
 
-    def test_f4_setting_note_names_the_cause_and_only_the_key_whose_rule_it_states(self):
-        self.assertEqual(rl.setting_note({"front": {"lanes_line_items": "5"}}, "lanes_line_items"),
-                         "lanes_line_items 5 is not a whole number: 3 is used")
-        self.assertEqual(rl.setting_note({"front": {"lanes_line_items": 11}}, "lanes_line_items"),
-                         "lanes_line_items 11 is out of bounds 0-10: 3 is used")
-        self.assertIsNone(rl.setting_note({"front": {"stop_nudge": 5}}, "stop_nudge"))     # clamped to 2, not replaced by the default
+    def test_f4_the_problem_names_the_cause_and_only_the_key_whose_rule_it_states(self):
+        self.assertEqual(relay_kit.parse('[front]\nlanes_line_items = "5"\n').problems[0].line(),
+                         ".claude/kit.toml [front] lanes_line_items = '5' is not a whole number; used 3")
+        self.assertEqual(relay_kit.parse("[front]\nlanes_line_items = 11\n").problems[0].line(),
+                         ".claude/kit.toml [front] lanes_line_items = 11 is outside 0..10; used 3")
+        self.assertEqual(relay_kit.parse("[front]\nstop_nudge = 5\n").problems[0].line(),
+                         ".claude/kit.toml [front] stop_nudge = 5 is outside 0..2; used 2")     # clamped to 2
 
     def test_next_skips_items_that_wait_or_ask_and_is_empty_when_lanes_are_full(self):
         asked = {"asked_at": "2026-10-09T22:00:00Z", "question": ["**Keep it?**"], "options": ["a. Yes.", "b. No."]}
@@ -413,7 +417,7 @@ class Lanes(LaneBase):
         s = self.state(limit=2)
         self.assertEqual(([p.slug for p in s.picks], [p.slug for p in s.upcoming]), (["a"], ["c"]))
         self.assertEqual(self.state(limit=1).upcoming, [])        # no free lane: nothing starts, nothing is named
-        self.assertEqual(rl.setting({}, "lane_quiet_hours"), 3)
+        self.assertEqual(relay_kit.parse("").get("front", "lane_quiet_hours"), 3)
 
 
 class Stop(LaneBase):
@@ -471,7 +475,17 @@ class Stop(LaneBase):
             handle.write("[front]\nlanes_line_items = 11\n")
         text = json.loads(self.run_hook("UserPromptSubmit", os.path.join(self.tmp, "h")))["hookSpecificOutput"]["additionalContext"]
         self.assertIn("next: z (fix, ip 80)", text)             # 11 is out of bounds: the default 3 is used
-        self.assertIn("lanes_line_items 11 is out of bounds 0-10", text)
+        self.assertIn(".claude/kit.toml [front] lanes_line_items = 11 is outside 0..10; used 3", text)
+
+    def test_prompt_hook_names_a_feature_lanes_that_is_not_a_number(self):
+        # F2 (design test 24): feature_lanes = "3" (text) is read as 0, and the line says which line of kit.toml to fix
+        self.seed({Q + "a.json": item("a")})
+        os.makedirs(os.path.join(self.main, ".claude"))
+        with open(os.path.join(self.main, ".claude", "kit.toml"), "w") as handle:
+            handle.write('[front]\nfeature_lanes = "3"\n')
+        text = json.loads(self.run_hook("UserPromptSubmit", os.path.join(self.tmp, "h")))["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("start: a (fix, ip 90)", text)                # 0 = no split: the fix is picked as usual
+        self.assertIn(".claude/kit.toml [front] feature_lanes = '3' is not a whole number; used 0", text)
 
     def test_prompt_hook_prints_the_line_and_is_silent_when_full(self):
         self.seed({Q + "a.json": item("a")})
@@ -793,7 +807,8 @@ class FeatureSplit(LaneBase):
     def test_setting_is_read_from_kit_toml_and_clamped_to_the_lanes(self):
         self.seed({".claude/kit.toml": "[front]\nfeature_lanes = 9\n"})
         self.assertEqual(rl.feature_lanes_setting(self.main, 4), 0)       # above the lanes: the default (see test_out_of_bounds_is_said_in_the_line)
-        self.assertEqual(rl.feature_lanes_setting(self.main, 9), 9)
+        self.seed({".claude/kit.toml": "[front]\nfeature_lanes = 8\n"})
+        self.assertEqual(rl.feature_lanes_setting(self.main, 8), 8)     # 8 is the most kit.toml allows (the lanes' own top)
         self.seed({".claude/kit.toml": "[front]\nfeature_lanes = 3\n"})
         self.assertEqual(rl.feature_lanes_setting(self.main, 6), 3)
         self.seed({".claude/kit.toml": "[front]\nfeature_lanes = \"x\"\n"})
@@ -822,7 +837,10 @@ class FeatureSplit(LaneBase):
         self.assertTrue(rl.line(s).endswith("feature_lanes 3 is out of bounds 0-2: 0 is used"))
         self.assertIsNone(rl.lanes_state(self.main, now=NOW, limit=6).feature_note)
         self.seed({".claude/kit.toml": "[front]\nfeature_lanes = \"x\"\n"})
-        self.assertEqual(rl.lanes_state(self.main, now=NOW, limit=6).feature_note, "feature_lanes x is not a whole number: 0 is used")
+        # not a whole number: relay_kit names it (the hook's settings note), the lanes only use 0
+        s = rl.lanes_state(self.main, now=NOW, limit=6)
+        self.assertEqual((s.feature_split, s.feature_note), (0, None))
+        self.assertIn("[front] feature_lanes", relay_kit.load(self.main).problems[0].line())
 
     def _feature_on_a_train(self, kinds):
         """Three lanes wt/f1..f3 with items of `kinds`; f3 merged into the open train wt/train-x. Returns nothing; two fix lanes run besides."""
@@ -906,6 +924,13 @@ class BranchNames(LaneBase):
         self.assertEqual(first["branch"], "wt/" + self.A)
         self.assertEqual(second["branch"], "wt/" + self.B)
         self.assertNotEqual(first["worktree"], second["worktree"])
+
+    def test_start_names_a_queue_slug_branch_task_queue(self):
+        # Hand-worked: wt/queue-* is a landing branch, so start() on slug queue-items-x makes wt/task-queue-items-x
+        slug = "queue-items-x"
+        self.seed({Q + slug + ".json": item(slug)})
+        out = json.loads(rl.start(self.main, slug, os.path.join(self.tmp, "scratch")))
+        self.assertEqual(out["branch"], "wt/task-queue-items-x")
 
     def test_a_branch_name_never_ends_inside_a_word(self):
         # the name is the whole slug, so it ends where the slug ends (here after "tokens-outside-its-t", a slug the queue cut itself)

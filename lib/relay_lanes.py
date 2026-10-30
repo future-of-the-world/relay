@@ -30,11 +30,14 @@ from typing import Any, NamedTuple, Optional
 import relay_config
 import relay_git
 import relay_inert
+import relay_kit
 import relay_queue
 from relay_lane_features import feature_lanes_read, feature_lanes_setting  # noqa: F401  (the setting is re-exported for callers and tests)
 
 LANES_DEFAULT, LANES_MAX = 4, 8
-SETTINGS = {"lanes_line_items": (3, 0, 10), "stop_nudge": (1, 0, 2), "lane_quiet_hours": (3, 1, 24)}   # default, lowest, highest
+LINE_ITEMS_MAX = (relay_kit.SCHEMA["front"]["lanes_line_items"].bounds or (0, 10))[1]   # the bounds live in relay_kit.SCHEMA
+QUIET_HOURS_DEFAULT = relay_kit.SCHEMA["front"]["lane_quiet_hours"].default
+LINE_ITEMS_DEFAULT = relay_kit.SCHEMA["front"]["lanes_line_items"].default
 LIST_ITEMS = 3             # waits, landed and uncounted worktrees named in the line
 LOG_DEPTH = 500            # newest merges of the default branch searched for the landing of a branch whose ref is gone
 SHA_COMMITS = 40           # newest commits of a landed branch looked at for the one that names the change
@@ -75,36 +78,12 @@ class State(NamedTuple):
     waits: list[Wait]
     landed_open: list[Landed]
     quiet: list[str]           # no-item worktrees not counted (quiet or already landed)
-    upcoming: list[Pick] = []  # the startable items after the picks (at most SETTINGS["lanes_line_items"] high), named so one stuck pick hides nothing
+    upcoming: list[Pick] = []  # the startable items after the picks (at most LINE_ITEMS_MAX high), named so one stuck pick hides nothing
     skipped: list[str] = []    # open items left out of the picks because their newest reproduce result is "no" (`relay queue note` with reproduced = "no")
     feature_split: int = 0     # lanes kept for features (front.feature_lanes); 0 = no split
     feature_running: int = 0   # running lanes (a train counts its riders) that took a feature
     itemless: int = 0          # running lanes that took no queue item (a design worktree): neither fix nor feature lanes
     feature_note: Optional[str] = None   # why front.feature_lanes was not used as written (out of bounds, not a whole number)
-
-
-def setting(cfg: Any, key: str) -> int:
-    """The setting `front.<key>` clamped to its bounds; the default when it is missing or not a whole number."""
-    default, low, high = SETTINGS[key]
-    value = relay_config.get(cfg, "front." + key, default)
-    if isinstance(value, bool) or not isinstance(value, int):
-        return default
-    if key == "lanes_line_items" and not low <= value <= high:
-        return default
-    return max(low, min(high, value))
-
-
-def setting_note(cfg: Any, key: str) -> Optional[str]:
-    """Why `front.<key>` was not used as written (set, but out of bounds or not a whole number); None when it is unset or used."""
-    default, low, high = SETTINGS[key]
-    value = relay_config.get(cfg, "front." + key)
-    if value is None or key != "lanes_line_items":     # only this key falls back to the default when out of bounds; the others are clamped
-        return None
-    if isinstance(value, bool) or not isinstance(value, int):
-        return f"{key} {value} is not a whole number: {default} is used"
-    if low <= value <= high:
-        return None
-    return f"{key} {value} is out of bounds {low}-{high}: {default} is used"
 
 
 def lanes_setting(main: str) -> int:
@@ -292,7 +271,7 @@ def _lane_files(main: str, default: str, lane: Lane, trees: dict[str, str]) -> l
     return sorted(names)
 
 
-def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], now: Optional[float] = None, limit: Optional[int] = None,
+def lanes_state(repo: str, quiet_hours: int = QUIET_HOURS_DEFAULT, now: Optional[float] = None, limit: Optional[int] = None,
                 features: Optional[int] = None) -> State:
     """The lanes of the project that `repo` belongs to. `now` is epoch seconds (a value the tests pass); `limit` is the lanes setting
     (read from the instruction file when None); `features` the lanes kept for features (read from kit.toml when None). Raises relay_queue.Refused outside a project with a queue."""
@@ -386,7 +365,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
             pick = Pick(item["slug"], item["kind"], item["ip"], mode_of(item))
             if full:
                 upcoming.append(pick)
-                if len(upcoming) == SETTINGS["lanes_line_items"][2]:
+                if len(upcoming) == LINE_ITEMS_MAX:
                     break
                 continue
             chosen.append((item["slug"], _paths(where)))
@@ -399,7 +378,7 @@ def wait_text(w: Wait) -> str:
     return f"{w.slug} waits for {w.file} (same file as {w.pick})" if w.pick else f"{w.slug} waits for {w.file} ({w.branch})"
 
 
-def line(state: State, items: int = SETTINGS["lanes_line_items"][0], note: Optional[str] = None) -> Optional[str]:
+def line(state: State, items: int = LINE_ITEMS_DEFAULT, note: Optional[str] = None) -> Optional[str]:
     """The one line for the front; None when there is nothing to say (lanes full, or no item can start, and nothing landed).
     `items` startable items after the picks are named ("next:"); 0 names none. `note` (a setting that was not used) ends the line."""
     if not (state.picks or state.waits or state.landed_open):
@@ -476,8 +455,8 @@ def stop_refusal(state: State, stamp: str, nudge: int, session: str) -> Optional
 
 # ---------------------------------------------------------------- relay queue start
 
-def _short(slug: str) -> str:
-    return slug  # the whole slug: slugs are unique, so the names are; the old 40-character cut had no limit behind it
+def _short(slug: str) -> str:  # whole slug; `wt/queue-*` is a landing branch, so (task-)*queue-* gets one more "task-": one-to-one
+    return "task-" + slug if re.match(r"(task-)*queue-", slug) else slug
 
 
 def _check_for(worktree: str, where: list[str]) -> str:
@@ -547,7 +526,7 @@ def design_brief(item: dict, worktree: str, scratch: str, name: str, plan: Optio
         "A revised plan ends with the section \"what changed after the review\": each finding of the design review, whether it held, and the fix."]) + "\n"
 
 
-def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], despite_wait: bool = False) -> str:
+def start(repo: str, slug: str, scratch: str, quiet_hours: int = QUIET_HOURS_DEFAULT, despite_wait: bool = False) -> str:
     """`relay queue start <slug>`: make the worktree and branch, take the item, write its brief into `<scratch>/briefs/`, and print the
     cycle unit (JSON for the Workflow: a `change` unit for a fix, a design for a feature). Refused when no lane is free, the item is not
     open, an owner question about it is unanswered, or it waits for a file another change holds (unless `despite_wait`); nothing is left behind when the take fails."""
@@ -596,5 +575,5 @@ def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_
     return json.dumps({"started": slug, "branch": branch, "worktree": worktree, "brief": brief, "mode": mode, "cycle_args": unit, "other_waits": waits}, indent=2)
 
 
-__all__ = ["Lane", "Pick", "Wait", "Landed", "State", "setting", "lanes_setting", "setting_note", "landing", "touched", "lanes_state", "line",
+__all__ = ["Lane", "Pick", "Wait", "Landed", "State", "lanes_setting", "landing", "touched", "lanes_state", "line",
            "close_landed", "stop_refusal", "start", "mode_of"]

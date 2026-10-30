@@ -1,0 +1,16 @@
+head 24fc74225b235a011a2ef831a12873e4835cc4f4
+cmd bin/ci --quick
+wait 17.3
+ci: types and lint ok (1s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (629s, log: .ci/steps/library-tests.log)
+    FAIL: test_tree_passes (test_module_sizes.ModuleSizes.test_tree_passes)
+    AssertionError: Lists differ: ['lib/relay_lanes.py has 602 lines, limit [64 chars]ct)'] != []
+    FAILED (failures=1)
+ci: coverage 88.9% of lib, bin, plugins (15696 of 17660 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ran on a copy without queue, handover and check records; covers every commit with the same code
+ci: RED
+exit 1

@@ -22,7 +22,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
-import relay_toml  # noqa: E402
+import relay_kit  # noqa: E402
 KIT = os.path.join(HERE, "..", "bin", "kit")
 
 
@@ -35,18 +35,9 @@ def project_root(cwd):
 
 
 def bindings(root):
-    """[(label, plugin)] for the project's [flow] kind; a name of "none" or unset binds nothing."""
-    try:
-        with open(os.path.join(root, ".claude", "kit.toml"), "rb") as handle:
-            cfg = relay_toml.load(handle)
-    except Exception:
-        return []
-    out = []
-    for section, key, label in (("flow", "kind", "flow"),):
-        name = cfg.get(section, {}).get(key)
-        if isinstance(name, str) and name not in ("", "none"):
-            out.append((label, name))
-    return out
+    """[(label, plugin)] for the project's [flow] kind; a name of "none" or unset (or a wrong value) binds nothing."""
+    name = relay_kit.load(root).get("flow", "kind")
+    return [("flow", name)] if name not in ("", "none") else []
 
 
 def manifest(plugin, root):
@@ -100,9 +91,12 @@ def main():
         return
     cwd = data.get("cwd") or os.getcwd()
     root = project_root(cwd)
+    kit = relay_kit.load(root)
+    notes = [relay_kit.note(kit, "flow")]       # a wrong value is said in the context, not on stderr
     for label, plugin in bindings(root):
         flow = manifest(plugin, root)
         if not flow:
+            notes.append(relay_kit.say([relay_kit.Problem(".claude/kit.toml [flow] kind", repr(plugin), "names no plugin with a flow.json that relay can find", "no flow")]))
             continue
         if flow.get("slot") == "specs":
             continue   # [flow] kind takes a work flow; an old [flow] kind = "openspec" binds nothing
@@ -113,8 +107,11 @@ def main():
         roles = flow.get("roles")
         if roles:   # the issue flow names its roles
             text += " Roles for this flow: " + ", ".join(f"{k} -> {v}" for k, v in roles.items()) + "."
+        notes.append(text)
+        break
+    text = "\n".join(n for n in notes if n)
+    if text:
         json.dump({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": text}}, sys.stdout)
-        return
 
 
 if __name__ == "__main__":

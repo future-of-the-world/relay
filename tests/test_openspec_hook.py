@@ -114,15 +114,16 @@ class KitReader(unittest.TestCase):
     FORMS = (('[specs]\nmethod = "openspec"   # comment\n', "openspec"),
              ('[specs]\nmethod_old = "openspec"\nmethod = "none"\n', "none"),
              ('specs.method = "openspec"\n', "openspec"),
-             ('[specs]\nmethod = "openspec#1"\n', "openspec#1"),
+             ('[specs]\nmethod = "openspec#1"\n', "none"),      # not a method relay knows: the default, and a problem
              ('[specs\nmethod =', "none"))
 
     def test_F3_both_readers_agree_on_every_form(self):
         hook = _load_hook("openspec_spec_rule_kit", HOOK)
-        saved = hook.relay_toml._tomllib
-        self.addCleanup(setattr, hook.relay_toml, "_tomllib", saved)
+        toml = hook.relay_kit.relay_toml
+        saved = toml._tomllib
+        self.addCleanup(setattr, toml, "_tomllib", saved)
         for tomllib_on in (True, False):
-            hook.relay_toml._tomllib = saved if tomllib_on else None
+            toml._tomllib = saved if tomllib_on else None
             for text, want in self.FORMS:
                 with tempfile.TemporaryDirectory() as root:
                     os.makedirs(os.path.join(root, ".claude"))
@@ -150,13 +151,29 @@ class MethodOff(Project):
         self.kit('[flow]\nkind = "other"\n')
         self.silent()
 
-    def test_another_method(self):
-        self.kit('[specs]\nmethod = "other"\n')
-        self.silent()
+    def test_a_method_relay_does_not_know_is_said_at_session_start_only(self):
+        # F2 (design test 22): a typo in [specs] method turned the whole workflow off without a word
+        self.kit('[specs]\nmethod = "opnspec"\n')
+        said = self.text("SessionStart")
+        self.assertIn(".claude/kit.toml [specs] method = 'opnspec'", said)
+        self.assertNotIn("Spec steps", said)                     # the method is off: no rule, no steps
+        self.assertIsNone(self.run_hook(HOOK, "SubagentStart", agent_type="delegate:thinker"))
+        self.assertIsNone(self.run_hook(HOOK, "UserPromptSubmit", prompt="/opsx:propose x"))
 
-    def test_a_broken_kit_toml_is_silent_not_an_error(self):
+    def test_a_syntax_error_in_kit_toml_is_said_at_session_start(self):
+        self.kit('[specs\nmethod =')
+        self.assertIn(".claude/kit.toml cannot be read", self.text("SessionStart"))
+
+    def test_a_right_method_has_no_settings_note(self):
+        self.kit('[specs]\nmethod = "openspec"\n')
+        self.assertNotIn("Settings note", self.text("SessionStart"))
+
+    def test_a_broken_kit_toml_is_no_error_and_no_rule(self):
+        # the rule and steps stay off; only SessionStart says why (test_a_syntax_error_in_kit_toml_is_said_at_session_start)
         self.kit("[specs\nmethod =")
-        self.silent()
+        for event, extra in self.EVENTS[1:]:
+            self.assertIsNone(self.run_hook(HOOK, event, **extra), event)
+        self.assertNotIn("Spec steps", self.text("SessionStart"))
 
 
 class CoreKeepsFlow(Project):
@@ -180,10 +197,11 @@ class Layout(unittest.TestCase):
     def test_the_hook_reads_nothing_of_the_relay_checkout(self):
         with open(HOOK, encoding="utf-8") as handle:
             text = handle.read()
-        # the one relay module it imports is the plugin's own copy of relay_toml (plugins/openspec/lib), never lib/
-        self.assertEqual(re.findall(r"^(?:import|from) (relay_\w+)", text, re.M), ["relay_toml"])
+        # the one relay module it imports is the plugin's own copy of relay_kit (plugins/openspec/lib), never lib/
+        self.assertEqual(re.findall(r"^(?:import|from) (relay_\w+)", text, re.M), ["relay_kit"])
         self.assertIn('"..", "lib"', text)
-        self.assertTrue(os.path.isfile(os.path.join(PLUGIN, "lib", "relay_toml.py")))
+        self.assertTrue(os.path.isfile(os.path.join(PLUGIN, "lib", "relay_kit.py")))
+        self.assertTrue(os.path.isfile(os.path.join(PLUGIN, "lib", "relay_toml.py")))      # relay_kit's own import
 
 
 if __name__ == "__main__":

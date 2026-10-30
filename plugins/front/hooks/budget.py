@@ -24,11 +24,13 @@ from typing import Any
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 import handover_path  # noqa: E402
+import relay_kit  # noqa: E402
 import relay_transcripts  # noqa: E402
 
-HANDOVER_AT = int(os.environ.get("RELAY_CTX_HANDOVER_AT", "350000"))
-WRAP_AT = int(os.environ.get("RELAY_CTX_WRAP_AT", "200000"))
-STEP = int(os.environ.get("RELAY_CTX_STEP", "30000"))
+HANDOVER_AT, _p1 = relay_kit.ctx_value("RELAY_CTX_HANDOVER_AT")
+WRAP_AT, _p2 = relay_kit.ctx_value("RELAY_CTX_WRAP_AT")
+STEP, _p3 = relay_kit.ctx_value("RELAY_CTX_STEP")
+ENV_PROBLEMS = [p for p in (_p1, _p2, _p3) if p]   # a wrong override: the default is used and the note below says so
 STATE_DIR = os.path.join(os.path.expanduser(os.environ.get("RELAY_HOME") or "~/.relay"), "state")
 
 
@@ -108,6 +110,11 @@ def main() -> None:
         out = agent_note(data)
     elif event == "UserPromptSubmit" and not data.get("agent_id"):
         out = prompt_note(data)
+    if ENV_PROBLEMS and event in ("PostToolUse", "UserPromptSubmit"):
+        out = out or {"hookSpecificOutput": {"hookEventName": event, "additionalContext": ""}}
+        specific = out["hookSpecificOutput"]
+        specific["additionalContext"] = (specific["additionalContext"] + "\n" if specific["additionalContext"] else "") + \
+            "Settings note: " + "; ".join(p.line() for p in ENV_PROBLEMS) + ". Fix the variable; relay doctor lists every problem."
     if out:
         json.dump(out, sys.stdout)
 
