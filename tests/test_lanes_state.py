@@ -59,6 +59,26 @@ class Lanes(LaneBase):
         self.assertEqual([(l.branch, l.slug) for l in s.running], [("wt/x", "x")])
         self.assertEqual((s.landed_open, s.free), ([], 5))
 
+    def test_fresh_branch_that_took_master_with_a_message_is_running_not_landed(self):
+        # The branch is created, master moves on, the branch takes it by `git merge -m`: git logs "merge master: Fast-forward (no commit
+        # created; -m option ignored)". That is still no own commit: tip == master, the item runs and is not landed_open.
+        self.seed({Q + "x.json": item("x", **taken("wt/x"))})
+        path = self.worktree("x")
+        self.write_commit(self.main, {"lib/other.py": "o\n"}, "other")
+        git(path, "merge", "-m", "take master", "master")
+        s = self.state()
+        self.assertEqual([(l.branch, l.slug) for l in s.running], [("wt/x", "x")])
+        self.assertEqual(s.landed_open, [])
+
+    def test_merged_branch_with_item_closed_is_not_running(self):
+        self.seed({Q + "x.json": item("x", **taken("wt/x"))})
+        self.branch_with_commit("x", {"lib/x.py": "x\n"})
+        git(self.main, "merge", "-q", "--ff-only", "wt/x")
+        git(self.main, "rm", "-q", Q + "x.json")
+        self.write_commit(self.main, {".relay/queue/done/x.json": item("x", closed_at="2026-10-24T01:00:00Z", test="t.py::t", **taken("wt/x"))}, "close")
+        s = self.state()
+        self.assertEqual((s.running, s.landed_open), ([], []))
+
     def test_lane_landed_still_open_fast_forward_and_both_train_forms(self):
         self.seed({Q + "a.json": item("a", "feature", **taken("wt/a")), Q + "b.json": item("b", "feature", **taken("wt/b")),
                    Q + "c.json": item("c", "feature", **taken("wt/c")), Q + "d.json": item("d", "feature", **taken("wt/d"))})
