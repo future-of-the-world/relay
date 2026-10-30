@@ -40,6 +40,21 @@
         "a. split by owner: the owner's settings and the list of projects on this machine in ~/.relay; a project's own settings (lanes, rules it loads) in that project's own .relay/ folder in its git; relay's repository ships only defaults",
         "b. everything in ~/.relay (what the fix built): one file; nothing travels with a project's repository, so on a new machine the owner sets lanes, cap and language again",
         "c. keep projects.toml in relay's repository: relay setup on any new project changes relay's own repository (the defect the clean-relay trial found)"
+      ],
+      "answered_at": "2026-10-30T11:24:30Z",
+      "answer": [
+        "a, что ты подразумаешь под правилами, я немного запутался касательно того где и как лежат данные, память, как мы это будем разделять, думаю тебе следует визуально это продемонстрировать для лучшего понимания",
+        "",
+        "1. Сценарий новой машины + git repo",
+        "2. Сценарий машины с существующими правилами + git repo",
+        "3. Сценарий машины с существующими правилами + существующий git repo со своими правилами",
+        "",
+        "Как будет меняться поведение, хранение файлов, прерывание работы и работа нескольких actor",
+        "",
+        "Будет ли установщик править claude shell, как это будет выглядеть, как это измениться для проектов которые не используют relay ?"
+      ],
+      "reading": [
+        "a: the owner's settings and the list of projects on this machine go to ~/.relay; a project's own settings (lanes, rules it loads) go to that project's own .relay/ in its git; relay's repository ships only defaults. The rest of the message asks for a visual page of where rules, settings and memory live in three scenarios (new machine + repo; machine with existing rules + repo; machine with existing rules + repo with its own rules), how behaviour, storage, interruptions and several actors change, whether the installer changes the claude shell command and how projects without relay are affected."
       ]
     }
   ]
