@@ -1,0 +1,179 @@
+{
+  "branch": "wt/the-gate-checks-a-branch-s-settings-with-master",
+  "findings": [
+    {
+      "details": [
+        "30 Oct 2026: the rename branch wt/kit-toml-setting-names-say-nothing-to-a-person (the owner asked for plain setting names on 30 Oct) renamed max_parallel to max_agents_per_change; its precheck is green, but relay gate run by master's relay refuses the new name, and no edit inside the branch can pass both schemas. It blocks every future settings rename or new key.",
+        "Also: lib/relay_kit.py",
+        "Also: tests/test_kit_schema.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "On wt/kit-toml-setting-names-say-nothing-to-a-person, relay gate -- --quick: refused, unknown key max_agents_per_change in .claude/kit.toml, while the branch's own relay_kit accepts it and refuses the old name."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [],
+      "path": "lib/relay_gate.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_gate_branch_kit.py test_branch_schema_decides passes; errors at base 87f8700d."
+      ],
+      "severity": "HIGH",
+      "since": "87f8700dfc2ffbf72cd4d8d2055bed0fc516fcfb",
+      "source": "queue",
+      "summary": "The gate checks a branch's settings with master's schema",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. spec_from_file_location loads only the one file; its `import relay_toml` (and any other import) resolves",
+        "through the gate process's sys.path and sys.modules, which hold the installed relay's lib/. relay_kit imports relay_toml today",
+        "(lib/relay_kit.py:20). So the check runs a mix: branch relay_kit over master relay_toml and master helpers. A branch that",
+        "changes relay_kit together with a module it imports gets a load failure or a mixed result.",
+        "Size: 30 agent minutes (subprocess with the branch's lib first on the path, plus the tests of F3)."
+      ],
+      "evidence": [
+        "$ (probe worktree: lib/relay_kit.py = \"import relay_kit_keys ...\", lib/relay_kit_keys.py present)",
+        "$ python3 -I -c \"sys.path.insert(0, '<wt>/lib'); relay_gate.refuse_bad_settings('<probe>')\"",
+        "refused: the branch's lib/relay_kit.py cannot be loaded: No module named 'relay_kit_keys'"
+      ],
+      "failing_case": [
+        "A branch whose lib/relay_kit.py does `import relay_kit_keys` (a new module the branch adds, e.g. to split relay_kit under the",
+        "600-line module limit, as this very change had to do for relay_gate.py), kit.toml `[delegate] new_key = 1`:",
+        "refuse_bad_settings refuses \"the branch's lib/relay_kit.py cannot be loaded: No module named 'relay_kit_keys'\".",
+        "The same happens when the branch's relay_kit calls a function it added to relay_toml.py: the import resolves to master's",
+        "relay_toml already in sys.modules. No edit inside the branch passes, the same block the queue item exists to remove.",
+        "Should: the branch's settings are checked by the branch's relay_kit with the branch's own lib/ modules."
+      ],
+      "fix_hint": [
+        "Run the check in a child process: [sys.executable, \"-I\", \"-c\", <small script>] with the branch's lib/ first on sys.path, which",
+        "calls relay_kit.load(worktree) and prints each problem.line() (or JSON); a non-zero exit or a traceback becomes GateRefused with its",
+        "last line. That also isolates the branch's module from the gate process and closes F2. Fall back to the installed module when the",
+        "branch has no lib/relay_kit.py, as now."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 17,
+      "pass_cases": [
+        "1. Worktree with lib/relay_kit.py importing lib/relay_kit_keys.py (both in the branch), kit.toml using a key only the branch knows: no refusal.",
+        "2. Worktree with a copy of the real lib/relay_kit.py whose schema adds a key, kit.toml using it: no refusal (the brief's case).",
+        "3. Worktree with the real lib/relay_kit.py and kit.toml `[delegate] build_tier_opus = \"denny\"`: GateRefused naming build_tier_opus.",
+        "4. Worktree with no lib/relay_kit.py and kit.toml `[delegate] renamed_key = 1`: GateRefused naming renamed_key (installed schema).",
+        "5. Worktree whose lib/relay_kit.py has a syntax error: GateRefused saying the branch's relay_kit cannot be loaded."
+      ],
+      "path": "lib/relay_gate_kit.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_branch_kit.py::test_branch_helper_module_is_used (child process with branch lib first); errors at fe2256dc."
+      ],
+      "severity": "MEDIUM",
+      "since": "43a1ca13a15856a48dc60de1fddeeb04f5a55649",
+      "source": "review-the-gate-checks-a-branch-s-settings-with-master.json",
+      "source_id": "F1",
+      "summary": "the branch's relay_kit is loaded with master's other modules, so a branch whose relay_kit imports a new or changed helper can never pass its gate",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. The installed gate now depends on the branch's module API (load(root).problems, Problem.line()); the",
+        "try at lib/relay_gate.py:77-80 catches RuntimeError only, and p.line() at :82 is outside it. Principle 10: a failure must say",
+        "what to do next, not print a traceback. Same fix as F1 covers it (a child process's failure is one refusal line).",
+        "Size: 10 agent minutes on its own; 0 extra with the F1 fix."
+      ],
+      "evidence": [
+        "$ (probe worktree: lib/relay_kit.py = \"def load(root): return object()\")",
+        "$ python3 -I -c \"...; relay_gate.refuse_bad_settings('<probe>')\"",
+        "AttributeError: 'object' object has no attribute 'problems'"
+      ],
+      "failing_case": [
+        "A branch whose lib/relay_kit.py load() returns a Kit without `.problems` (e.g. renamed to `.errors`), or whose Problem has no",
+        "`.line()`: refuse_bad_settings raises AttributeError ('object' object has no attribute 'problems'). Only RuntimeError is caught,",
+        "so `relay gate` prints a Python traceback (bin/relay catches only GateRefused) and `relay land` falls into its generic",
+        "exception path under the landing lock. Should: GateRefused naming what the branch's relay_kit lacks, so the refusal says what to do."
+      ],
+      "fix_hint": [
+        "With the F1 subprocess, any failure of the child is GateRefused. Without it: wrap the load, the .problems read and the",
+        "p.line() calls in one `except Exception` that raises GateRefused(\"the branch's lib/relay_kit.py does not give load(root).problems: <exc>\")."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 78,
+      "pass_cases": [
+        "1. Branch relay_kit whose load() returns object(): GateRefused (no traceback), its text naming the branch's lib/relay_kit.py.",
+        "2. Branch relay_kit whose problems hold an item without line(): GateRefused, no traceback.",
+        "3. Branch relay_kit with load() returning problems == []: no refusal.",
+        "4. Real relay_kit, kit.toml with a typo key: GateRefused \"settings problem in the branch's .claude/kit.toml: ...\" as today."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "test_load_without_problems_refused, test_problem_without_line_refused pass; RuntimeError becomes GateRefused at relay_gate.py:79."
+      ],
+      "severity": "MEDIUM",
+      "since": "43a1ca13a15856a48dc60de1fddeeb04f5a55649",
+      "source": "review-the-gate-checks-a-branch-s-settings-with-master.json",
+      "source_id": "F2",
+      "summary": "a branch whose relay_kit changes load/problems/line crashes the gate with a traceback instead of a refusal",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED: a scratch copy of lib/ and tests/ with the line removed; pytest tests/test_kit_schema.py: GateUsesBranchSchema passes",
+        "(the 2 failures are unrelated files missing from the scratch copy), while the real load is refused. The existing run()-level test",
+        "(test_kit_schema.py:177) builds a worktree with no lib/relay_kit.py, so it only covers the fallback. The brief requires each new",
+        "test to fail without its fix; the dataclass fix of debd364e has no such test, and the gate log of this branch was produced by the",
+        "installed relay, so the new path never ran in any check.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "$ sed -i '' '/sys.modules\\[spec.name\\] = module/d' <scratch>/lib/relay_gate_kit.py",
+        "$ python3 -I -c \"...; relay_gate.refuse_bad_settings('<this worktree>')\"",
+        "refused: the branch's lib/relay_kit.py cannot be loaded: 'NoneType' object has no attribute '__dict__'",
+        "$ cd <scratch> && pytest -q tests/test_kit_schema.py",
+        "2 failed, 24 passed   (failures: test_doctor_reports..., test_kartoteka_shaped... - missing marketplace/profile files in the scratch copy; GateUsesBranchSchema passed)"
+      ],
+      "failing_case": [
+        "Delete `sys.modules[spec.name] = module` from lib/relay_gate_kit.py: GateUsesBranchSchema (2 tests) still passes, yet",
+        "refuse_bad_settings on this very worktree refuses \"the branch's lib/relay_kit.py cannot be loaded: 'NoneType' object has no",
+        "attribute '__dict__'\" (the real relay_kit's dataclasses). The load-failure path (RuntimeError -> GateRefused) has no test either.",
+        "Should: a test with the real lib/relay_kit.py copied into the branch turns red when that line (or the branch path) is broken."
+      ],
+      "fix_hint": [
+        "Add a test that copies ROOT/lib/relay_kit.py (and relay_toml.py) into the temp worktree's lib/, appends a key to its schema by a",
+        "small text edit or uses a valid kit.toml, and calls refuse_bad_settings; plus a broken-module test for the refusal path."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 204,
+      "pass_cases": [
+        "1. Temp worktree with a copy of the repo's lib/relay_kit.py (and what it imports, or the F1 child-process path) and a valid kit.toml: refuse_bad_settings passes; the test fails with the sys.modules line removed.",
+        "2. Same copy edited to accept an extra [delegate] key, kit.toml using it: no refusal (the brief's rename case on the real schema).",
+        "3. Same copy, kit.toml with an unknown key: GateRefused naming the key.",
+        "4. Temp worktree whose lib/relay_kit.py is \"raise ImportError('x')\": GateRefused saying it cannot be loaded."
+      ],
+      "path": "tests/test_kit_schema.py",
+      "rank": "medium",
+      "reason": [
+        "Stub tests replaced by real-kit tests test_real_kit_valid_toml_passes and test_real_kit_unknown_value_refused; no in-process loader left."
+      ],
+      "severity": "MEDIUM",
+      "since": "43a1ca13a15856a48dc60de1fddeeb04f5a55649",
+      "source": "review-the-gate-checks-a-branch-s-settings-with-master.json",
+      "source_id": "F3",
+      "summary": "the tests use a stub relay_kit, so they stay green with the sys.modules registration removed, which refuses every relay branch's gate",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "2d845769b1bbd1801d20525debd49bf271aaf057.gate.log",
+  "head": "2c92c3657d5b91b753f9c63e8a84a85832266b50",
+  "item": "the-gate-checks-a-branch-s-settings-with-master",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range 87f8700d..HEAD; files: relay_gate.py, relay_gate_kit.py, tests. Ran test_gate_branch_kit + test_kit_schema (34 OK). Gate green on 2d845769, only inert gate-log commit after. Tests run on base 87f8700d and fe2256dc fail."
+  ],
+  "type": "check"
+}
