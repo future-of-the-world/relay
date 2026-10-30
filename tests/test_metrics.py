@@ -23,7 +23,6 @@ import relay_config  # noqa: E402
 import relay_coverage  # noqa: E402
 import relay_queue  # noqa: E402
 import relay_labels  # noqa: E402
-import relay_ledger  # noqa: E402  # imported here, before any test patches relay_config.ledger_dir: it binds that name at import
 import relay_land  # noqa: E402
 import relay_metrics  # noqa: E402
 
