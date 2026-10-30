@@ -305,7 +305,7 @@ class Lanes(LaneBase):
 
     def stuck_queue(self):
         # X is first by ip and carries a "not reproduced" fact; Y, Z, W follow; one lane is free
-        fact = {"at": "2026-10-29T22:00:00Z", "fact": ["Not reproduced: the front could not make this happen."]}
+        fact = {"at": "2026-10-29T22:00:00Z", "fact": ["The front could not make this happen."], "reproduced": "no"}
         self.seed({Q + "x.json": item("x", ip=99, where=("lib/x.py",), notes=[fact]), Q + "y.json": item("y", ip=90, where=("lib/y.py",)),
                    Q + "z.json": item("z", ip=80, where=("lib/z.py",)), Q + "w.json": item("w", ip=70, where=("lib/w.py",))})
         return self.state(limit=1)
@@ -314,29 +314,39 @@ class Lanes(LaneBase):
         # one free lane: X (not reproduced) is skipped, so Y is the pick; Z and W are the next startable items
         s = self.stuck_queue()
         self.assertEqual(([p.slug for p in s.picks], [p.slug for p in s.upcoming]), (["y"], ["z", "w"]))
-        self.assertEqual(rl.line(s), "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80), w (fix, ip 70)")
-        self.assertEqual(rl.line(s, 1), "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80)")
+        self.assertEqual(rl.line(s), "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80), w (fix, ip 70); skipped, not reproduced: x")
+        self.assertEqual(rl.line(s, 1), "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80); skipped, not reproduced: x")
 
     def test_line_items_zero_is_the_line_without_next(self):
-        self.assertEqual(rl.line(self.stuck_queue(), 0), "Lanes: 0 of 1 running; start: y (fix, ip 90)")
+        self.assertEqual(rl.line(self.stuck_queue(), 0), "Lanes: 0 of 1 running; start: y (fix, ip 90); skipped, not reproduced: x")
 
     def two_items(self, notes):
         self.seed({Q + "x.json": item("x", ip=99, where=("lib/x.py",), notes=notes), Q + "y.json": item("y", ip=90, where=("lib/y.py",))})
         return self.state(limit=1)
 
     def test_f1_the_newest_reproduction_fact_decides(self):
-        no = {"at": "2026-10-29T10:00:00Z", "fact": ["29 Oct, not reproduced (front): no longer fails."]}
-        yes = {"at": "2026-10-29T12:00:00Z", "fact": ["Reproduced 29 Oct: bin/wt line 5 creates .worktree/."]}
+        no = {"at": "2026-10-29T10:00:00Z", "fact": ["No longer fails."], "reproduced": "no"}
+        yes = {"at": "2026-10-29T12:00:00Z", "fact": ["bin/wt line 5 creates .worktree/."], "reproduced": "yes"}
         s = self.two_items([no, yes])        # the later positive note wins: X is the pick again
         self.assertEqual(([p.slug for p in s.picks], [p.slug for p in s.upcoming]), (["x"], ["y"]))
         self.assertEqual([p.slug for p in self.two_items([no]).picks], ["y"])      # only the negative note: skipped
         self.assertEqual([p.slug for p in self.two_items([yes]).picks], ["x"])     # only the positive note: a pick
         self.assertEqual([p.slug for p in self.two_items([yes, no]).picks], ["y"])    # the negative note is the newest
-        self.assertEqual(rl.line(self.two_items([no]), 0), "Lanes: 0 of 1 running; start: y (fix, ip 90)")
+        self.assertEqual(rl.line(self.two_items([no]), 0), "Lanes: 0 of 1 running; start: y (fix, ip 90); skipped, not reproduced: x")
 
-    def test_f1_a_quoted_review_line_is_no_reproduction_fact(self):
-        quoted = {"at": "2026-10-29T10:00:00Z", "fact": ["Review F2: PLAUSIBLE (traced, not reproduced); a test is needed."]}
-        self.assertEqual([p.slug for p in self.two_items([quoted]).picks], ["x"])
+    def test_f2_prose_about_reproduction_is_no_result_only_the_field_is(self):
+        # any wording ("did not reproduce", a Russian note, a quoted review line) without the field leaves X a pick
+        for words in ("did not reproduce", "could not reproduce the failure", "не воспроизводится", "Review F2: PLAUSIBLE (traced, not reproduced)"):
+            self.assertEqual([p.slug for p in self.two_items([{"at": "2026-10-29T10:00:00Z", "fact": [words]}]).picks], ["x"])
+
+    def test_f2_the_field_is_validated_and_kept_by_the_note_writer(self):
+        import datetime
+        import relay_queue as rq
+        note, why = rq.parse_note({"at": "2026-10-29T10:00:00Z", "fact": ["x"], "reproduced": "no"})
+        self.assertEqual((note.reproduced, why, rq.note_dict(note)["reproduced"]), ("no", [], "no"))
+        self.assertIn("reproduced is yes or no, on a fact note", rq.parse_note({"at": "2026-10-29T10:00:00Z", "fact": ["x"], "reproduced": "maybe"})[1])
+        self.assertIn("reproduced is yes or no, on a fact note", rq.parse_note({"at": "2026-10-29T10:00:00Z", "said": ["x"], "reproduced": "no"})[1])
+        self.assertIn("    reproduced: no", rq.notes_text({"notes": [note]}, datetime.timezone.utc))
 
     def test_f4_setting_note_names_the_cause_and_only_the_key_whose_rule_it_states(self):
         self.assertEqual(rl.setting_note({"front": {"lanes_line_items": "5"}}, "lanes_line_items"),
@@ -401,13 +411,13 @@ class Stop(LaneBase):
         self.assertFalse(os.path.exists(os.path.join(self.main, "state")))
 
     def test_prompt_hook_names_next_items_and_notes_an_out_of_bounds_setting(self):
-        fact = {"at": "2026-10-29T22:00:00Z", "fact": ["Not reproduced."]}
+        fact = {"at": "2026-10-29T22:00:00Z", "fact": ["Not reproduced."], "reproduced": "no"}
         self.seed({Q + "x.json": item("x", ip=99, where=("lib/x.py",), notes=[fact]), Q + "y.json": item("y", ip=90, where=("lib/y.py",)),
                    Q + "z.json": item("z", ip=80, where=("lib/z.py",))})
         with open(os.path.join(self.main, "CLAUDE.local.md"), "w") as handle:
             handle.write("Changes built at once: 1.\n")
         text = json.loads(self.run_hook("UserPromptSubmit", os.path.join(self.tmp, "h")))["hookSpecificOutput"]["additionalContext"]
-        self.assertEqual(text, "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80)")
+        self.assertEqual(text, "Lanes: 0 of 1 running; start: y (fix, ip 90); next: z (fix, ip 80); skipped, not reproduced: x")
         os.makedirs(os.path.join(self.main, ".claude"))
         with open(os.path.join(self.main, ".claude", "kit.toml"), "w") as handle:
             handle.write("[front]\nlanes_line_items = 11\n")

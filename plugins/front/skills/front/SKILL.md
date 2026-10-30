@@ -192,8 +192,9 @@ is one lane. Settings under `[front]` in the project's `.claude/kit.toml`:
 `lanes_line_items` (default 3, 0-10, startable items named after the picks as "next:"; 0 names none), `stop_nudge`
 (default 1, 0-2, Stop refusals per lane state; 0 is the line only) and
 `lane_quiet_hours` (default 3, 1-24, how long a worktree with no item counts as
-a lane). An item whose newest reproduction fact note starts "not reproduced" (write it as
-"<day Mon>, not reproduced (front): ...") is not named as a pick; a later note starting "reproduced" brings it back.
+a lane). The reproduce step's result is recorded as data: `relay queue note` with a `fact` and
+`reproduced = "no"` (or `"yes"`). An item whose newest such note says "no" is not named as a pick
+and the line lists it as "skipped, not reproduced"; a later `reproduced = "yes"` brings it back.
 Do not wait for the other lanes, and never start more than N.
 
 While a paid run goes, lanes keep building. A change that touches the paid

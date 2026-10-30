@@ -36,9 +36,6 @@ import relay_queue
 LANES_DEFAULT, LANES_MAX = 4, 8
 SETTINGS = {"lanes_line_items": (3, 0, 10), "stop_nudge": (1, 0, 2), "lane_quiet_hours": (3, 1, 24)}   # default, lowest, highest
 LIST_ITEMS = 3             # waits, landed and uncounted worktrees named in the line
-# A fact note that starts (after an optional "29 Oct," date) with "not reproduced" or "reproduced": the newest one decides whether the
-# front could reproduce the defect; if not, the item is no pick. A quoted review line that only mentions it does not count.
-REPRODUCTION = re.compile(r"^(?:\d{1,2} [a-z]{3,9},?\s+)?(not reproduced|reproduced)\b")
 LOG_DEPTH = 500            # newest merges of the default branch searched for the landing of a branch whose ref is gone
 SHA_COMMITS = 40           # newest commits of a landed branch looked at for the one that names the change
 
@@ -79,6 +76,7 @@ class State(NamedTuple):
     landed_open: list[Landed]
     quiet: list[str]           # no-item worktrees not counted (quiet or already landed)
     upcoming: list[Pick] = []  # the startable items after the picks (at most SETTINGS["lanes_line_items"] high), named so one stuck pick hides nothing
+    skipped: list[str] = []    # open items left out of the picks because their newest reproduce result is "no" (`relay queue note` with reproduced = "no")
 
 
 def setting(cfg: Any, key: str) -> int:
@@ -248,13 +246,9 @@ def _waiting_question(item: dict) -> bool:
 
 
 def _not_reproduced(item: dict) -> bool:
-    """True when a fact note of the item says the defect was not reproduced: the item is no pick (it would hide every item behind it)."""
-    verdict = ""
-    for n in relay_queue.notes_of(item):
-        found = REPRODUCTION.match(" ".join(n.text).strip().lower()) if n.kind == "fact" else None
-        if found:
-            verdict = found.group(1)
-    return verdict == "not reproduced"
+    """True when the newest fact note with `reproduced` (written by `relay queue note`) says "no": the item is no pick (it would hide every item behind it)."""
+    verdict = [n.reproduced for n in relay_queue.notes_of(item) if n.kind == "fact" and n.reproduced]      # notes are in date order: the newest decides
+    return verdict[-1:] == ["no"]
 
 
 def _one_lane_per_train(main: str, running: list[Lane], trees: dict[str, str], when: float, quiet_hours: int) -> list[Lane]:
@@ -335,6 +329,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
     free = max(0, capacity - len(running))
     picks: list[Pick] = []
     upcoming: list[Pick] = []
+    skipped: list[str] = []
     waits: list[Wait] = []
     chosen: list[tuple[str, list[str]]] = []      # the picks so far in this call, with the paths their `where` names
     for item in open_items:                       # a running lane holds the files its taken item names, before its branch has changed any
@@ -343,7 +338,10 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
     if free:
         changed = {lane.branch: _lane_files(main, default, lane, trees) for lane in running}
         for item in relay_queue.ordered(open_items):
-            if item["state"] != "open" or _waiting_question(item) or _not_reproduced(item):
+            if item["state"] != "open" or _waiting_question(item):
+                continue
+            if _not_reproduced(item):
+                skipped.append(item["slug"])
                 continue
             where = item.get("where") or []
             full = len(picks) == free          # past the picks: the same checks, but nothing is recorded as a wait and nothing is chosen
@@ -365,7 +363,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
                 continue
             chosen.append((item["slug"], _paths(where)))
             picks.append(pick)
-    return State(capacity, running, free, picks, waits, landed_open, quiet, upcoming)
+    return State(capacity, running, free, picks, waits, landed_open, quiet, upcoming, skipped)
 
 
 def wait_text(w: Wait) -> str:
@@ -387,6 +385,8 @@ def line(state: State, items: int = SETTINGS["lanes_line_items"][0], note: Optio
         parts.append("waits: " + ", ".join((f"{w.slug} (same file as {w.pick}: {w.file})" if w.pick else f"{w.slug} ({w.file}, {w.branch})") for w in state.waits[:LIST_ITEMS]))
     if state.landed_open:
         parts.append("landed, still open: " + ", ".join(f"{x.slug} ({x.branch} landed)" for x in state.landed_open[:LIST_ITEMS]))
+    if state.skipped:
+        parts.append("skipped, not reproduced: " + ", ".join(state.skipped[:LIST_ITEMS]))
     if state.quiet:
         parts.append("no lane, not counted: " + ", ".join(state.quiet[:LIST_ITEMS]))
     if note:
