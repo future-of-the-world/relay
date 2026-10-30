@@ -440,10 +440,6 @@ class FrontDecisionFact(DigestBase):
 class IntroReview(DigestBase):
     """Findings F1-F4 of the review of the question intro."""
 
-    def read(self, rel):
-        with open(os.path.join(tq.ROOT, rel), encoding="utf-8") as handle:
-            return handle.read()
-
     def test_hook_line_fills_the_slug_into_the_show_sentence(self):
         # F1: the third literal of the hook line lacked its f prefix, so `{slug}` was printed as text
         waiting = {"asked_at": "2026-10-30T10:00:00Z", "question": ["**Keep it?**"], "intro": ["Context."], "options": OPTIONS}
@@ -455,16 +451,8 @@ class IntroReview(DigestBase):
         self.assertIn("with its intro", lines[0])
         self.assertIn("`intro`", lines[0])
 
-    def test_skill_gives_title_to_question_and_the_rest_to_intro(self):
-        # F2: question = the title only, so the printed block shows the intro once
-        text = " ".join(self.read("plugins/front/skills/front/SKILL.md").split())
-        self.assertIn("`question` (the bold title line only)", text)
-        self.assertIn("nothing in `intro` repeats `question`", text)
-
-    def test_texts_that_teach_the_note_fields_name_intro(self):
-        # F3: queue rule, principle 9 and the decision-fact refusal list `intro`
-        self.assertIn("(`question`, `intro`, `options`)", " ".join(self.read("rules/queue.md").split()))
-        self.assertIn("(question, intro, options, chosen, decided_by, because)", self.read("rules/principles.md"))
+    def test_decision_fact_refusal_names_intro(self):
+        # F3: the refusal for a prose front decision lists `intro`
         self.commit(make("Some change"))
         with self.assertRaises(rq.Refused) as raised:
             rq.note(self.main, "some-change", {"kind": "fact", "fact": ["Front decision (owner can reverse): x."]}, now=NOW, **tq.QUIET)
@@ -509,6 +497,17 @@ class Texts(unittest.TestCase):
         for rel in ("rules/working-with-me.md", "rules/front.md", "plugins/front/skills/front/SKILL.md"):
             text = " ".join(self.read(rel).split())
             self.assertIn("once per item whose decisions were just recorded", text, rel)
+
+    def test_skill_gives_title_to_question_and_the_rest_to_intro(self):
+        # F2: question = the title only, so the printed block shows the intro once
+        text = " ".join(self.read("plugins/front/skills/front/SKILL.md").split())
+        self.assertIn("`question` (the bold title line only)", text)
+        self.assertIn("nothing in `intro` repeats `question`", text)
+
+    def test_texts_that_teach_the_note_fields_name_intro(self):
+        # F3: queue rule, principle 9 and the decision-fact refusal list `intro`
+        self.assertIn("(`question`, `intro`, `options`)", " ".join(self.read("rules/queue.md").split()))
+        self.assertIn("(question, intro, options, chosen, decided_by, because)", self.read("rules/principles.md"))
 
     def test_help_lists_digest(self):
         done = subprocess.run([sys.executable, os.path.join(tq.ROOT, "bin", "relay"), "--help"], capture_output=True, text=True, timeout=60)
