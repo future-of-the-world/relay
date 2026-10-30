@@ -40,6 +40,12 @@
       "fact": [
         "Reproduced 30 Oct 2026 on master: with build_tier_opus = \"denny\" the route guard allowed an opus worker with no Escalated line (exit 0, no output); with \"deny\" it denied. relay doctor printed nothing about the key. Code: plugins/delegate/hooks/route-guard.py:172-177, reader settings() at 44-63."
       ]
+    },
+    {
+      "at": "2026-10-30T16:40:04Z",
+      "fact": [
+        "Design review 30 Oct 2026 (F3), revised plan section 9: pass case 3 now reads: typed_only = \"false\" (text, not a boolean) is reported as a problem and the strict default true is used."
+      ]
     }
   ]
 }
