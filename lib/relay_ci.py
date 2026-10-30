@@ -7,7 +7,7 @@ failing step's first findings; the full log in .ci/ci.log. Exit 0 only when gree
 Steps: library tests (python), types and lint (mypy + ruff pyflakes rules through uv; needs uv and, the first time, the
 network), hook tests (the live session test; bun/jq must be on PATH or the step
 FAILS naming the tool; only hooks-live, which makes a paid claude call, is left for the full run), plugin lib links,
-plugin evals' grader tests, `claude plugin validate` (skipped loudly without claude), the inert step, plugin evals (full
+plugin evals' grader tests, `claude plugin validate` (skipped loudly without claude), the inert step, clean image quick gate (full mode only: container/Containerfile through podman, about 20 min, red when the quick gate is red there), plugin evals (full
 mode only; compared with evals/plugin/baseline), then the record step (bin/eval-record: files .ci/evals.json under
 $RELAY_HOME/evals, prints failed meaning graders, split votes and rule-file reads; it fails the gate when the copy fails,
 when a case failed its majority of runs (2 of 3 pass), or when a run was not judged).
@@ -53,6 +53,7 @@ QUICK_LIMIT_SECONDS = 1800
 LIMIT_ENV = "RELAY_CI_QUICK_LIMIT"   # whole seconds, 1 or more; replaces QUICK_LIMIT_SECONDS (tests, or a person debugging)
 LIMIT_EXIT = 124            # the exit of a gate stopped at its time limit (GNU `timeout`'s code); relay_gate.LIMIT_EXIT is the same number
 PROBE_LINE = "inert probe line"
+CLEAN_IMAGE = "relay-clean-gate"   # the podman image tag of container/Containerfile
 HOOK_TOOLS = (("git", "install git"), ("jq", "brew install jq"), ("python3", "install python3"),
               ("bun", "curl -fsSL https://bun.sh/install | bash (the packet and check-contract tests run on it)"))
 
@@ -387,6 +388,27 @@ class Ci:
         return done.returncode == 0
 
     # ---- the paid part --------------------------------------------------------------------------------------------
+    def clean_image(self, log: TextIO) -> int:
+        """The clean-image quick gate (container/Containerfile's recipe, podman only): build the image, clone the head
+        with no hardlinks into a temporary folder, run `bin/ci --quick` in a fresh clone inside the image. Red when it is."""
+        if self.which("podman") is None:
+            log.write("podman is not on PATH: the clean-image gate cannot run (install podman)\n")
+            return 127
+        head = self.run(["git", "rev-parse", "HEAD"], capture=True).stdout.strip()
+        with tempfile.TemporaryDirectory(prefix="relay-clean-gate-") as tmp:
+            src = os.path.join(tmp, "src")
+            # a worktree's .git file points outside the mount, so the image gets a plain clone of the head
+            for argv in (["podman", "build", "-q", "-f", "container/Containerfile", "-t", CLEAN_IMAGE, "."],
+                         ["git", "clone", "-q", "--no-hardlinks", self.root, src],
+                         ["git", "-C", src, "checkout", "-q", "--detach", head],
+                         ["podman", "run", "--rm", "-v", "%s:/src:ro" % src, CLEAN_IMAGE, "sh", "-c",
+                          "git clone -q /src /work/relay && cd /work/relay && bin/ci --quick"]):
+                rc = self.run(argv, log).returncode
+                if rc != 0:
+                    log.write("clean image gate: `%s` exited %d\n" % (" ".join(argv[:3]), rc))
+                    return rc
+        return 0
+
     def plugin_evals(self) -> int | None:
         """The paid eval step. Returns the exit code when the gate must end here (the cap, no ceiling), else None."""
         # a leftover file from an earlier run must never be filed or printed as this batch
@@ -516,6 +538,12 @@ class Ci:
             if self.probe is not None:
                 self.probe.stop()
         if not self.quick:
+            # the paid run (once per wave) is where the clean-image gate runs: a container gate takes about 20 minutes on this Mac
+            before = self.status
+            self.step("clean image quick gate (podman, about 20 min)", self.clean_image)
+            if self.status != before:
+                self.say("ci: RED (the clean-image quick gate failed: the paid evals were not started)")
+                return self.status
             if self.which("claude") is not None:
                 stop = self.plugin_evals()
                 if stop is not None:

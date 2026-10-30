@@ -199,6 +199,9 @@ def reclaim(path: str, text: str, record: Callable[[str], None]) -> bool:
         return False
     group = numbers[1]
     holders = relay_procs.holders_of(path)
+    if holders is None:      # lsof could not run: nobody can be named, so nothing is stopped; say why the wait goes on
+        record("gate: cannot tell who holds %s: lsof could not run (install lsof; `relay doctor` checks it); stop group %d by hand if its command hangs" % (path, group))
+        return False
     if not holders:
         return False
     try:
