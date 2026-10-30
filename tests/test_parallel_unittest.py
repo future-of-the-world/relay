@@ -54,7 +54,7 @@ class Tree(unittest.TestCase):
             handle.write(TEST_FILE % {"cls": cls, "body": body})
 
     def env(self, **more: str) -> Dict[str, str]:
-        env = {k: v for k, v in os.environ.items() if k not in ("RELAY_TEST_JOBS", "RELAY_INERT_PROBE")}
+        env = {k: v for k, v in os.environ.items() if k != "RELAY_TEST_JOBS"}
         env.update(RELAY_HOME=self.home, **more)
         return env
 
@@ -229,24 +229,13 @@ class Runs(Tree):
 
 
 class Times(Tree):
-    def test_the_outer_run_writes_the_times_file_with_every_class(self) -> None:
+    def test_the_run_writes_the_times_file_with_every_class(self) -> None:
         self.three_classes()
         self.assertEqual(self.go()[0], 0)
         with open(self.times_file()) as handle:
             classes = json.load(handle)["classes"]
         self.assertEqual(sorted(classes), ["test_a.Small", "test_b.Medium", "test_c.Big"])
         self.assertEqual(os.listdir(os.path.dirname(self.times_file())), ["myrepo.json"])   # no temporary file left
-
-    def test_the_probe_only_reads_the_times_file(self) -> None:
-        # case 7: the probe run (RELAY_INERT_PROBE=1) writes nothing; its outcome equals the outer run's
-        self.three_classes()
-        code, out = self.go(RELAY_INERT_PROBE="1")
-        self.assertEqual(code, 0, out)
-        self.assertFalse(os.path.exists(self.times_file()))
-        outer = self.go()[1]
-        probe = self.go(RELAY_INERT_PROBE="1")[1]
-        pick = lambda text: [re.sub(r" in [0-9.]+s", "", ln) for ln in text.splitlines() if ln.startswith(("Ran ", "OK"))]
-        self.assertEqual(pick(outer), pick(probe))
 
     def test_a_run_updates_only_the_classes_that_ran(self) -> None:
         os.makedirs(os.path.dirname(self.times_file()))
@@ -290,13 +279,13 @@ class Times(Tree):
         self.assertEqual(parallel_unittest.repo_name(main), "mainrepo")
 
 
-class ProbeShare(unittest.TestCase):
-    def test_the_gates_base_is_split_between_the_probe_and_the_outer_run(self) -> None:
-        # F3: given 4: probe 4 // 2 = 2, outer 4 - 2 = 2; given 3: probe 1, outer 2; one token: both get the 1 they cannot go below
-        self.assertEqual([parallel_unittest.probe_share(4, True), parallel_unittest.probe_share(4, False)], [2, 2])
-        self.assertEqual(parallel_unittest.probe_share(3, True), 1)
-        self.assertEqual(parallel_unittest.probe_share(3, False), 2)
-        self.assertEqual(parallel_unittest.probe_share(1, True), 1)
+class BaseShare(unittest.TestCase):
+    def test_the_one_run_has_the_gates_whole_share(self) -> None:
+        # the gate runs the tests once: given 4 tokens and 4 jobs the run starts 4 workers (it was 2 beside the probe);
+        # more jobs than tokens: 4; fewer jobs than tokens: the jobs
+        self.assertEqual(parallel_unittest.base_workers(4, 4), 4)
+        self.assertEqual(parallel_unittest.base_workers(6, 4), 4)
+        self.assertEqual(parallel_unittest.base_workers(2, 4), 2)
 
 
 class Jobs(unittest.TestCase):

@@ -1,9 +1,12 @@
 """Gate reuse after a take of the default branch (design relay-land 4.2): `relay_gate.reusable` walks the branch's own line."""
 import os
 import subprocess
+import sys
 import unittest
 
-from test_gate import GIT_ENV, Fixture, git, read, write
+from test_gate import GIT_ENV, HERE, ROOT, Fixture, git, read, write
+
+sys.path.insert(0, HERE)
 
 
 class ReuseAfterTake(Fixture):
@@ -59,6 +62,33 @@ class ReuseAfterTake(Fixture):
         git(self.wt, "commit", "-q", "-m", "relay: check of z")
         self.assertEqual(self.gate(self.wt).returncode, 0)
         self.assertEqual(self.runs(), 1)
+
+
+class StepGateAcrossInertCommits(Fixture):
+    """The merge hook's step_gate and `reusable` accept a green gate across commits that touch only inert files (the gate ran on a
+    copy without them) and refuse after a code commit. The speed-up of the quick gate leaves both unchanged."""
+
+    def commit(self, rel, text):
+        write(os.path.join(self.wt, rel), text)
+        git(self.wt, "add", "-A")
+        git(self.wt, "commit", "-q", "-m", "edit " + rel)
+        return git(self.wt, "rev-parse", "HEAD")
+
+    def test_a_green_log_stands_across_a_queue_commit_and_not_across_a_code_commit(self):
+        import relay_gate
+        from relay_testbase import load_hook
+        hook = load_hook("merge_hook_for_reuse_test", os.path.join(ROOT, "plugins", "relay", "hooks", "merge.py"))
+        self.repo(gate="exit 0\n")
+        self.assertEqual(self.gate(self.wt).returncode, 0)
+        hook.step_gate(self.wt, "wt/x", "its worktree")            # the gate's own log covers the head
+        queue = self.commit(".relay/queue/x.json", "{}\n")
+        self.assertIsNotNone(relay_gate.reusable(self.wt, queue, [self.SCRIPT_REL]))
+        hook.step_gate(self.wt, "wt/x", "its worktree")            # returns: only an inert file changed since the green log
+        code = self.commit("lib/b.py", "b\n")
+        self.assertIsNone(relay_gate.reusable(self.wt, code, [self.SCRIPT_REL]))
+        with self.assertRaises(hook.Refused) as caught:
+            hook.step_gate(self.wt, "wt/x", "its worktree")
+        self.assertIn("code changed since", str(caught.exception))
 
 
 class StoppedGate(Fixture):

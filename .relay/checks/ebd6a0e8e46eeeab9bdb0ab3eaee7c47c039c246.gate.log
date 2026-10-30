@@ -1,0 +1,16 @@
+head ebd6a0e8e46eeeab9bdb0ab3eaee7c47c039c246
+cmd bin/ci --quick
+wait 772.7
+ci: types and lint ok (1s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (402s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_green_log_stands_across_a_queue_commit_and_not_across_a_code_commit (test_gate_reuse.StepGateAcrossInertCommits.test_a_green_log_stands_across_a_queue_commit_and_not_across_a_code_commit)
+    AssertionError: unexpectedly None
+    FAILED (failures=1)
+ci: coverage 90.1% of lib, bin, plugins (15045 of 16695 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ran on a copy without queue, handover and check records; covers every commit with the same code
+ci: RED
+exit 1

@@ -1,4 +1,5 @@
-"""Python rule: tests never touch the live .relay/queue of the checkout (fix item python-rule-tests-never-touch-the-live-relay-que)."""
+"""Python rule: tests never touch the live .relay/queue, the handover or the check records of the checkout (fix item
+python-rule-tests-never-touch-the-live-relay-que; the gate's copy has none of them, so such a test goes red there)."""
 import os
 import re
 import unittest
@@ -8,7 +9,8 @@ TESTS = os.path.dirname(os.path.abspath(__file__))
 # ROOT" means: it names ROOT and one of the queue's paths or readers. "Pinned" means it names QUEUE_COMMIT, `commit` (the
 # parameter of pinned_items) or a hex sha of 7+ digits. A queue event (an item moving to done/) must not turn a test red.
 ROOT_NAMED = re.compile(r"\bROOT\b")
-QUEUE_READ = re.compile(r"\.relay/queue|[\"']\.relay[\"'],\s*[\"']queue|\bread_queue\b|\bcommitted_items\b|\bcheck_files\b")
+QUEUE_READ = re.compile(r"\.relay/queue|[\"']\.relay[\"'],\s*[\"']queue|\bread_queue\b|\bcommitted_items\b|\bcheck_files\b"
+                        r"|docs/handover\.md|[\"']docs[\"'],\s*[\"']handover\.md|\.relay/checks|[\"']\.relay[\"'],\s*[\"']checks|\.relay/changes")
 PINNED = re.compile(r"\bQUEUE_COMMIT\b|\bcommit\b|\b[0-9a-f]{7,40}\b")
 
 
@@ -37,7 +39,11 @@ class TestMatcher(unittest.TestCase):
                      "tq.committed_items(tq.ROOT)",
                      'open(os.path.join(ROOT, ".relay/queue/x.json"))',
                      'git(ROOT, "log", "--", ".relay/queue")',
-                     'os.listdir(os.path.join(ROOT, ".relay", "queue"))']:
+                     'os.listdir(os.path.join(ROOT, ".relay", "queue"))',
+                     'open(os.path.join(ROOT, "docs", "handover.md"))',
+                     'git(ROOT, "show", "HEAD~1:docs/handover.md")',
+                     'git(ROOT, "show", "HEAD^:.relay/checks/x.gate.log")',
+                     'os.listdir(os.path.join(ROOT, ".relay", "checks"))']:
             with self.subTest(line=line):
                 self.assertTrue(is_live_read(line))
 

@@ -10,16 +10,16 @@ Each worker keeps the guards of tests/run_unittest.py: a TMPDIR of its own, the 
 (tests/tmp_default.py), and the leaked-process scan (tests/leaked_gates.py) over its own folder when it ends.
 
 The class times live in ONE file per machine, $RELAY_HOME/test-times/<repo>.json (<repo> is the name of the main
-checkout's folder, so every worktree of the repo shares it). Only an outer run writes it (RELAY_INERT_PROBE=1 marks the
-inert probe, which only reads), and only after a complete run: every class ran. It is replaced in one step (a temporary
+checkout's folder, so every worktree of the repo shares it). A run writes it, and only after a complete run: every class
+ran. It is replaced in one step (a temporary
 file, then a rename). With no file, classes go out by test count, the biggest first: a weak guess, so the first run on a
 machine can be slower than later ones; its log says so.
 
 RELAY_TEST_JOBS: the number of workers, default 4, from 1 to the core count; 1 is the single process of run_unittest.
 
 Tokens (lib/relay_tokens.py): a worker runs only while it holds a token of the machine-wide pool. The first workers (the run's
-base) run on the base its holder passed down in RELAY_TEST_TOKENS (a gate's share, halved between the outer run and the inert
-probe), or on one shared token this run took itself; the rest are extras, each taken for one class and given back after it.
+base) run on the base its holder passed down in RELAY_TEST_TOKENS (a gate's whole share), or on one shared token this run
+took itself; the rest are extras, each taken for one class and given back after it.
 """
 import json
 import os
@@ -292,15 +292,15 @@ def run(root: str = ROOT, env: Optional[Dict[str, str]] = None, tests_dir: str =
         base.held.release()
 
 
-def probe_share(given: int, probe: bool) -> int:
-    """The workers of one of the gate's two test runs out of the gate's `given` base: the inert probe gets half, the outer run the rest."""
-    return max(1, given // 2 if probe else given - given // 2)
+def base_workers(jobs: int, given: int) -> int:
+    """The workers a run starts on its base tokens: the gate's whole share `given`, no more than `jobs` (the gate runs the tests once)."""
+    return min(jobs, given)
 
 
 def _run(root: str, env: Dict[str, str], tests_dir: str, jobs: int, note: str, run_base: relay_tokens.RunBase) -> int:
     if note:
         print(note)
-    base = min(jobs, probe_share(run_base.workers, env.get("RELAY_INERT_PROBE") == "1") if run_base.passed else run_base.workers)
+    base = base_workers(jobs, run_base.workers)
     st = run_base.settings
     start = time.monotonic()
     sys.path.insert(0, tests_dir)
@@ -357,7 +357,7 @@ def _run(root: str, env: Dict[str, str], tests_dir: str, jobs: int, note: str, r
     errors = len(problems) - fails
     print("OK" if not problems else "FAILED (%s)" % ", ".join(
         "%s=%d" % (k, n) for k, n in (("failures", fails), ("errors", errors)) if n))
-    if not pool.deaths and env.get("RELAY_INERT_PROBE") != "1":
+    if not pool.deaths:
         try:
             save_times(path, {r["class"]: r["seconds"] for r in pool.replies})
         except OSError as err:

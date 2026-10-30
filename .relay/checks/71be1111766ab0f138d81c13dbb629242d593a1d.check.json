@@ -1,0 +1,60 @@
+{
+  "branch": "wt/speed-up-the-quick-gate",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by running the check with a PATH whose first git links to /usr/bin/git. git_first_problem compares the raw",
+        "path from shutil.which with APPLE_GIT_LAUNCHER; the design asked for the resolved path. A doctor warning only, nothing",
+        "breaks, so LOW; the fix is one call. Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "$ ln -sf /usr/bin/git $S/bin/git; PATH=$S/bin:$PATH python3 -c '... relay_setup.git_first_check()'",
+        ".../sqgrev/bin/git",
+        "('git first on PATH is the real git', True, '')"
+      ],
+      "failing_case": [
+        "PATH starts with a folder whose `git` is a symlink to /usr/bin/git (Apple's launcher). shutil.which gives the link's",
+        "path, which is not \"/usr/bin/git\", and `git --exec-path` prints the developer tools' existing helper folder, so",
+        "git_first_check() returns (\"git first on PATH is the real git\", True, \"\"). Every git start still goes through the",
+        "launcher (20.9 ms against 6.6 ms). It should be not ok and name docs/macos.md section 1; the design (section 3 point 2)",
+        "says \"not ok when the first git on PATH resolves to /usr/bin/git\"."
+      ],
+      "fix_hint": [
+        "In git_first_problem compare os.path.realpath(git) with APPLE_GIT_LAUNCHER (or pass the resolved path from",
+        "git_first_check), and add the symlink case to GitFirstOnPath."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1186,
+      "pass_cases": [
+        "- first git on PATH is a symlink to /usr/bin/git: (name, False, detail naming \"docs/macos.md section 1\")",
+        "- first git is /usr/bin/git itself: not ok, as today",
+        "- first git is a link to Xcode's usr/bin/git with an existing --exec-path folder (this Mac's ~/.local/bin/git): ok",
+        "- a fake git whose --exec-path folder is missing: not ok, as today",
+        "- platform \"Linux\": no line"
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_installer_doctor.py:70 test_a_symlink_to_the_launcher_is_not_ok passes at head, fails on the old code; existing launcher, missing exec-path, real git and Linux cases in the same class pass. lib/relay_setup.py:1190 compares realpaths."
+      ],
+      "severity": "LOW",
+      "since": "5711ed673a2b6198fdd37b8e62f1359de601da4f",
+      "source": "review-speed-up-the-quick-gate.json",
+      "source_id": "F1",
+      "summary": "doctor calls a git on PATH that is a link to Apple's launcher \"the real git\"",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "f2beb630c8d643a22e162b1f22c0fd7db57ef709.gate.log",
+  "head": "71be1111766ab0f138d81c13dbb629242d593a1d",
+  "item": null,
+  "notes": [
+    "Fail without fix: test_a_symlink_to_the_launcher_is_not_ok copied onto bdb29dc1~1 fails (True is not false). test_gate_reuse fix is a test-command correction (relative path), passes at head."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 5711ed67..HEAD. Own commits: bdb29dc1 (F1 fix), f2beb630 (gate reuse test command, landing fix). Other changed files (relay_ci.py, test_gate.py, test_queue.py) came from the master merge ebd6a0e8. Ran tests.test_installer_doctor + tests.test_gate_reuse (50 OK); relay precheck twice, green both. Gate log head f2beb630, exit 0; HEAD only adds the gate-log commit (relay changed lists no file)."
+  ],
+  "type": "check"
+}
