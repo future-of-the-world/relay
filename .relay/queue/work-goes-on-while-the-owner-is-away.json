@@ -90,6 +90,16 @@
       "fact": [
         "Design rev 2, 30 Oct 2026: part A (reviewers and checkers decide reversible scope cuts on MEDIUM or LOW findings, code refuses the rest) is about 130 agent minutes, above the item's 2 hours (not measured: a guess)."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T17:49:32Z",
+      "question": [
+        "Part A of 'work goes on while the owner is away' is built and checked (gate green, open 0): a checker may itself put off a MEDIUM or LOW finding as a reversible scope cut; the rest is filed as a feature at the item's ip; the merge line shows it as 'decided without you'; HIGH findings, questions and design findings still wait for the owner, and code refuses otherwise. Does it land?"
+      ],
+      "options": [
+        "a. Land it (recommended): on 29 Oct night 4 of 4 waiting questions were MEDIUM scope cuts that would not have waited",
+        "b. Hold it: every finding the fixer does not fix keeps waiting for the owner, as today"
+      ]
     }
   ]
 }
