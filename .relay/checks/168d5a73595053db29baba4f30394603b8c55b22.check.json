@@ -1,0 +1,145 @@
+{
+  "branch": "wt/reports-a-task-needs-are-kept-in-the-rep",
+  "findings": [
+    {
+      "details": [
+        "CONFIRMED by running both guards on the same events. Correct in effect today: the merge hook still refuses a done/*.json at the",
+        "branch tip, and no reader looks into subfolders, so a nested file is inert rather than harmful. But it is an earlier guard",
+        "narrowed while the docstring now promises \"every file of .relay/queue/\". Cheap, so fix in the change. Size: 5 minutes."
+      ],
+      "evidence": [
+        "for G in <branch> /Users/amidman/relay; printf Write event | $G/plugins/relay/hooks/guard-main.sh",
+        "<branch> .relay/queue/done/x.json rc=0",
+        "<branch> .relay/queue/zz.plan.md rc=2 guard-main: a queue item is changed only by relay queue ...",
+        "master   .relay/queue/done/x.json rc=2 guard-main: a queue item is changed only by relay queue ...",
+        "kit_guard.analyze('echo x > .relay/queue/done/x.json') -> ['C', 'W'] (no Y, before and after)"
+      ],
+      "failing_case": [
+        "A Write tool event with file_path <worktree>/.relay/queue/done/x.json (cwd the worktree, an agent id):",
+        "master's guard-main.sh exits 2 (\"a queue item is changed only by relay queue\"); the branch's exits 0.",
+        "The new regex `.*/\\.relay/queue/[^/]+` matches only direct children; the old `.*/\\.relay/queue/.*\\.json` matched any depth.",
+        "<worktree>/.relay/queue/sub/x.plan.md is allowed by both (the shell rule QUEUE_FILE is direct-only too, before and after)."
+      ],
+      "fix_hint": [
+        "guard_main.py:314: `r\".*/\\.relay/queue/.+\"`; optionally kit_guard.QUEUE_FILE `(?:^|/)\\.relay/queue/.+$`; add case 1-2 to",
+        "Guarded.test_write_tool_and_shell_cannot_write_any_queue_file."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 314,
+      "pass_cases": [
+        "1. Write to <wt>/.relay/queue/done/x.json: exit 2 (as on master).",
+        "2. Write to <wt>/.relay/queue/sub/x.plan.md: exit 2 naming relay queue plan (\"every file in .relay/queue/\", design 7).",
+        "3. Write to <wt>/.relay/queue/zz.plan.md: exit 2 naming relay queue plan (today's behaviour, keep).",
+        "4. Write to <wt>/.relay/queue/zz.json: exit 2 (keep).",
+        "5. Write to a scratch file outside the folder: exit 0 (keep)."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_plan.py Guarded::test_write_tool_refuses_a_file_in_a_subfolder_of_the_queue_folder and test_shell_rule_covers_a_subfolder_of_the_queue_folder pass; both fail at base 2d1768ff."
+      ],
+      "severity": "LOW",
+      "since": "2d1768ffd5d853ecf3171acee21891de3758b033",
+      "source": "review-reports-a-task-needs-are-kept-in-the-rep.json",
+      "source_id": "F1",
+      "summary": "the Write guard no longer refuses a file in a subfolder of .relay/queue/ (done/x.json was refused on master)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the diff. Project rule (CLAUDE.local.md, Python): \"Every new or changed function has types.\" The rule",
+        "sets no severity; correct today, so LOW, fixed in the change because it is cheap. The new relay_queue plan functions are",
+        "typed. Size: 5 minutes."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- plugins/relay/hooks/merge.py: +def step_plan_files(main, default, ref):",
+        "git diff master...HEAD -- lib/relay_queue.py: check_files(root) body changed, signature untyped"
+      ],
+      "failing_case": [
+        "`def step_plan_files(main, default, ref):` is a new function with no parameter or return types; check_files(root)",
+        "(lib/relay_queue.py:715), step_queue(main, default, branch, ab=None) and cmd_queue(args) were changed and stay untyped.",
+        "The project's Python rule says \"Every new or changed function has types.\""
+      ],
+      "fix_hint": [
+        "Add the annotations to step_plan_files and check_files at least (the two whose bodies are new)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 209,
+      "pass_cases": [
+        "1. step_plan_files(main: str, default: str, ref: str) -> None.",
+        "2. check_files(root: str) -> list[tuple[str, list[str]]].",
+        "3. The type checker the gate runs (if any) stays green; behaviour unchanged (tests/test_queue_plan.py passes)."
+      ],
+      "path": "plugins/relay/hooks/merge.py",
+      "rank": "low",
+      "reason": [
+        "Types added; precheck types and lint green."
+      ],
+      "severity": "LOW",
+      "since": "2d1768ffd5d853ecf3171acee21891de3758b033",
+      "source": "review-reports-a-task-needs-are-kept-in-the-rep.json",
+      "source_id": "F2",
+      "summary": "new step_plan_files and the changed check_files, step_queue and cmd_queue carry no type hints (Python rule: types)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: git grep finds no test asserting `item` in a started design unit, no test running `relay queue show` or",
+        "`relay queue plan` through bin/relay. The code read today is correct (the wiring is right), so LOW: fragile, not wrong. These are",
+        "the links the brief's \"Done when\" names (the cycle's design track saves the plan, relay queue show names its path). Size: 15 minutes."
+      ],
+      "evidence": [
+        "grep -rn '\"designs\"' tests/*.py (outside test_cycle_workflow): tests/test_lanes_state.py:494 asserts designs[0][\"out\"] only",
+        "grep -rn 'queue plan|plan_line|\"plan\"' tests/*.py: only test_queue_plan.py (library calls) and test_cycle_workflow.py:681-699"
+      ],
+      "failing_case": [
+        "Edit lib/relay_lanes.py:554 to drop `\"item\": slug` from the design unit (or drop relay_queue.plan_path(main, slug) from the",
+        "design_brief/build_brief calls at 553/558, or drop the three `plan = relay_queue.plan_line(...)` lines in bin/relay cmd_queue",
+        "show): every design started by `relay queue start` then reaches the cycle with no item, so its result says \"not kept: this design",
+        "has no queue item\" and no plan lands; or `relay queue show` stops naming the plan. No test fails: the only start test of a design",
+        "unit (tests/test_lanes_state.py:494) checks `out` only; test_queue_plan calls plan_line, design_brief and build_brief directly,",
+        "and the cycle test builds its unit by hand with `item`. The only CLI test of the new surface is `relay queue --help`."
+      ],
+      "fix_hint": [
+        "Extend tests/test_lanes_state.py:494's test with cases 1-2 (keep a plan in its temp repo first) and add a Surface test in",
+        "tests/test_queue_plan.py running bin/relay queue plan and queue show against the PlanBase temp repo (cases 3-5)."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "1. relay_lanes.start on an open design item `ft` with a plan on master: cycle_args.designs[0].item == \"ft\" and the written",
+        "   brief holds \"Earlier plan: <main>/.relay/queue/ft.plan.md\" and \"relay queue plan ft --input <scratch>/reports/design-ft.md\".",
+        "2. relay_lanes.start on a build item with a plan on master: the brief holds \"Plan: <main>/.relay/queue/<slug>.plan.md\".",
+        "3. `bin/relay queue show zz -C <tmp repo>` after keep_plan: stdout's last line starts \"Plan: <main>/.relay/queue/zz.plan.md (\".",
+        "4. `bin/relay queue show zz` with no plan: no \"Plan:\" line (today's output unchanged).",
+        "5. `bin/relay queue plan zz --input p.md -C <tmp repo>`: exit 0, last line \"plan zz: landed on master at <sha>\"; with no --input,",
+        "   exit 2 naming the form."
+      ],
+      "path": "tests/test_queue_plan.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue_plan.py Wiring::test_queue_plan_and_show_through_the_command and test_start_hands_the_plan_to_a_design_and_a_build pass."
+      ],
+      "severity": "LOW",
+      "since": "2d1768ffd5d853ecf3171acee21891de3758b033",
+      "source": "review-reports-a-task-needs-are-kept-in-the-rep.json",
+      "source_id": "F3",
+      "summary": "the wiring that makes the design track keep plans is untested: dropping `item` from relay queue start's design unit, or the plan line from `relay queue show`, leaves every test green",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "0875ac6122cd23a946cadb4a86dd45ef02320c67.gate.log",
+  "head": "168d5a73595053db29baba4f30394603b8c55b22",
+  "item": null,
+  "notes": [
+    "Wiring tests (F3) pass on the base too, as expected (they guard existing wiring); fixer states the item-dropped mutation fails."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 2d1768ffd5d8..HEAD; ran tests/test_queue_plan.py (18 OK), precheck green, gate head 0875ac61 exit 0 (only the gate-log commit after it). Changed files all belong to findings."
+  ],
+  "type": "check"
+}

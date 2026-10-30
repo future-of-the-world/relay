@@ -29,7 +29,7 @@ const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], gate_reruns: [0, 2], 
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
 const TOP_KEYS = ['base', 'relay', 'scratch', 'gate', 'items', 'designs', 'settings']
 const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings', 'land', 'keep_open']
-const DESIGN_KEYS = ['name', 'brief', 'out', 'review']
+const DESIGN_KEYS = ['name', 'brief', 'out', 'review', 'item']
 const KINDS = ['change', 'built', 'fix', 'recheck']
 const CFG = Object.assign({}, DEFAULTS, A.settings || {})
 
@@ -107,6 +107,7 @@ function refusal() {
   }
   for (const d of designs) {
     if (!d || !SLUG.test(d.name || '') || !d.brief || !d.out) return `refused: a design needs a name, a brief and an out`
+    if (d.item !== undefined && !SLUG.test(d.item)) return `refused: design ${d.name} has an item that is not a queue slug`
     for (const f of Object.keys(d)) if (!DESIGN_KEYS.includes(f)) return `refused: design ${d.name} has an unknown field ${f} (known: ${DESIGN_KEYS.join(', ')})`
   }
   return ''
@@ -429,18 +430,26 @@ async function unit(it) {
   return changeUnit(Object.assign({}, it, { kind }))
 }
 
+// Whether a thinker's hand-back carries the last line of `relay queue plan` (landed or unchanged). A design with no queue item is not kept.
+function planKept(d, answer) {
+  if (!d.item) return 'not kept: this design has no queue item, so no plan is written beside one'
+  const said = answer && !answer.dead && answer.v ? String(answer.v.summary || '') : ''
+  if (said.includes(`plan ${d.item}: landed`) || said.includes(`plan ${d.item}: unchanged`)) return 'kept'
+  return `plan not kept: run relay queue plan ${d.item} --input ${d.out}`
+}
+
 async function design(d) {
   const stem = d.out.replace(/\.[A-Za-z0-9]+$/, '')
   const reviewPath = `${stem}-review.json`
   const t = await ask(`Brief: \`${d.brief}\`. Output: \`${d.out}\`.`, agentOpts('thinker', HANDBACK, 'Design', `design: ${d.name}`))
   if (t.dead || t.v.status !== 'DONE') return { name: d.name, design: 'failed', detail: t.dead || t.v.summary }
-  if (d.review === false) return { name: d.name, design: d.out }
+  if (d.review === false) return { name: d.name, design: d.out, plan: planKept(d, t) }
   const rv = await ask(`Review the design ${d.out} adversarially (design review before a risky build; the brief is ${d.brief}). Each finding names file:line where it names code and a concrete failing case. Reply with the count by severity and the main point. Report: \`${reviewPath}\`.`,
     agentOpts('critic', HANDBACK, 'Design', `design review: ${d.name}`))
-  if (rv.dead) return { name: d.name, design: d.out, review: rv.dead }
-  const t2 = await ask(`Brief: \`${d.brief}\`. Output: \`${d.out}\`. Revise the design against the review ${reviewPath} (read it with \`relay check show ${reviewPath}\`): fix what holds, answer what does not with the reason, and end with an "Open for the owner" list (only real trade-offs).`,
+  if (rv.dead) return { name: d.name, design: d.out, review: rv.dead, plan: planKept(d, t) }
+  const t2 = await ask(`Brief: \`${d.brief}\`. Output: \`${d.out}\`. Revise the design against the review ${reviewPath} (read it with \`relay check show ${reviewPath}\`): fix what holds, answer what does not with the reason, and end with an "Open for the owner" list (only real trade-offs). Put the section "what changed after the review" in the plan: each finding, whether it held, the fix. The review itself is not kept anywhere else.${d.item ? ` Last step: run \`relay queue plan ${d.item} --input ${d.out}\` and put its last line in your hand-back.` : ''}`,
     agentOpts('thinker', HANDBACK, 'Design', `design revise: ${d.name}`))
-  return { name: d.name, design: d.out, review: rv.v.summary, revised: t2.dead ? t2.dead : t2.v.summary }
+  return { name: d.name, design: d.out, review: rv.v.summary, revised: t2.dead ? t2.dead : t2.v.summary, plan: planKept(d, t2) }
 }
 
 const refused = refusal()

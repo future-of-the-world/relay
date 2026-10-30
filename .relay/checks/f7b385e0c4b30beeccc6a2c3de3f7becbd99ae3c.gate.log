@@ -1,0 +1,18 @@
+head f7b385e0c4b30beeccc6a2c3de3f7becbd99ae3c
+cmd bin/ci --quick
+wait 322.3
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (780s, log: .ci/steps/library-tests.log)
+    FAIL: test_q1_every_queue_writing_word_of_bin_relay_is_on_the_guard_list (test_read_only_guard.ReadOnlyHook.test_q1_every_queue_writing_word_of_bin_relay_is_on_the_guard_list)
+    AssertionError: Items in the first set but not the second:
+    FAIL: test_q1_every_relay_queue_word_is_classified (test_read_only_guard.ReadOnlyHook.test_q1_every_relay_queue_word_is_classified)
+    AssertionError: Items in the first set but not the second:
+    FAILED (failures=2)
+ci: coverage 89.9% of lib, bin, plugins (14840 of 16510 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (0s)
+ci: RED
+exit 1

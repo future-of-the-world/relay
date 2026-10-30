@@ -13,8 +13,8 @@
   ],
   "taken_at": "2026-10-30T08:49:34Z",
   "taken_by": "wt/reports-a-task-needs-are-kept-in-the-rep",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T10:17:55Z",
+  "test": "tests/test_queue_plan.py::test_queue_plan_and_show_through_the_command",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

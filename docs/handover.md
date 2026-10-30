@@ -1871,3 +1871,37 @@ Each branch waits for its answer; then a fix unit with the review's other findin
 1. When the ledger fix lands: paid run on master's head (front, background), then relay sync on green.
 2. Keep 3 fix / 3 feature lanes by hand; land ready changes; VPS changes 3-4 after change 2.
 3. Next handover worktree: handover-49.
+
+## Addendum 37 (30 Oct, ~13:40 local; session 6c217ef4)
+
+### Landed since addendum 36
+- The cycle script lands a ready change itself (relay land exit 5 = waits for the owner: hold, unanswered question, person-facing; exit 6 = waits for the paid run; `relay land --hold <branch> "<words>"`, `--release`, `--waiting`, `--paid-fix`). First self-landing 30 Oct.
+- Lane pick keeps the owner's 3 feature / 3 fix split (kit.toml setting); the lanes line shows both counts.
+- Ledger test-order leak fixed; bench graders read the task branch; clean Linux image quick gate green and checked by every paid run; cycle refuses unknown args; one stuck pick no longer hides others; a feature's check names its test; setup imports AGENTS.md into the CLAUDE.md skeleton (doctor reports a missing import); VPS change 2 (remote log name and readers).
+
+### Owner decisions (verbatim, 30 Oct)
+- Reports: "оставим для историчности" (plan kept beside its item as .relay/queue/<slug>.plan.md); "Рецензию не храним"; "handover пока не трогаем, оставляем как есть".
+- Steering: "для меня важно не только что ты мне присылаешь но вопросы дизайна relay ... водитель машины не крутит колеса но поворачивает руль"; then "A" (stop the redesign: a landing waits only for what the owner sees; direction is steered before the build and through the digest). "Ты путал меня текстами и экранами ... на деле ты просто перекладываешь то что делается из главной сессии в сам workflow изменения".
+- Third-party projects: first "давай пока не будем их делать", then "Ладно, я поторопился ... это значащие исправления ... можно продолжить"; plans to try relay on Zerocracy through the relay toolkit later; "до тех пор придерживаемся прежней стратегии"; "проверить подключение relay к самому relay, очищенному от relay" (done: 7 new fix items, ip 60-90).
+- SDD: "мой принцип zerodocs противоречит sdd" then "a": remove OpenSpec, [specs] and the empty [flow] slot (item remove-openspec-and-the-spec-and-flow-slots, ip 88); 3 OpenSpec items dropped.
+- kit.toml names: "Измени названия полей ... ты можешь перефразировать эти названия полей по своему" (item kit-toml-setting-names-say-nothing-to-a-person, ip 80).
+- Digest: "b" = hold the digest change before landing; the owner names what to change first (branch on hold via relay land --hold).
+
+### Front decisions (owner can reverse; recorded on the items)
+- Docs leave the repo file by file, handover last; relay --help one line per command.
+- Landing feature: no train; paid-run awareness built now.
+- Digest: one line per item when its decisions are recorded.
+- Scratch backup in $RELAY_HOME/backup is not a standing mechanism; deleted once plans land beside items.
+- Front decisions are now recorded as question notes with chosen/decided_by/because (the rule landed 30 Oct 03:08), not as fact notes.
+
+### In progress
+- Paid run on master 9aa7248a (front, background, log in the session's logs folder), after the clean-image fix landed.
+- Cycles: reports beside items (build), setup-registers-a-project-in-relay-s-own-project, tests-build-a-new-git-repo-for-every-case, relay-land-closes-a-feature-after-its-first-chan; test-tokens fix landing.
+- Digest branch held (owner "b").
+- Waiting for the owner: 3 questions on a-change-runs-with-relay-s-settings-from-the-pro (launcher a/b/c, memory a/b, grilling skill a/b/c); the Linux laptop comparison (deferred).
+- VPS changes 3-5 re-queued as gates-on-the-vps-hosts-transport-watch-bring-up (ip 90): relay land had closed the VPS item after change 2 (fix item relay-land-closes-a-feature-after-its-first-chan, ip 87).
+
+### Next steps
+1. When the paid run ends: green -> relay sync (applies the Fable critic profile); red -> one fix item.
+2. Ask the owner what to change in the digest; then a fix unit on wt/one-digest-per-wave-instead-of-status-me and `relay land --release`.
+3. Next handover worktree: handover-50.

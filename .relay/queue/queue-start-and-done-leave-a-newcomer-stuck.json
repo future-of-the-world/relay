@@ -28,5 +28,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T12:03:53Z",
+      "fact": [
+        "30 Oct: after a design-mode start (relay queue start, mode design) and the owner's answer, a second relay queue start of the same item to build it refused with \"queue item 'speed-up-the-quick-gate' is not an open, well-formed item of the default branch\": the item was still taken by its design branch (taken_by wt/speed-up-the-quick-gate) and the refusal named no next step. The front built it by hand with a change unit on the existing worktree."
+      ]
+    }
+  ]
 }

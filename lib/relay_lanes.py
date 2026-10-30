@@ -12,13 +12,10 @@ The pick: queue order (fixes first, then ip), skipping an item with an unanswere
 `where` names a file that a running branch has already changed (committed against the default branch, or modified in its
 worktree): that item waits, and the line says which file and branch. Used by the front's hooks (plugins/front/hooks/lanes.py)
 and by `relay queue start`. Settings, in the project's .claude/kit.toml under [front]:
-  lanes_line_items  default 3, bound 0-10   startable items named after the picks ("next: ...") so a stuck pick hides nothing; 0 is the line
-                                            without "next:" (at 10 about 250 tokens per message). Out of bounds: the default, and the line says so
-  feature_lanes     default 0, bound 0..lanes  lanes kept for features (relay: 3): while fewer feature lanes run, a free lane goes to the top startable
-                                            feature before any fix; the line shows "N of M fix lanes, K of J feature lanes"; 0 is no split
+  lanes_line_items  default 3, bound 0-10   startable items named after the picks ("next: ...") so a stuck pick hides nothing; 0 is the line without "next:" (at 10 about 250 tokens per message). Out of bounds: the default, and the line says so
+  feature_lanes     default 0, bound 0..lanes  lanes kept for features (relay: 3): while fewer feature lanes run, a free lane goes to the top startable feature before any fix; the line shows "N of M fix lanes, K of J feature lanes"; 0 is no split
   stop_nudge        default 1, bound 0-2    Stop refusals per observed lane state and session (0: the line only; 2: a hold costs two extra turns)
-  lane_quiet_hours  default 3, bound 1-24   a worktree with no item counts as a lane while changed within this (at 1 a long gate drops it
-                                            from the count; at 24 a parked branch holds a lane for a day)
+  lane_quiet_hours  default 3, bound 1-24   a worktree with no item counts as a lane while changed within this (at 1 a long gate drops it from the count; at 24 a parked branch holds a lane for a day)
 Tests: tests/test_lanes_state.py
 """
 
@@ -500,7 +497,7 @@ def _check_for(worktree: str, where: list[str]) -> str:
     return f"{worktree}/bin/ci --quick"
 
 
-def build_brief(item: dict, worktree: str, branch: str, scratch: str, name: str, state: State, check: str) -> str:
+def build_brief(item: dict, worktree: str, branch: str, scratch: str, name: str, state: State, check: str, plan: Optional[str] = None) -> str:
     """The brief of a build (a fix) printed from the item: the per-item lines; the rest is the fixed template."""
     others = [f"- {lane.branch}" + (f" ({lane.slug})" if lane.slug else "") for lane in state.running]
     lines = [f"# Build: {item['title']}", "",
@@ -508,6 +505,7 @@ def build_brief(item: dict, worktree: str, branch: str, scratch: str, name: str,
              f"Queue item ({item['kind']}, ip {item['ip']}): `{item['slug']}`, already taken by this branch. Read it with `relay queue show {item['slug']}`: "
              "its notes hold the owner's words and answers.", "",
              "What:", relay_queue.joined(item, "what"), "", "Why:", relay_queue.joined(item, "why")]
+    if plan: lines += ["", f"Plan: {plan} (read it first; the section \"what changed after the review\" says what the design review found)"]
     if item.get("failing_case"):
         lines += ["", "Failing case:", relay_queue.joined(item, "failing_case")]
     if item.get("pass_cases"):
@@ -533,7 +531,7 @@ def state_touched(state: State, worktree: str) -> list[tuple[Lane, list[str]]]:
     return [(lane, _lane_files(main, default, lane, trees)) for lane in state.running]
 
 
-def design_brief(item: dict, worktree: str, scratch: str, name: str) -> str:
+def design_brief(item: dict, worktree: str, scratch: str, name: str, plan: Optional[str] = None) -> str:
     """The brief of a design: the item in full (the owner's words verbatim), then the fixed design steps (owner, 27 Oct: designed against the fresh repository)."""
     return "\n".join([
         f"# Design: {item['title']}", "",
@@ -543,7 +541,10 @@ def design_brief(item: dict, worktree: str, scratch: str, name: str) -> str:
         "Measure live data first (a script over the queue, git, the ledger); write at least two distinct approaches plus doing nothing, and how "
         "leading tools solve it; every recommendation says what it rests on (a measured number, or not measured). End with an \"Open for the owner\" "
         "list of real trade-offs only, each with options and the recommendation first. Critique the owner's own picks once, plainly.",
-        f"Output: {scratch}/reports/design-{name}.md"]) + "\n"
+        *([f"Earlier plan: {plan}; your output replaces it."] if plan else []),
+        f"Output: {scratch}/reports/design-{name}.md",
+        f"Last step, after the plan is written: run `relay queue plan {item['slug']} --input {scratch}/reports/design-{name}.md` and put its last line in your hand-back. "
+        "A revised plan ends with the section \"what changed after the review\": each finding of the design review, whether it held, and the fix."]) + "\n"
 
 
 def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], despite_wait: bool = False) -> str:
@@ -582,12 +583,12 @@ def start(repo: str, slug: str, scratch: str, quiet_hours: int = SETTINGS["lane_
     os.makedirs(folder, exist_ok=True)
     if mode == "design":
         brief = os.path.join(folder, f"design-{name}.md")
-        text = design_brief(item, worktree, scratch, name)
-        unit: dict[str, Any] = {"designs": [{"name": name, "brief": brief, "out": os.path.join(scratch, "reports", f"design-{name}.md"), "review": True}]}
+        text = design_brief(item, worktree, scratch, name, relay_queue.plan_path(main, slug))
+        unit: dict[str, Any] = {"designs": [{"name": name, "brief": brief, "out": os.path.join(scratch, "reports", f"design-{name}.md"), "review": True, "item": slug}]}
     else:
         brief = os.path.join(folder, f"{name}.md")
         check = _check_for(worktree, item.get("where") or [])
-        text = build_brief(item, worktree, branch, scratch, name, state, check)
+        text = build_brief(item, worktree, branch, scratch, name, state, check, relay_queue.plan_path(main, slug))
         unit = {"items": [{"kind": "change", "name": name, "wt": worktree, "check": check, "branch": branch, "item": slug}]}
     with open(brief, "w", encoding="utf-8") as handle:
         handle.write(text)
