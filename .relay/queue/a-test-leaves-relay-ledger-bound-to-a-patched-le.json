@@ -31,8 +31,8 @@
   "where": [
     "tests/test_metrics.py:138"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T04:02:13Z",
+  "taken_by": "wt/a-test-leaves-relay-ledger-bound-to-a-pa",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
