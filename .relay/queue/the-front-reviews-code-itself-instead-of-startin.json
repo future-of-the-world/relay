@@ -40,6 +40,16 @@
       "fact": [
         "Bench 2026-10-30T02-11-19Z (scenario review-offbyone, 5 runs on the branch's rules, $0.71 a run): the front started a critic in 5 of 5 runs (grader delegated-to-a-critic passed every run), against 7 of 12 on master rules (29-30 Oct). The off-by-one bug was found in 1 of 5 runs with the Opus critic; earlier benches: Opus critic 1 of 2, Fable critic 5 of 5."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T02:32:55Z",
+      "question": [
+        "Does the bench (the front started a critic in 5 of 5 runs with the new rule, 7 of 12 without) settle the change's open Gap, so the change lands?"
+      ],
+      "options": [
+        "a. Yes, land it.",
+        "b. Run 10 more runs first (about $7, 20 min)."
+      ]
     }
   ]
 }
