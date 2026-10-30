@@ -102,9 +102,9 @@ def clean(main, default, branch, hook):
         if changed:
             return "kept %s: it holds changes not in the branch (%s); branch %s kept" % (name, named(changed), branch)
         keep_direct_runs(path)
-        rc, _ = relay_git.git(main, "worktree", "remove", path)
-        if rc != 0:
-            return "kept %s: git refused to remove it; branch %s kept" % (name, branch)
+        reason = remove_worktree(main, path)
+        if reason:
+            return "kept %s: %s; branch %s kept" % (name, reason, branch)
         gone = name
         if ignored:
             extra = ", with %d ignored path%s gone: %s" % (len(ignored), "" if len(ignored) == 1 else "s", named(ignored))
@@ -505,6 +505,48 @@ def take_failures(main):
     return [l for l in lines if l.startswith("could not remove")]
 
 
+def gitdir_of(path):
+    """The worktree's own git folder (.git/worktrees/<name>), read from the `.git` file in it; None when unreadable."""
+    try:
+        with open(os.path.join(path, ".git"), encoding="utf-8") as handle:
+            first = handle.readline().strip()
+    except OSError:
+        return None
+    return first[len("gitdir:"):].strip() if first.startswith("gitdir:") else None
+
+
+def clear_empty_modules(path):
+    """git refuses to remove a worktree whose git folder has a `modules/` folder, even an empty one (a test's leftover). When
+    nothing in it is a file (no cloned submodule) the empty folders are removed; True when `modules/` is gone."""
+    gitdir = gitdir_of(path)
+    modules = os.path.join(gitdir, "modules") if gitdir else ""
+    if not modules or not os.path.isdir(modules):
+        return False
+    if any(files for _, _, files in os.walk(modules)):
+        return False
+    for folder, _, _ in os.walk(modules, topdown=False):
+        try:
+            os.rmdir(folder)
+        except OSError:
+            return False
+    return True
+
+
+def remove_worktree(main, path):
+    """`git worktree remove` (never --force); None when it went, else the reason with the command that clears it. An empty
+    leftover `modules/` is cleared and the removal tried once more."""
+    done = subprocess.run(["git", "-C", main, "worktree", "remove", path], capture_output=True, text=True)
+    if done.returncode != 0 and "submodule" in done.stderr and clear_empty_modules(path):
+        done = subprocess.run(["git", "-C", main, "worktree", "remove", path], capture_output=True, text=True)
+    if done.returncode == 0:
+        return None
+    reason = last_line(done.stderr)
+    if "submodule" in reason:
+        return ("git refused to remove it: %s (a repository is cloned under its git folder); after checking nothing in it is "
+                "needed, run: git -C %s worktree remove --force %s" % (reason, main, path))
+    return "git refused to remove it: %s" % reason
+
+
 def keep_direct_runs(path):
     """Copy the cost of every direct eval run in worktree `path` to $RELAY_HOME/evals-direct before `git worktree remove` deletes the
     ignored evals/plugin/results/ (the paid ledger, lib/relay_paidcap.py kept_direct, reads that folder; same file name and shape).
@@ -531,9 +573,9 @@ def remove_child(path, branch):
         return 1
     name = rel(main, path)
     keep_direct_runs(path)
-    done = subprocess.run(["git", "-C", main, "worktree", "remove", path], capture_output=True, text=True)
-    if done.returncode != 0:
-        log_line(main, "could not remove %s: %s" % (name, last_line(done.stderr)))
+    reason = remove_worktree(main, path)
+    if reason:
+        log_line(main, "could not remove %s: %s" % (name, reason))
         return 1
     done = subprocess.run(["git", "-C", main, "branch", "-d", branch], capture_output=True, text=True)
     if done.returncode != 0:

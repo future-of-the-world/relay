@@ -746,5 +746,44 @@ class ReviewFixes(Land):
         self.assertEqual([e.outcome for e in self.done()], [relay_land.REFUSED])
 
 
+class LeftoverModules(Land):
+    """A merged worktree whose git folder holds an empty `modules/` (a test's leftover) is refused by git as a submodule holder."""
+
+    def merged(self):
+        self.start()
+        git(self.main, "merge", "-q", "--no-ff", "-m", "merge x", "wt/x")
+
+    def gitdir(self):
+        return os.path.join(self.main, ".git", "worktrees", os.path.basename(self.wt))
+
+    def cleanup(self):
+        done = subprocess.run([sys.executable, "-I", HOOK, "landed", self.main, "wt/x"], capture_output=True, text=True)
+        return done.stdout.strip()
+
+    def test_an_empty_modules_folder_is_cleared_and_the_worktree_goes(self):
+        # git refuses `worktree remove` when <gitdir>/modules exists, even empty; no file in it means no submodule, so it is cleared
+        self.merged()
+        os.makedirs(os.path.join(self.gitdir(), "modules", "sub"))
+        line = self.cleanup()
+        self.assertFalse(os.path.exists(self.wt), line)
+        self.assertEqual(git(self.main, "branch", "--list", "wt/x"), "")
+        self.assertTrue(line.startswith("Removed"), line)
+
+    def test_a_modules_folder_with_a_repository_is_reported_with_its_cause_and_the_command(self):
+        # a file under modules/ is a real submodule clone: nothing is deleted; the line names the cause and the clearing command
+        self.merged()
+        write(os.path.join(self.gitdir(), "modules", "sub", "HEAD"), "ref: refs/heads/main\n")
+        line = self.cleanup()
+        self.assertTrue(os.path.exists(self.wt))
+        self.assertIn("submodule", line)
+        self.assertIn("worktree remove --force", line)
+        self.assertIn(self.wt, line)
+
+    def test_a_worktree_without_nested_repositories_is_removed_as_before(self):
+        self.merged()
+        self.assertTrue(self.cleanup().startswith("Removed"))
+        self.assertFalse(os.path.exists(self.wt))
+
+
 if __name__ == "__main__":
     unittest.main()
