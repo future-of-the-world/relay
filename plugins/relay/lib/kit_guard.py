@@ -372,7 +372,7 @@ GIT_WRITE = {"commit", "merge", "switch", "checkout", "reset", "rebase", "restor
              "am", "apply", "add", "rm", "mv", "clean", "update-ref", "read-tree", "checkout-index", "filter-branch"}
 CHECKS = re.compile(r"(?:^|/)\.relay/checks(?:/|$)")
 CHECKS_NAMED = re.compile(r"(?:^|[^A-Za-z0-9_.])\.relay/checks(?:/|$|[^A-Za-z0-9_.])")
-QUEUE_FILE = re.compile(r"(?:^|/)\.relay/queue/[^/]+\.json$")
+QUEUE_FILE = re.compile(r"(?:^|/)\.relay/queue/[^/]+$")
 QUEUE_NAMED = re.compile(r"(?:^|[^A-Za-z0-9_.])\.relay/queue/")
 GIT_CHECKS_WRITE = {"add", "rm", "mv", "restore", "update-index"}
 INLINE_CODE = {"python", "python3", "node", "perl", "ruby"}

@@ -29,8 +29,8 @@ tests, dependency manifests or build config.
   read). Read those; for anything else grep or read the lines you need. If
   it lacks something you need to decide, stop and report it: don't guess a
   decision that is the owner's.
-- Bash is for reading (`git log`, `git diff`) and for the checks your flow
-  names.
+- Bash is for reading (`git log`, `git diff`), for the checks your flow
+  names and for the keep command your brief names (`relay queue plan`).
 - Decide what the principles decide. A choice that is the owner's (a
   trade-off, a number, a scope cut, what a person will see) goes in as a
   question (a bold title, no number) with lettered options, your recommendation first, and the

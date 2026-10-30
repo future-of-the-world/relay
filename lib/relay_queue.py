@@ -719,12 +719,21 @@ def check_files(root):
     base = os.path.join(root, QDIR)
     if not os.path.isdir(base):
         raise Refused(f"no {QDIR} folder under {root}")
-    for name in sorted(os.listdir(base)):
-        if name.endswith(".json") and os.path.isfile(os.path.join(base, name)):
+    names = [n for n in sorted(os.listdir(base)) if os.path.isfile(os.path.join(base, n))]
+    slugs = {n[:-5] for n in names if n.endswith(".json") and "." not in n[:-5]}
+    for name in names:
+        if name.endswith(".json") and "." in name[:-5]:
+            problems.append((f"{QDIR}/{name}", [f"not an item: only <slug>.json is an item here; a task's plan goes beside its item as <slug>{PLAN_END}, written by relay queue plan"]))
+        elif name.endswith(".json"):
             with open(os.path.join(base, name), encoding="utf-8") as handle:
                 item = parse(name[:-5], handle.read())
             if item["problems"]:
                 problems.append((f"{QDIR}/{name}", item["problems"]))
+        elif name.endswith(PLAN_END):
+            if name[:-len(PLAN_END)] not in slugs:
+                problems.append((f"{QDIR}/{name}", [f"a plan with no item: {name[:-len(PLAN_END)]}.json is missing beside it"]))
+        elif not name.startswith("."):       # .DS_Store and the like are the machine's, not the queue's
+            problems.append((f"{QDIR}/{name}", [f"not a queue file: only <slug>.json items and <slug>{PLAN_END} plans belong here"]))
     stray = os.path.join(base, "done")
     for name in sorted(os.listdir(stray)) if os.path.isdir(stray) else []:
         if name.endswith(".json"):
@@ -898,6 +907,114 @@ def land_files(repo, slug, writes_at, label):
     try:
         return _land(repo, planner, drop_kept=True)[1]
     except NothingToWrite:
+        return None
+
+
+# ---------------------------------------------------------------- plans beside their items
+
+PLAN_END = ".plan.md"
+PLAN_KB = (200, 20, 2000)     # RELAY_PLAN_MAX_KB: default, lowest, highest. At 20 most plans are refused (median 32 KB); at 2000 a pasted log enters git for good
+KEY_SHAPES = re.compile(r"sk-ant-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----")
+
+
+def plan_file(slug: str) -> str:
+    """The path of the plan of item `slug`, relative to the repository."""
+    return f"{QDIR}/{slug}{PLAN_END}"
+
+
+def plan_cap_kb(environ: Optional[dict] = None) -> int:
+    """The size cap of a plan in KB: RELAY_PLAN_MAX_KB clamped to its bounds; the default when unset or not a whole number."""
+    default, low, high = PLAN_KB
+    raw = (os.environ if environ is None else environ).get("RELAY_PLAN_MAX_KB", "")
+    try:
+        return max(low, min(high, int(raw)))
+    except ValueError:
+        return default
+
+
+def redact_plan(text: str, home: Optional[str] = None) -> tuple[str, list[str]]:
+    """The plan text as it may enter git: a key shape becomes `<redacted>` (one returned line names the text line), the home
+    folder prefix becomes `~`."""
+    notes: list[str] = []
+    lines = text.split("\n")
+    for number, line in enumerate(lines, 1):
+        if KEY_SHAPES.search(line):
+            lines[number - 1] = KEY_SHAPES.sub("<redacted>", line)
+            notes.append(f"line {number} held what looks like a key and was replaced with <redacted>; rotate the key if it was real")
+    out = "\n".join(lines)
+    home = os.path.expanduser("~") if home is None else home
+    if home.rstrip("/"):
+        out = re.sub(re.escape(home.rstrip("/")) + r"(?=/|\b|$)", "~", out)
+    return out, notes
+
+
+def read_plan(path: str, environ: Optional[dict] = None, home: Optional[str] = None) -> tuple[str, list[str]]:
+    """(text to keep, notes) from the file `path`; Refused when it is missing, empty, not UTF-8 text or over the cap."""
+    cap = plan_cap_kb(environ)
+    try:
+        with open(path, "rb") as handle:
+            raw = handle.read()
+    except OSError as exc:
+        raise Refused(f"cannot read the plan file {path}: {exc.strerror or exc}")
+    if len(raw) > cap * 1024:
+        raise Refused(f"the plan is {len(raw) // 1024} KB, over the cap of {cap} KB: shorten it or raise RELAY_PLAN_MAX_KB (bounds {PLAN_KB[1]}-{PLAN_KB[2]})")
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        raise Refused(f"{path} is not UTF-8 text")
+    if not text.strip():
+        raise Refused(f"{path} is empty: write the plan first")
+    return redact_plan(text, home)
+
+
+def keep_plan(repo: str, slug: str, source: str, environ: Optional[dict] = None, home: Optional[str] = None) -> str:
+    """`relay queue plan <slug> --input <file.md>`: land the plan beside its item on the default branch, for an item in any state.
+    Writes only if the bytes differ from the default branch's head; changes no field of the item. Returns the lines to print; the
+    last is `plan <slug>: landed on <branch> at <sha>` or `plan <slug>: unchanged`."""
+    text, notes = read_plan(source, environ, home)
+    main, default = _context_with_relay(repo)
+    path = plan_file(slug)
+
+    def writes_at(rev: str) -> dict:
+        if slug not in Reader(main, rev).used_slugs():
+            raise Refused(f"no queue item '{slug}': add it first with relay queue add")
+        if cat_batch(main, [f"{rev}:{path}"]) == [text.encode("utf-8")]:
+            return {}
+        return {path: text}
+
+    sha = land_files(repo, slug, writes_at, "plan")
+    last = f"plan {slug}: unchanged" if sha is None else f"plan {slug}: landed on {default} at {sha}"
+    return "\n".join(notes + [last])
+
+
+def plan_line(repo: str, slug: str) -> Optional[str]:
+    """The line `relay queue show` prints for the plan of `slug`, computed from git: the plan's absolute path in the main checkout
+    (which `land_files` keeps at the default branch's head), its size, its versions and the date of the last. None when no plan."""
+    main, default = _context(repo)
+    head = _head(main, default)
+    path = plan_file(slug)
+    blob = cat_batch(main, [f"{head}:{path}"])[0]
+    if blob is None:
+        return None
+    rc, out, _ = _git(main, "log", "--format=%cI", head, "--", path)
+    stamps = [x for x in _text(out).split("\n") if x] if rc == 0 else []
+    last = ""
+    if stamps:
+        try:
+            last = ", last " + dt.datetime.fromisoformat(stamps[0]).strftime("%d %b %H:%M")
+        except ValueError:
+            pass
+    return f"Plan: {os.path.join(main, path)} ({max(1, round(len(blob) / 1024))} KB, {len(stamps)} version{'s' if len(stamps) != 1 else ''}{last})"
+
+
+def plan_path(repo: str, slug: str) -> Optional[str]:
+    """The absolute path of the plan of `slug` in the main checkout when the default branch holds one, else None."""
+    try:
+        main, default = _context(repo)
+        if cat_batch(main, [f"{_head(main, default)}:{plan_file(slug)}"])[0] is None:
+            return None
+        return os.path.join(main, plan_file(slug))
+    except Refused:
         return None
 
 

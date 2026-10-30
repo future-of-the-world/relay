@@ -1,4 +1,4 @@
-"""Build-time gates that run on a remote host (docs/plans/vps-build-gates.md 5.1, 5.2, 5.8): the remote log's name, the deciding host,
+"""Build-time gates that run on a remote host (.relay/queue/gates-on-the-vps-hosts-transport-watch-bring-up.plan.md 5.1, 5.2, 5.8): the remote log's name, the deciding host,
 reuse over a stretch of commits, and the readers of the log. The remote runner is a function the test passes (no ssh, no podman)."""
 import contextlib
 import io

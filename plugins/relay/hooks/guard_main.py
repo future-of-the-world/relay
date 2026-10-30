@@ -293,10 +293,12 @@ class Guard:
             sys.exit(2)
 
     def queue_refuse(self, directory: str) -> None:
-        """A queue item file is written only by `relay queue`; git's own verbs on it (a merge conflict) are not refused here."""
+        """Every file of .relay/queue/ (an item, a plan beside it) is written only by `relay queue`; git's own verbs on it (a merge conflict)
+        are not refused here."""
         if has_relay(directory):
             sys.stderr.write("guard-main: a queue item is changed only by relay queue (edit changes its text, note adds a note, take, done, "
-                             "release, ip, drop): use relay queue edit <slug> --input <file.toml>\n")
+                             "release, ip, drop): use relay queue edit <slug> --input <file.toml>; a task's plan is kept with "
+                             "relay queue plan <slug> --input <file.md>\n")
             sys.exit(2)
 
     # ---- the tools -----------------------------------------------------------------------------------------------
@@ -309,7 +311,7 @@ class Guard:
         target = resolve(file, self.cwd)
         if target.endswith("/.relay/checks") or "/.relay/checks/" in target:
             self.checks_refuse(existing_dir(target))
-        if re.fullmatch(r".*/\.relay/queue/.*\.json", target, re.DOTALL):
+        if re.fullmatch(r".*/\.relay/queue/[^/]+", target, re.DOTALL):
             self.queue_refuse(existing_dir(target))
         if self.in_main(target):
             self.block("%s on %s writes to the main checkout." % (self.tool, target))

@@ -206,6 +206,14 @@ def step_hand_edits(main, default, ref, changed_files):
             raise Refused(hand % "test")
 
 
+def step_plan_files(main, default, ref):
+    """A task's plan (`.relay/queue/<slug>.plan.md`) is written only by `relay queue plan`, on the default branch: a branch whose own
+    range (default...branch) adds, changes or deletes one is refused. A plan that came in by taking the default branch is not in that range."""
+    names = relay_git.git(main, "diff", "--name-only", "--no-renames", "-z", "refs/heads/%s...%s" % (default, ref), "--", QUEUE_DIR)[1]
+    for path in sorted(p for p in names.split("\0") if p.endswith(".plan.md") and os.path.dirname(p) == QUEUE_DIR.rstrip("/")):
+        raise Refused("plan %s changed by hand; a task's plan is kept only with relay queue plan <slug> --input <file.md> (it lands on the default branch, not on a task branch)" % os.path.basename(path))
+
+
 def step_hand_files(main, default, ref):
     """No item file is deleted or added by a task branch: `relay queue add` lands on the default branch, and an item is never deleted
     (`relay queue drop` marks it). A branch that changes a migrate module is exempt. Run after the malformed check, so a bad new
@@ -249,6 +257,7 @@ def step_queue(main, default, branch, ab=None):
     stray = sorted(p for p in files if p.startswith(DONE_DIR) and p.endswith(".json"))
     if stray:
         raise Refused("queue file %s is under done/, which is gone; run relay queue migrate" % stray[0])
+    step_plan_files(main, default, ref)
     step_hand_edits(main, default, ref, changed_files)
     paths = sorted(p for p in files if p.endswith(".json") and os.path.dirname(p) == QUEUE_DIR.rstrip("/"))
     rows = [(os.path.basename(p)[:-5], blob(main, ref, p) or "") for p in paths]
