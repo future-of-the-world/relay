@@ -192,10 +192,25 @@ class Page(DigestBase):
         ask = {"asked_at": "2026-10-30T05:10:00Z", "question": ["**Where does the comparison run?**"], "options": OPTIONS}
         self.sent()
         self.commit(with_notes(make("First place"), [ask]), with_notes(make("Second place"), [dict(ask, asked_at="2026-10-30T05:11:00Z")]))
-        waiting = [x for x in self.page() if x.startswith("Waiting for you:")]
-        self.assertEqual(len(waiting), 1)
-        self.assertEqual(waiting[0].count("Where does the comparison run?"), 1)
-        self.assertIn("(asked 30 Oct 05:10 UTC)", waiting[0])            # the oldest of the two
+        lines = self.page()
+        self.assertEqual(sum(x.startswith("Waiting for you") for x in lines), 1)
+        text = "\n".join(lines)
+        self.assertEqual(text.count("Where does the comparison run?"), 1)
+        self.assertIn("asked 30 Oct 05:10 UTC", text)            # the oldest of the two
+        self.assertNotIn("05:11", text)
+
+    def test_waiting_question_is_printed_in_full_with_every_option(self):
+        ask = {"asked_at": "2026-10-30T05:10:00Z", "question": ["**Where does the comparison run?**"], "options": OPTIONS}
+        self.sent()
+        self.commit(with_notes(make("First place"), [ask]))
+        lines = self.page()
+        at = next(i for i, x in enumerate(lines) if x.startswith("Waiting for you"))
+        block = lines[at + 1:at + 4 + len(OPTIONS)]
+        self.assertEqual(block[0], "  First place")                       # the item title
+        self.assertIn("Where does the comparison run?", block[1])
+        self.assertEqual([x.strip() for x in block[2:2 + len(OPTIONS)]], [x.strip() for x in OPTIONS])    # every option
+        self.assertEqual(block[2 + len(OPTIONS)], "      asked 30 Oct 05:10 UTC")
+        self.assertNotIn("chosen", "\n".join(block))                    # no answer line
 
     def test_line_limits_and_all(self):
         self.sent()

@@ -325,15 +325,26 @@ def decision_lines(decisions: "list[Decision]", room: int) -> "tuple[list[str], 
     return lines, len(decisions) - shown
 
 
-def waiting_for_owner(items: "dict[str, dict]") -> "list[tuple[str, str]]":
-    """(asked time, title) of each question the owner has not answered, a title once (the oldest), oldest first."""
-    seen: "dict[str, str]" = {}
+def waiting_for_owner(items: "dict[str, dict]") -> "list[tuple[str, str, Any]]":
+    """(asked time, item title, note) of each question the owner has not answered, a question title once (the oldest), oldest first."""
+    seen: "dict[str, tuple[str, str, Any]]" = {}
     for item in items.values():
         for n in relay_queue.owner_waiting(relay_queue.notes_of(item)):
             title = relay_queue.question_title(n)
-            if title not in seen or n.at < seen[title]:
-                seen[title] = n.at
-    return sorted((at, title) for title, at in seen.items())
+            if title not in seen or n.at < seen[title][0]:
+                seen[title] = (n.at, item["title"], n)
+    return sorted(seen.values(), key=lambda w: (w[0], w[1]))
+
+
+def waiting_lines(waiting: "list[tuple[str, str, Any]]") -> "list[str]":
+    """Each waiting question in full, as a front decision is printed (item, the question, every option, when asked), with no answer line."""
+    lines = ["Waiting for you (answer by letter):"]
+    for at, item_title, n in waiting:
+        lines.append("  %s" % item_title)
+        lines += ["    " + x.strip() for x in n.text if x.strip()]
+        lines += ["      " + x.strip() for x in n.options]
+        lines.append("      asked %s" % show_time(epoch_of(at)))
+    return lines
 
 
 def numbers_line(items: "dict[str, dict]", spend: Spend, runs: "list[PaidRun]") -> str:
@@ -383,7 +394,7 @@ def page(main: str, default: str, cfg: Any, since: Optional[str] = None, show_al
         if left:
             lines.append("  and %d more %s: relay digest --all" % (left, "decision" if left == 1 else "decisions"))
     if waiting:
-        lines.append("Waiting for you: " + "; ".join("**%s** (asked %s)" % (title, show_time(epoch_of(at))) for at, title in waiting))
+        lines += waiting_lines(waiting)
     lines.append(numbers_line(items, (spend or (lambda: project_spend(main)))(), paid_runs(evals or evals_dir(main), default)))
     lines.append("Page head %s: after sending, run relay digest --sent %s" % (head[:8], head[:8]))
     return lines
