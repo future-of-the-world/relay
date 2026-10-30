@@ -22,8 +22,8 @@
     "plugins/delegate/hooks/route-guard.py (running_now)",
     "lib/relay_ledger.py (running_agents)"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T18:37:42Z",
+  "taken_by": "wt/the-routing-guard-counts-finished-agents-as-runn",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
