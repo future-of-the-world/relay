@@ -1,5 +1,4 @@
 """The work queue (design docs/plans/review-gate.md 12.5, tests Q1-Q10). Every git test runs on scratch repositories in a temp dir."""
-import atexit
 import json
 import os
 import shutil
@@ -17,6 +16,7 @@ sys.path.insert(0, HERE)
 
 import relay_marks  # noqa: E402
 import relay_queue as rq  # noqa: E402
+import repo_templates  # noqa: E402
 import relay_verdict as rv  # noqa: E402
 
 NOSLEEP = lambda seconds: None  # noqa: E731  (time is a value: the tests never wait)
@@ -65,15 +65,6 @@ def raw_item(text, drop=(), **changes):
 
 
 _TEMPLATES: dict = {}       # (relay, items, seed) -> a finished repository, built once per run and copied for every case
-_TEMPLATE_DIR: list = []
-_RUN_TEMP = tempfile.gettempdir()      # read at import, before any test sets its own TMPDIR: the templates outlive the cases
-
-
-def _template_root() -> str:
-    if not _TEMPLATE_DIR:
-        _TEMPLATE_DIR.append(os.path.realpath(tempfile.mkdtemp(prefix="relay-queue-template-", dir=_RUN_TEMP)))
-        atexit.register(shutil.rmtree, _TEMPLATE_DIR[0], ignore_errors=True)
-    return _TEMPLATE_DIR[0]
 
 
 class Base(unittest.TestCase):
@@ -96,8 +87,7 @@ class Base(unittest.TestCase):
         gets a copy of that folder (no git call), so a test that writes never shares a repository with another."""
         key = (relay, tuple(sorted((items or {}).items())), tuple(sorted((seed or {}).items())))
         if key not in _TEMPLATES:
-            template = os.path.join(_template_root(), "t%d" % len(_TEMPLATES))
-            os.makedirs(template)
+            template = tempfile.mkdtemp(prefix="t", dir=repo_templates.template_root("queue"))      # unique even when this file is imported under two names
             git(template, "init", "-q", "-b", "master")
             files = {"README.md": "x\n"}
             if relay:

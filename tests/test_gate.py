@@ -3,7 +3,6 @@
 Every repository is built in a temp directory; the gate commands are fixtures, never the real bin/ci of this repo
 except as the file the A11 fixture copies.
 """
-import atexit
 import fcntl
 import glob
 import os
@@ -26,6 +25,7 @@ sys.path.insert(0, HERE)
 
 import leaked_gates
 import relay_procs
+import repo_templates
 from fake_tools import install_fake
 from pidfile import wait_pid
 
@@ -60,15 +60,6 @@ def write(path, text, mode=None):
 
 
 _TEMPLATES: dict = {}
-_TEMPLATE_DIR: list = []
-_RUN_TEMP = tempfile.gettempdir()      # read at import, before any test sets its own TMPDIR: the templates outlive the cases
-
-
-def _template_root() -> str:
-    if not _TEMPLATE_DIR:
-        _TEMPLATE_DIR.append(os.path.realpath(tempfile.mkdtemp(prefix="relay-gate-template-", dir=_RUN_TEMP)))
-        atexit.register(shutil.rmtree, _TEMPLATE_DIR[0], ignore_errors=True)
-    return _TEMPLATE_DIR[0]
 
 
 class Fixture(unittest.TestCase):
@@ -141,28 +132,27 @@ class Fixture(unittest.TestCase):
             return [(numbers[0] if numbers else 0, "holder of %s not identified" % path)]
         return [(pid, p.command) for pid, p in sorted(mine.items())]
 
+    SCRIPT_REL = "../../.ci/gate.sh"      # from .worktrees/x to main/.ci/gate.sh
+
     def repo(self, relay=True, gate=None, ignore=".ci/\n.worktrees/\n"):
         """main checkout on master with a worktree .worktrees/x on wt/x holding one commit; gate = the gate script's text"""
         main = os.path.join(self.tmp, "main")
-        key = (relay, ignore)
+        key = (relay, ignore, gate is not None)
         if key not in _TEMPLATES:      # git builds this repository once per run; each case gets a copy of the folder
-            template = os.path.join(_template_root(), "t%d" % len(_TEMPLATES))
-            os.makedirs(template)
+            template = tempfile.mkdtemp(prefix="t", dir=repo_templates.template_root("gate"))      # unique even when this file is imported under two names
             git(template, "init", "-q", "-b", "master")
             write(os.path.join(template, ".gitignore"), ignore)
             if relay:
                 write(os.path.join(template, ".relay", "README.md"), "x\n")
+            if gate is not None:      # the script sits outside the tracked files at a path relative to the worktree (cwd of the gate): main/.ci/gate.sh
+                write(os.path.join(template, ".claude", "kit.toml"), '[gate]\nci = "%s"\n' % self.SCRIPT_REL)
             git(template, "add", "-A")
             git(template, "commit", "-q", "-m", "init")
             _TEMPLATES[key] = template
         shutil.copytree(_TEMPLATES[key], main, symlinks=True)
         if gate is not None:
-            script = os.path.join(self.tmp, "gate.sh")
-            write(script, "#!/bin/sh\n" + gate, stat.S_IRWXU)
-            write(os.path.join(main, ".claude", "kit.toml"), '[gate]\nci = "%s"\n' % script)
-            self.script = script
-            git(main, "add", "-A")
-            git(main, "commit", "-q", "--amend", "-m", "init")      # the script's path is the case's own, so it joins the one commit
+            self.script = os.path.join(main, ".ci", "gate.sh")
+            write(self.script, "#!/bin/sh\n" + gate, stat.S_IRWXU)
         self.main = main
         self.wt = os.path.join(main, ".worktrees", "x")
         git(main, "worktree", "add", "-q", self.wt, "-b", "wt/x")
@@ -316,7 +306,7 @@ class Gate(Fixture):
         log = os.path.join(self.wt, ".relay", "checks", head + ".gate.log")
         lines = read(log).splitlines()
         self.assertEqual(lines[0], "head " + head)
-        self.assertEqual(lines[1], "cmd %s --quick" % self.script)
+        self.assertEqual(lines[1], "cmd %s --quick" % self.SCRIPT_REL)
         self.assertRegex(lines[2], r"^wait \d+\.\d$")      # the slot wait, then the gate's output
         self.assertEqual(lines[3:-1], ["step one ok"])
         self.assertEqual(lines[-1], "exit 0")
