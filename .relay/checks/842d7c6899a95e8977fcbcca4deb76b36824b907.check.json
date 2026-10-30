@@ -1,0 +1,135 @@
+{
+  "branch": "wt/the-guard-joins-an-absolute-project-worktrees-on",
+  "findings": [
+    {
+      "details": [
+        "29 Oct, review of the lane-start worktree-folder fix, outside that change: an absolute project.worktrees setting is joined onto the main checkout by the guard. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "kit.toml worktrees = \"/Users/x/wt\": Guard.wtdir = \"/Users/x/wt\"; wtroot compares paths against \"<main>//Users/x/wt\", which never matches, and the advice prints \"git worktree add /Users/x/wt/<name>\" (right) while the extra-folder check is dead.",
+        "Expected: the extra folder is /Users/x/wt itself."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 231,
+      "pass_cases": [
+        "1. worktrees = \"/abs/wts\": a write to /abs/wts/a/f.py is inside a task worktree (also true today through git's worktree list when a is registered).",
+        "2. worktrees = \".worktrees\": a write to <main>/.worktrees/a/f.py is inside a task worktree (unchanged)."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_hook_guard_main.py::Guard::test_an_absolute_worktrees_folder_is_the_extra_folder fails at c3651db3, passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "c3651db356b6116861f99c901498028fb8787ce5",
+      "source": "queue",
+      "summary": "The guard joins an absolute project.worktrees onto the\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by a probe. Before the change an absolute value was dead (joined as \"<main>//abs\"), so the guard stayed on; the",
+        "change makes it live with no check that the folder does not hold the main checkout. wt_root takes the first path component",
+        "under the extra folder as the worktree root, which for any path in main is main itself. relay_setup.gitignore_lines already",
+        "treats folders outside the project as a supported setting, and a sibling layout is the common alternative to nested",
+        "worktrees, so a person can reach this with one line of kit.toml; the result is a silent loss of the main-checkout guard",
+        "(edits and git commits on the default branch pass). No live kit.toml sets an absolute value today (queue item note), hence",
+        "MEDIUM, not HIGH. Size: 10 minutes."
+      ],
+      "evidence": [
+        "python3 -I scratchpad/probe/probe.py <branch worktree>",
+        "== branch",
+        "<tmp>/code/app/README.md exit 0",
+        "<tmp>/code/app/lib/x.py exit 0",
+        "git commit in main exit 0",
+        "== master (scratch worktree at master)",
+        "<tmp>/code/app/README.md exit 2 guard-main: Edit on /private/var/folders/...",
+        "<tmp>/code/app/lib/x.py exit 2 guard-main: Edit on ...",
+        "git commit in main exit 2 guard-main: mutating git command in the main checkout: git commit (...)"
+      ],
+      "failing_case": [
+        "main checkout <tmp>/code/app, kit.toml [project] worktrees = \"<tmp>/code\" (worktrees beside the checkout, the layout",
+        "\"git worktree add <tmp>/code/<name>\" gives). Edit <tmp>/code/app/README.md, Edit <tmp>/code/app/lib/x.py, Bash",
+        "\"git commit --allow-empty -m x\" with cwd = main: all exit 0 now (wt_root returns \"<tmp>/code/app\" as a task worktree, so",
+        "in_main is False everywhere in main). On master all three exit 2. Expected: exit 2, the main checkout is never a task worktree."
+      ],
+      "fix_hint": [
+        "In wt_root, after computing the root under the extra folder, return it only when it is not self.main and does not contain",
+        "main (root != self.main and not self.main.startswith(root + \"/\")); else fall through to the listed-worktree check. Add a test",
+        "with worktrees = the parent of main (pass cases 1 and 2)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 278,
+      "pass_cases": [
+        "1. worktrees = \"<tmp>/code\" (parent of main <tmp>/code/app): Edit <tmp>/code/app/README.md -> exit 2; git commit in main -> exit 2.",
+        "2. Same setting: Edit <tmp>/code/feature/f.py (a sibling folder under the extra) -> exit 0.",
+        "3. worktrees = \"<main>/wts\" (absolute, under main): Edit <main>/wts/a/f.py -> exit 0 (the branch's new test).",
+        "4. worktrees = \".worktrees\": Edit <main>/.worktrees/a/f.py -> exit 0; Edit <main>/README.md -> exit 2 (unchanged).",
+        "5. worktrees = \"<main>\" itself: Edit <main>/README.md -> exit 2."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "medium",
+      "reason": [
+        "test_a_worktrees_folder_holding_main_does_not_unguard_main fails at 907caf7b, passes at head."
+      ],
+      "severity": "MEDIUM",
+      "since": "4351f80bd218f290f9045b7cb7942422cbb5c252",
+      "source": "review-the-guard-joins-an-absolute-project-worktrees-on.json",
+      "source_id": "F1",
+      "summary": "an absolute project.worktrees that contains the main checkout (a sibling layout, worktrees = the parent folder) now switches the guard off for the whole main checkout",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE (traced by reading; not run). main is os.path.realpath'd at load and every tool path goes through resolve()",
+        "(realpath of the nearest existing ancestor), but extra_dir() returns the configured absolute string as is. Correct for the",
+        "usual spelled-as-real path; fragile otherwise. Size: 5 minutes (os.path.realpath on the absolute value, or resolve(wtdir, main))."
+      ],
+      "evidence": [
+        "guard_main.py:162-173 resolve() realpaths; :219 main realpath; :272 extra_dir returns self.wtdir unchanged when absolute."
+      ],
+      "failing_case": [
+        "macOS, main /private/tmp/p (reached as /tmp/p), kit.toml worktrees = \"/tmp/p/wts\". Edit /tmp/p/wts/a/f.py: resolve() gives",
+        "/private/tmp/p/wts/a/f.py, extra_dir() is \"/tmp/p/wts\", no match, and with no git-registered worktree there the write is",
+        "refused as a write to main (exit 2). Expected exit 0, as with worktrees = \"/private/tmp/p/wts\"."
+      ],
+      "fix_hint": [
+        "extra_dir: return resolve(self.wtdir, self.main) when absolute (it also expands ~), else main + \"/\" + wtdir."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 272,
+      "pass_cases": [
+        "1. worktrees = \"<symlinked spelling of main>/wts\": Edit <main>/wts/a/f.py -> exit 0.",
+        "2. worktrees = \"<realpath of main>/wts\": Edit <main>/wts/a/f.py -> exit 0 (the branch's new test).",
+        "3. worktrees = \".worktrees\": unchanged."
+      ],
+      "path": "plugins/relay/hooks/guard_main.py",
+      "rank": "low",
+      "reason": [
+        "test_an_absolute_worktrees_folder_spelled_through_a_symlink fails at both earlier commits, passes at head."
+      ],
+      "severity": "LOW",
+      "since": "4351f80bd218f290f9045b7cb7942422cbb5c252",
+      "source": "review-the-guard-joins-an-absolute-project-worktrees-on.json",
+      "source_id": "F2",
+      "summary": "an absolute worktrees folder is compared unresolved while every path is realpath'd, so a folder spelled through a symlink (/tmp on macOS) never matches",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "8e8a650f75e16a8b984f9d88726278330a9f7b69.gate.log",
+  "head": "842d7c6899a95e8977fcbcca4deb76b36824b907",
+  "item": "the-guard-joins-an-absolute-project-worktrees-on",
+  "notes": [
+    "Callers of wt_root/extra_dir inside guard_main.py read; the D branch updated."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range c3651db3..HEAD; changed files only guard_main.py and its test. Ran test file (20 passed), precheck green. Gate sha 8e8a650f, only inert files after it. Base-run of tests at c3651db3 and 907caf7b."
+  ],
+  "type": "check"
+}
