@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-30T20:48:14Z",
   "taken_by": "wt/a-sigterm-in-a-gate-does-not-name-its-sender",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T23:16:52Z",
+  "test": "tests/test_gate_stops.py::test_a_stop_relay_sends_to_the_command_is_named_in_the_gate_log",
   "dropped_at": null,
   "dropped_why": null
 }
