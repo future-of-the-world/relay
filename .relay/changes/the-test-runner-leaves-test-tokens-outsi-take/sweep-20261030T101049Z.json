@@ -1,0 +1,56 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0787,
+   "id": "a99b5155c01afaade",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T04:19:35.584Z",
+   "stop": "2026-10-30T04:20:18.788Z"
+  },
+  {
+   "cost_usd": 0.0057,
+   "id": "a472f6f0af1332113",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 10,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T04:20:21.663Z",
+   "stop": "2026-10-30T04:48:37.629Z"
+  },
+  {
+   "cost_usd": 0.2016,
+   "id": "a244e9a35f664aea4",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T04:48:40.021Z",
+   "stop": "2026-10-30T04:50:58.459Z"
+  },
+  {
+   "cost_usd": 0.0024,
+   "id": "a2948dd8ab2d07506",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T04:51:00.855Z",
+   "stop": "2026-10-30T04:51:09.126Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "the-test-runner-leaves-test-tokens-outsi-take"
+}
