@@ -464,8 +464,6 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
         license_lines = ["license: cannot check: %s" % exc]
     reuse = not license_lines and not again
     host, why_mac = deciding_host(worktree, remote, quick)
-    if why_mac:
-        print("gate: %s; this gate runs on this Mac" % why_mac, file=sys.stderr, flush=True)
     green = reusable(worktree, head, command, host) if reuse else None
     if green is not None:      # the same code already has a green gate: report it, run nothing
         return 0, green, []
@@ -473,6 +471,10 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
     if red is not None:      # the same code already has a finished red gate (only record commits since): report it, run nothing
         return reused_red(red)
     swept = sweep_leftovers(worktree, os.environ if environ is None else environ)
+    if why_mac:      # said only when the Mac really runs, and the first output line of its log (design 5.5)
+        mac_line = "gate: %s; this gate runs on this Mac" % why_mac
+        print(mac_line, file=sys.stderr, flush=True)
+        swept.insert(0, mac_line)
     # the output goes under the worktree's git dir, never into the tree: a project that does not ignore .ci/ would see
     # an untracked file and the next gate (and the merge cleanup) would refuse
     rc, git_path = relay_git.git(worktree, "rev-parse", "--path-format=absolute", "--git-path", "relay-gate.out")
@@ -502,6 +504,21 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
         lock = take_worktree_lock(lock_path, notify, swept.append)
         try:
             if host == "vps" and remote is not None:      # a build-time gate decided on the remote host: no Mac slot, no Mac test tokens
+                # the wait for the lock can be long: the code may have moved, or the same code may have been gated meanwhile
+                now = check_ready(worktree)
+                try:
+                    license_lines = relay_license.check(worktree)
+                except (OSError, ValueError) as exc:
+                    license_lines = ["license: cannot check: %s" % exc]
+                reuse = not license_lines and not again
+                green = reusable(worktree, now, command, host) if reuse else None
+                if green is not None:
+                    return 0, green, []
+                red = finished_red(worktree, now, command, host=host) if reuse else None
+                if red is not None:
+                    return reused_red(red)
+                if now != head:
+                    raise GateRefused("%s moved to another commit while the gate waited: run it again" % worktree)
                 done = _remote_gate(worktree, head, command, remote, license_lines, swept, notify)
                 if done is not None:
                     return done

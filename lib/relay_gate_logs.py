@@ -40,7 +40,7 @@ def log_sha_host(log: str) -> tuple[str, Optional[str]]:
     return name[:-len(REMOTE_SUFFIX)], host or "the remote host"
 
 
-def first_failure(output):
+def first_failure(output: str) -> list[str]:
     """The first failing step's lines (the step line and its indented findings), else the last five lines. The line of a gate
     stopped at its time limit counts as a failing line in its place in the output, so a step that FAILED before the stop comes first."""
     lines = output.splitlines()
@@ -148,18 +148,18 @@ def _last_mac_red(worktree: str) -> bool:
     for commit in listing.split():
         lines = _log_lines(worktree, commit, MAC_SUFFIX)
         code = _exit_code(lines) if lines and lines[0] == "head %s" % commit else None
-        if code is not None:
+        if code is not None and (code == 0 or 0 < code < 127 and code != LIMIT_EXIT):      # a stop (124), a failed start (127) or a kill (>= 128) is no verdict on the code: walk on
             return code != 0
     return False
 
 
 def _toolchain_changed(worktree: str) -> list[str]:
-    """The toolchain files whose content differs from the default branch's (design 5.4: no branch recipe runs with network on the VPS)."""
+    """The toolchain files the branch itself changed since it forked from the default branch (three-dot diff; design 5.4: no branch recipe runs with network on the VPS)."""
     main = relay_git.main_checkout(worktree)
     base = relay_git.default_branch(main) if main else None
     if not base:
         return []
-    rc, out = relay_git.git(worktree, "diff", "--name-only", "--no-renames", base, "HEAD", "--", *TOOLCHAIN)
+    rc, out = relay_git.git(worktree, "diff", "--name-only", "--no-renames", base + "...HEAD", "--", *TOOLCHAIN)
     return out.splitlines() if rc == 0 else []
 
 
@@ -177,5 +177,5 @@ def deciding_host(worktree: str, remote: Optional[Remote], quick: bool) -> tuple
         return "mac", "the default branch is red on %s %s" % (remote.host, remote.default_red)
     changed = _toolchain_changed(worktree)
     if changed:
-        return "mac", "this branch changes relay's toolchain (%s); its gates run on this Mac until it lands" % ", ".join(changed)
+        return "mac", "this branch changes relay's toolchain (%s)" % ", ".join(changed)
     return "vps", ""

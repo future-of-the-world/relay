@@ -237,7 +237,7 @@ def gate_logs(repo, ref):
     return found
 
 
-def remote_gate_logs(repo, ref):
+def remote_gate_logs(repo: str, ref: str) -> list[tuple[str, int, str]]:
     """[(commit, exit, host)] for every remote gate log (`<commit>.remote.gate.log`) at `ref` in the gate's form, as `gate_logs`
     reads Mac logs. The merge hook never calls this: only `gate_logs` decides a merge."""
     found = []

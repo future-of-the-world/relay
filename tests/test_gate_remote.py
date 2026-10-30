@@ -229,5 +229,105 @@ class Readers(RemoteBase):
         return git(self.wt, "log", "-1", "--format=%s", "--grep=^" + prefix).split()[-1]
 
 
+class Waited(RemoteBase):
+    """F1: the remote path re-checks after the worktree lock, as the Mac path does."""
+
+    def during_wait(self, action):
+        real = relay_gate.take_worktree_lock
+
+        def lock(*a, **k):
+            relay_gate.take_worktree_lock = real      # the other gate's own run takes the real lock
+            action()      # what another gate or a commit did while this one waited
+            return real(*a, **k)
+        relay_gate.take_worktree_lock = lock
+        self.addCleanup(setattr, relay_gate, "take_worktree_lock", real)
+
+    def test_a_green_remote_log_committed_during_the_wait_is_returned_without_a_call(self):
+        fake = Fake(0)
+        head = self.head()
+        self.during_wait(lambda: self.go(Fake(0).remote()))
+        code, log, _ = self.go(fake.remote())
+        self.assertEqual((code, fake.calls, log), (0, [], self.log_path(head, True)))
+
+    def test_a_code_commit_during_the_wait_refuses_before_any_call(self):
+        fake = Fake(0)
+        self.during_wait(lambda: self.commit("moved", "lib/z.py"))
+        with self.assertRaises(relay_gate.GateRefused) as ctx:
+            self.go(fake.remote())
+        self.assertIn("moved to another commit while the gate waited", str(ctx.exception))
+        self.assertEqual(fake.calls, [])
+
+    def test_a_red_remote_log_committed_during_the_wait_is_reported_not_run(self):
+        fake = Fake(0)
+        self.during_wait(lambda: self.go(Fake(1).remote()))
+        code, _, _ = self.go(fake.remote())
+        self.assertEqual((code, fake.calls), (1, []))
+
+    def test_no_change_during_the_wait_runs_the_remote_once(self):
+        fake = Fake(0)
+        self.during_wait(lambda: None)
+        head = self.head()
+        self.go(fake.remote())
+        self.assertEqual(len(fake.calls), 1)
+        self.assertTrue(os.path.exists(self.log_path(head, True)))
+
+
+class Details(RemoteBase):
+    def test_a_toolchain_change_made_on_the_default_branch_does_not_send_the_lane_to_the_mac(self):
+        write(os.path.join(self.main, "install.sh"), "echo new\n")
+        git(self.main, "add", "-A")
+        git(self.main, "commit", "-q", "-m", "master changes the toolchain")
+        fake = Fake(0)
+        _, _, err = self.go(fake.remote())
+        self.assertEqual((len(fake.calls), self.runs()), (1, 0))
+        self.assertNotIn("toolchain", err)
+
+    def test_the_toolchain_line_names_only_the_branchs_own_files_and_says_the_mac_once(self):
+        write(os.path.join(self.main, "install.sh"), "echo new\n")
+        git(self.main, "add", "-A")
+        git(self.main, "commit", "-q", "-m", "master changes the toolchain")
+        self.commit("mine", "deps.toml")
+        fake = Fake(0)
+        _, _, err = self.go(fake.remote())
+        self.assertEqual(fake.calls, [])
+        self.assertIn("this branch changes relay's toolchain (deps.toml); this gate runs on this Mac", err)
+        self.assertEqual(err.count("on this Mac"), 1)
+
+    def test_a_stopped_or_killed_mac_log_does_not_keep_the_branch_on_the_mac(self):
+        self.go(None, exit_code=124)
+        self.commit("next", "lib/b.py")
+        fake = Fake(0)
+        self.go(fake.remote())
+        self.assertEqual(len(fake.calls), 1)
+
+    def test_the_mac_reason_is_the_first_output_line_of_the_mac_log_and_absent_when_a_log_is_reused(self):
+        note = "since 4f1a2b3c (step library; fix item x)"
+        fake = Fake(0)
+        _, log, _ = self.go(fake.remote(default_red=note))
+        first = [l for l in read(log).splitlines() if l.startswith("gate:")][0]
+        self.assertEqual(first, "gate: the default branch is red on ai.test %s; this gate runs on this Mac" % note)
+        self.assertEqual(read(log).splitlines()[3], first)      # head, cmd, wait, then the reason
+        _, _, err = self.go(fake.remote(default_red=note))      # same code, green Mac log: reused
+        self.assertNotIn("this gate runs on this Mac", err)
+
+    def test_a_red_mac_log_then_a_gate_again_prints_no_run_line_when_the_red_is_reported(self):
+        self.go(None, exit_code=1)
+        _, _, err = self.go(Fake(0).remote())
+        self.assertNotIn("this gate runs on this Mac", err)
+        self.assertIn("reported, not run", err)
+
+    def test_the_counter_counts_remote_gate_commits_apart(self):
+        import relay_land_counters
+        base = self.head()
+        self.go(Fake(0).remote())      # one remote gate commit
+        self.commit("x", "lib/x.py")
+        self.go(None)      # one Mac gate commit
+        self.commit("y", "lib/y.py")
+        self.go(Fake(0).remote())      # a second remote one
+        after = self.head()
+        every, takes, remote = relay_land_counters.gate_counts(self.wt, [(base, after)])
+        self.assertEqual((every, remote), (1, 2))
+
+
 if __name__ == "__main__":
     unittest.main()
