@@ -24,15 +24,15 @@ def git(cwd: str, *args: str) -> None:
 class RenameEdges(unittest.TestCase):
     def test_f2_new_name_already_present_drops_the_old_line(self) -> None:
         # the new name's value (4) wins; the file stays valid TOML
-        new, did = relay_kit.rename_old_delegate_keys("[delegate]\nmax_parallel = 6\nmax_agents_per_change = 4\n")
+        new, did = relay_kit.rename_old_delegate_keys("[delegate]\nmax_parallel = 6\nmax_agents_at_once = 4\n")
         kit = relay_kit.parse(new)
         self.assertIsNone(kit.broken)
-        self.assertEqual(kit.values["delegate"]["max_agents_per_change"], 4)
-        self.assertEqual(did, ["[delegate] max_parallel removed (max_agents_per_change is already set)"])
+        self.assertEqual(kit.values["delegate"]["max_agents_at_once"], 4)
+        self.assertEqual(did, ["[delegate] max_parallel removed (max_agents_at_once is already set)"])
 
     def test_f2_plain_rename_still_one_done_line(self) -> None:
         new, did = relay_kit.rename_old_delegate_keys("[delegate]\nmax_parallel = 6\n")
-        self.assertEqual(new, "[delegate]\nmax_agents_per_change = 6\n")
+        self.assertEqual(new, "[delegate]\nmax_agents_at_once = 6\n")
         self.assertEqual(len(did), 1)
 
     def test_f4_single_quoted_old_value_is_mapped(self) -> None:
@@ -47,9 +47,9 @@ class SetupWiring(Fixture):
         self.write(root, ".claude/kit.toml", '[delegate]\nmax_parallel = 6\nbuild_tier_opus = "allow"\n')
         first = self.run_setup(root)
         text = self.read(root, ".claude/kit.toml")
-        self.assertIn("max_agents_per_change = 6", text)
+        self.assertIn("max_agents_at_once = 6", text)
         self.assertIn('opus_for_builders = "always"', text)
-        self.assertIn("kit.toml: [delegate] max_parallel -> max_agents_per_change", str(first))
+        self.assertIn("kit.toml: [delegate] max_parallel -> max_agents_at_once", str(first))
         self.assertNotIn("max_parallel -> ", str(self.run_setup(root)))
 
 
@@ -68,7 +68,7 @@ class LaneBranch(unittest.TestCase):
         git(self.main, "commit", "-q", "-m", "init")
         self.wt = os.path.join(self.tmp, "wt")
         git(self.main, "worktree", "add", "-q", self.wt, "-b", "wt/task")
-        self.put(self.kit, "[delegate]\nmax_agents_per_change = 6\n")   # master renames after the fork
+        self.put(self.kit, "[delegate]\nmax_agents_at_once = 6\n")   # master renames after the fork
         git(self.main, "commit", "-qam", "rename")
 
     @staticmethod
@@ -99,7 +99,7 @@ class LaneBranch(unittest.TestCase):
         self.assertIn("relay setup", msg)
 
     def test_f1_parse_still_names_the_new_key(self) -> None:
-        self.assertIn("max_agents_per_change", relay_kit.parse("[delegate]\nmax_parallel = 4\n").problems[0].line())
+        self.assertIn("max_agents_at_once", relay_kit.parse("[delegate]\nmax_parallel = 4\n").problems[0].line())
 
 
 if __name__ == "__main__":

@@ -37,7 +37,7 @@ class Fixture(Base):
     def relay_tree(self) -> str:
         """The shape of relay itself: kit.toml with only [delegate], bin/ci, docs/handover.md, .relay/README.md."""
         root = self.git_folder("relaytree")
-        self.write(root, ".claude/kit.toml", "[delegate]\nmax_agents_per_change = 6\n")
+        self.write(root, ".claude/kit.toml", "[delegate]\nmax_agents_at_once = 6\n")
         os.makedirs(os.path.join(root, "bin"), exist_ok=True)
         install_fake(os.path.join(root, "bin", "ci"), "#!/bin/sh\n")
         self.write(root, "docs/handover.md", "h\n")
@@ -225,7 +225,7 @@ class KitToml(Fixture):
         return root
 
     def test_t11_only_sections_that_differ_from_a_missing_section_are_added(self):
-        root = self.kit("[delegate]\nmax_agents_per_change = 6\n")
+        root = self.kit("[delegate]\nmax_agents_at_once = 6\n")
         text = self.read(root, ".claude/kit.toml")
         self.assertEqual(self.rs.merge_bindings(root, "none"), [])
         self.assertEqual(self.read(root, ".claude/kit.toml"), text)
@@ -233,12 +233,12 @@ class KitToml(Fixture):
         self.assertIn('[specs]\nmethod = "openspec"', self.read(root, ".claude/kit.toml"))
 
     def test_t11_specs_none_is_written_when_the_run_says_so(self):
-        root = self.kit("[delegate]\nmax_agents_per_change = 6\n")
+        root = self.kit("[delegate]\nmax_agents_at_once = 6\n")
         self.assertEqual(self.rs.merge_bindings(root, "none", force_specs=True), ["specs"])
         self.assertIn('method = "none"', self.read(root, ".claude/kit.toml"))
 
     def test_t11_an_openspec_folder_turns_the_spec_method_on_in_kit_toml(self):
-        root = self.kit("[delegate]\nmax_agents_per_change = 6\n")
+        root = self.kit("[delegate]\nmax_agents_at_once = 6\n")
         os.makedirs(os.path.join(root, "openspec"))
         self.run_setup(root)
         self.assertIn('[specs]\nmethod = "openspec"', self.read(root, ".claude/kit.toml"))
@@ -322,7 +322,7 @@ class Rename(Fixture):
     def test_t22_sdd_moves_to_openspec_and_the_spec_row_decides(self):
         old = "sd" + "d@relay"   # the old plugin name, built so the no-live-old-name scan does not flag this file
         root = self.relay_tree()
-        self.write(root, ".claude/kit.toml", "[delegate]\nmax_agents_per_change = 6\n\n[specs]\nmethod = \"none\"\n")
+        self.write(root, ".claude/kit.toml", "[delegate]\nmax_agents_at_once = 6\n\n[specs]\nmethod = \"none\"\n")
         self.write(root, ".claude/settings.json", json.dumps({"enabledPlugins": {old: True}}))
         self.run_setup(root)
         plugins = self.plugins(root)
@@ -360,7 +360,7 @@ class Doctor(Fixture):
 
     def relay_tree_named(self, name):
         root = self.git_folder(name)
-        self.write(root, ".claude/kit.toml", "[delegate]\nmax_agents_per_change = 6\n")
+        self.write(root, ".claude/kit.toml", "[delegate]\nmax_agents_at_once = 6\n")
         return root
 
     def test_t13_doctor_on_the_setup_output_reports_the_off_plugins_and_two_known_fixes(self):

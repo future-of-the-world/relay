@@ -205,7 +205,7 @@ class KitSchema(unittest.TestCase):
         text = '[delegate]\ntyped_only = true\nfork_limit = 100000\nmax_parallel = 4\nbuild_tier_opus = "escalate"\n'
         lines = sorted(p.line() for p in relay_kit.parse(text).problems)
         for old, new in (("typed_only", "typed_agents_only"), ("fork_limit", "no_session_copy_above_tokens"),
-                         ("max_parallel", "max_agents_per_change"), ("build_tier_opus", "opus_for_builders")):
+                         ("max_parallel", "max_agents_at_once"), ("build_tier_opus", "opus_for_builders")):
             self.assertTrue(any(f"[delegate] {old}" in line and f"now {new}" in line for line in lines), (old, lines))
 
     def test_old_env_name_is_refused_naming_the_new_one(self) -> None:
@@ -216,7 +216,7 @@ class KitSchema(unittest.TestCase):
         # escalate -> after_a_failure, allow -> always, deny -> never; a trailing comment survives.
         text = '[delegate]\ntyped_only = false   # mine\nmax_parallel = 6\nbuild_tier_opus = "allow"   # x\n\n[rules]\nlanes = 6\n'
         new, did = relay_kit.rename_old_delegate_keys(text)
-        self.assertEqual(new, '[delegate]\ntyped_agents_only = false   # mine\nmax_agents_per_change = 6\nopus_for_builders = "always"   # x\n\n[rules]\nlanes = 6\n')
+        self.assertEqual(new, '[delegate]\ntyped_agents_only = false   # mine\nmax_agents_at_once = 6\nopus_for_builders = "always"   # x\n\n[rules]\nlanes = 6\n')
         self.assertEqual(len(did), 3)
         self.assertEqual(relay_kit.parse(new).problems, ())
 

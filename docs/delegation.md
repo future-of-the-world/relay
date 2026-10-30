@@ -38,7 +38,7 @@ one whole-change review, no agent that only waits.
 | worker/fixer/scout/runner with `model: opus` | deny unless the prompt has a line `Escalated: <reason>` (`opus_for_builders = always|never|after_a_failure`) |
 | prompt over 3,000 characters without `Brief:` | a note: put it in a brief file |
 | main-session Agent call before the delegate skill was loaded | deny once, then a note (`require_skill = deny|note|off`) |
-| `max_agents_per_change` agents already running | a note |
+| `max_agents_at_once` agents already running | a note |
 
 Settings per project in `.claude/kit.toml [delegate]`; per shell with
 `RELAY_DELEGATE_<KEY>`. Tests: `tests/test_hook_route_guard.py`.
@@ -65,7 +65,7 @@ tier is wrong, not the model.
 
 ## Parallelism
 
-At most `max_agents_per_change` (4) agents at once. Agents started together each pay
+At most `max_agents_at_once` (4) agents at once. Agents started together each pay
 a first read of CLAUDE.md, the brief and the code, so a wave wider than the
 work is parallel for no gain. Independent lookups go to one scout in one
 message. Fewer, longer agents are the cheap shape; an agent that waits is

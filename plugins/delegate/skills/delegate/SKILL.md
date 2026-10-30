@@ -42,7 +42,7 @@ its prompt, after a middle-model agent failed the same brief.
 
 Each agent's model and effort come from the active profile (`relay profile`);
 never set `model:` on a call. The one exception is the escalation above.
-At most `[delegate] max_agents_per_change` agents run at once (default 4, bound 1 to 8);
+At most `[delegate] max_agents_at_once` agents run at once (default 4, bound 1 to 8);
 the route guard notes the cap.
 
 ## The brief file

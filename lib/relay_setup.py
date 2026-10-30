@@ -224,7 +224,7 @@ def bindings_text(d: dict[str, Any], flow: str, specs: str = "none") -> str:
         "[delegate]",
         "typed_agents_only = true   # true: the main session may start only relay's named agents, never a general-purpose one",
         "no_session_copy_above_tokens = 100000   # a copy of the whole conversation is refused once the conversation is longer than this many tokens",
-        "max_agents_per_change = 4   # how many agents may run at once before relay warns you",
+        "max_agents_at_once = 4   # agents running at the same time in one session; at this many relay adds a note to the next one",
         'opus_for_builders = "after_a_failure"   # use the big model for building: "after_a_failure" (only when a smaller agent failed the same task), "always" or "never"', "",
         "[observe]", "log_prompts = false   # true: keep the text of every prompt in the usage log", "",
     ]

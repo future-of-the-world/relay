@@ -31,9 +31,12 @@ class Setup(Base):
         start = lines.index("[delegate]")
         keys = [ln for ln in lines[start + 1:lines.index("[observe]")] if ln]
         self.assertEqual([ln.split(" =")[0] for ln in keys],
-                         ["typed_agents_only", "no_session_copy_above_tokens", "max_agents_per_change", "opus_for_builders"])
+                         ["typed_agents_only", "no_session_copy_above_tokens", "max_agents_at_once", "opus_for_builders"])
         for ln in keys:
             self.assertIn("   # ", ln)
+        # F6: the route guard counts agents in the whole session, so the name and comment say so
+        cap = [ln for ln in keys if ln.startswith("max_agents_at_once")][0]
+        self.assertIn("# agents running at the same time in one session", cap)
         self.assertEqual(relay_kit.parse(text).problems, ())
 
     def test_setup_migrates_an_old_kit_toml_with_one_line_per_key(self):
@@ -44,8 +47,8 @@ class Setup(Base):
         with open(path, "w") as handle:
             handle.write('[delegate]\nmax_parallel = 6\nbuild_tier_opus = "deny"\n')
         done = relay_setup.rename_delegate_keys(proj)
-        self.assertEqual(done, ["[delegate] max_parallel -> max_agents_per_change", "[delegate] build_tier_opus -> opus_for_builders"])
-        self.assertEqual(open(path).read(), '[delegate]\nmax_agents_per_change = 6\nopus_for_builders = "never"\n')
+        self.assertEqual(done, ["[delegate] max_parallel -> max_agents_at_once", "[delegate] build_tier_opus -> opus_for_builders"])
+        self.assertEqual(open(path).read(), '[delegate]\nmax_agents_at_once = 6\nopus_for_builders = "never"\n')
         self.assertEqual(relay_setup.rename_delegate_keys(proj), [])
 
 

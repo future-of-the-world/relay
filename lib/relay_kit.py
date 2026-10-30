@@ -59,7 +59,7 @@ SCHEMA: Schema = {
     "delegate": {
         "typed_agents_only": Field("bool", True),
         "no_session_copy_above_tokens": Field("int", 100_000, bounds=(100_000, 10**9), outside="default"),
-        "max_agents_per_change": Field("int", 4, bounds=(1, 1000)),
+        "max_agents_at_once": Field("int", 4, bounds=(1, 1000)),
         "opus_for_builders": Field("str", "after_a_failure", choices=("after_a_failure", "always", "never")),
         "require_skill": Field("str", "deny", choices=("deny", "note", "off")),
         "label_guard": Field("str", "deny", choices=("deny", "note", "off")),
@@ -83,7 +83,7 @@ RETIRED = {("observe", "enabled"): "has no effect (no code reads it); remove the
 # `relay setup` renames them in a kit.toml; until then the old name is a problem that names the new one.
 RENAMED = {("delegate", "typed_only"): "typed_agents_only",
            ("delegate", "fork_limit"): "no_session_copy_above_tokens",
-           ("delegate", "max_parallel"): "max_agents_per_change",
+           ("delegate", "max_parallel"): "max_agents_at_once",
            ("delegate", "build_tier_opus"): "opus_for_builders"}
 OLD_OPUS_VALUES = {"escalate": "after_a_failure", "allow": "always", "deny": "never"}   # old build_tier_opus -> opus_for_builders
 OPEN_SECTIONS = ("product", "packet", "spec_check", "guard", "license")   # relay does not list their keys here

@@ -12,7 +12,7 @@ the project's .claude/kit.toml [delegate] section (defaults in brackets):
   scout, runner) started with `model: opus` is denied unless the prompt carries
   a line `Escalated: <reason>` (a Sonnet agent failed the same task, or the
   project names the case). "always" lets it through; "never" refuses always.
-- max_agents_per_change [4]: when this many agents are already running in the session
+- max_agents_at_once [4]: when this many agents are already running in the session
   (today's ledger), a note is added rather than a refusal.
 - require_skill ["deny"]: an Agent call from the main session before the delegate
   skill was loaded is refused once ("load the delegate skill first"); the session's
@@ -196,8 +196,8 @@ def decide(data):
         notes.append(f"Routing note: this prompt is {len(prompt)} characters and names no `Brief:` file. The agent re-reads "
                      "its prompt on every request; put the material in a brief file in the scratchpad and pass its path.")
     running = running_now(data.get("session_id"))
-    if running >= int(cfg["max_agents_per_change"]):
-        notes.append(f"Routing note: {running} agents are already running in this session (cap {cfg['max_agents_per_change']}). "
+    if running >= int(cfg["max_agents_at_once"]):
+        notes.append(f"Routing note: {running} agents are already running in this session (cap {cfg['max_agents_at_once']}). "
                      "Agents started together each pay a first read; let one finish or merge the jobs into one brief.")
     if extra:
         notes.append(extra.strip())
