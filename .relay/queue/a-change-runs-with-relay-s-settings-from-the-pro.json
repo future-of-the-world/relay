@@ -71,6 +71,16 @@
         "b. a separate command the owner types, `relay session`; plain `claude` stays global",
         "c. project files only, no launcher; user rules, memory, agents and skills still load (about 45 agent minutes)"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T09:59:02Z",
+      "question": [
+        "Where does a project's Claude Code memory (37 notes for relay today, kept under the user folder, keyed to this Mac's path) live?"
+      ],
+      "options": [
+        "a. stays where Claude Code keeps it, recorded by hash in every run (recommended by the design: the gate never reads memory)",
+        "b. saved into the project's git by one relay command, copied in at session start (about 60 agent minutes; travels to other machines and containers)"
+      ]
     }
   ]
 }
