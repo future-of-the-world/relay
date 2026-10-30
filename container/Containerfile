@@ -12,8 +12,6 @@ RUN useradd --create-home --shell /bin/bash dev
 USER dev
 ENV HOME=/home/dev PATH=/home/dev/.local/bin:/home/dev/.bun/bin:$PATH
 RUN git config --global user.name probe && git config --global user.email probe@example.invalid
-# tests run git with a HOME of their own (no ~/.gitconfig): the author has to come from the environment, as macOS guesses it from the user
-ENV GIT_AUTHOR_NAME=probe GIT_AUTHOR_EMAIL=probe@example.invalid GIT_COMMITTER_NAME=probe GIT_COMMITTER_EMAIL=probe@example.invalid
 # the rest of deps.toml (uv, ruff, mypy, pytest, bun, claude) is installed by relay's own installer
 COPY --chown=dev:dev install.sh deps.toml /opt/relay-install/
 RUN sh /opt/relay-install/install.sh; true
