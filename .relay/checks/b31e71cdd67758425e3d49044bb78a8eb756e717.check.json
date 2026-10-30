@@ -1,0 +1,237 @@
+{
+  "branch": "wt/relay-land-closes-a-feature-after-its-fi",
+  "findings": [
+    {
+      "details": [
+        "Found by the front 30 Oct: the VPS feature build-time-gates-on-the-vps-landing-gate-on-the is built in 4 changes (design rev 2, section 7); when change 2 landed, `relay land wt/build-time-gates-on-the-vps-landing-gate` printed 'closed build-time-gates-on-the-vps-landing-gate-on-the (feature, ip 90), landed on master at ea468ce7': lib/relay_land.py _close_features closes the feature item of any landed branch, so changes 3-5 lost their item and the front re-queued them by hand as a new item."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A feature item taken by branch B; land B as an intermediate change: the item is closed on master."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "an intermediate landing leaves the feature open and taken",
+        "the last landing closes it as today",
+        "a fix item is unaffected"
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "high",
+      "reason": [
+        "Landing a feature branch closes the item only without --keep-open; the original Q1 test is in the branch and passes."
+      ],
+      "severity": "HIGH",
+      "since": "3540d3f054718e427cbb59e37d781ad7cc2097b4",
+      "source": "queue",
+      "summary": "relay land closes a feature after its first change",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. _landed skips _close_features only for this call, but leaves the item in the exact state that",
+        "relay_lanes.lanes_state classifies as landed_open (taken, and landing() finds wt/x's fast-forward in the reflog). close_landed",
+        "closes every landed_open feature, and it runs (a) in the front's lanes hook right after the very landing Bash command with",
+        "--keep-open, in an ordinary front session, and (b) inside every later landing of any branch. So in the real flow the",
+        "feature is closed seconds after the intermediate landing, which is the failing case of the queue item. The new test passes",
+        "only because the test harness runs no hook and no second landing.",
+        "Also: the left state is a dead end for change 3: `relay queue start feat` refuses \"taken by wt/x; release it first\", and wt/x",
+        "no longer exists.",
+        "Size: 30 min."
+      ],
+      "evidence": [
+        "Probe (scratchpad review-keepopen/test_keepopen_probe.py, ReviewFixes fixture): land wt/x --keep-open -> exit 0, then",
+        "relay_lanes.close_landed(self.main):",
+        "  AssertionError: 'done' != 'taken'",
+        "  FAILED test_keepopen_probe.py::Probe::test_hook_close_after_keep_open",
+        "plugins/front/hooks/lanes.py:103 LANDING regex matches \"relay land \" commands",
+        "plugins/front/hooks/lanes.py:157 closed = relay_lanes.close_landed(root)",
+        "lib/relay_lanes.py:317-319 landing(...) -> landed_open.append(...)",
+        "lib/relay_queue.py:929 \"queue item '{slug}' is taken by {taken_by}; release it first\""
+      ],
+      "failing_case": [
+        "Feature item feat taken by wt/x; land wt/x with --keep-open: it lands and leaves feat taken (the new test stops here).",
+        "Then relay_lanes.close_landed(main) runs, which is exactly what the front's PostToolUse lanes hook does after any Bash",
+        "command matching the landing regex (plugins/front/hooks/lanes.py:157, LANDING at line 103), and what _close_features does",
+        "on the landing of any other branch. Now: feat is closed (state \"done\") with wt/x's sha. Should: feat stays not closed."
+      ],
+      "fix_hint": [
+        "Record the intermediate landing on the item itself, so every reader sees it, instead of skipping one sweep. Smallest: on",
+        "--keep-open, after the fast-forward, write a dated event to the feature item (the landed sha and branch) and release the",
+        "take, or keep the take but make relay_lanes.landing/lanes_state not count a landing that the item records as kept open.",
+        "Either way close_landed then leaves it alone, and the next change can take it. Keep the per-branch scope: --keep-open",
+        "should hold only this branch's item; other landed features still close in the sweep."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 449,
+      "pass_cases": [
+        "1. feat (feature) taken by wt/x; land wt/x with --keep-open, then relay_lanes.close_landed(main): feat state is not \"done\".",
+        "2. Same, then a second branch wt/y with no item lands without the flag: feat is still not closed; the land output names no \"closed feat\".",
+        "3. Same, then lanes_state(main).landed_open does not list feat (the lanes line does not say \"landed, still open: feat\").",
+        "4. feat taken by wt/x; land wt/x with no flag: feat is closed with the landed sha, as today.",
+        "5. fix item taken by wt/x; land wt/x with --keep-open: the fix item's state is unchanged (still taken, closed only by the cycle's --test)."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_land.py:590 test_keep_open_feature_stays_open_after_the_lanes_sweep passes; fails on c35a09de^."
+      ],
+      "severity": "HIGH",
+      "since": "473adc1451f5ef89d03734349264afe928f01195",
+      "source": "review-relay-land-closes-a-feature-after-its-fi.json",
+      "source_id": "F1",
+      "summary": "--keep-open only skips this one sweep: the front's lanes hook and the next landing close the kept-open feature anyway",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The queue item asks that \"the cycle unit or relay land says whether this landing finishes the item\";",
+        "only the CLI got the flag. In relay mode the cycle's land stage is the default lander (DEFAULTS land: true), so the change",
+        "does not reach the path where the reported failure happened unless the front knows to stop the cycle at ready. Principle 10",
+        "(works for a newcomer): an option a fresh session cannot find from relay's own texts. UNIT_KEYS has no field for it.",
+        "Size: 15 min."
+      ],
+      "evidence": [
+        "plugins/delegate/workflows/cycle.js:31 const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings', 'land']",
+        "plugins/delegate/workflows/cycle.js:288 the land command: branch and -C only",
+        "grep -rn keep-open over lib, bin, plugins, tests: only bin/relay, lib/relay_land.py and the one test."
+      ],
+      "failing_case": [
+        "The front runs the cycle for change 2 of a 4-change feature with the default land: true. The land stage starts the landing",
+        "command of cycle.js:288 with no flag and no unit field to ask for one, so the feature is closed: the exact case of the queue",
+        "item. The front skill and delegate skill never mention --keep-open, so a fresh front does not know to set land: false and",
+        "land by hand with the flag."
+      ],
+      "fix_hint": [
+        "Add a unit key (keep_open) to UNIT_KEYS and append --keep-open to the land command when it is set; one line in the front",
+        "skill's landing paragraph naming when to set it."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 288,
+      "pass_cases": [
+        "1. A cycle unit for an intermediate change of a feature (for example a unit field keep_open: true) lands with --keep-open:",
+        "   the command the land runner starts contains --keep-open.",
+        "2. A unit with no such field lands with the same command as today.",
+        "3. The front skill text (where it describes landing) has a line naming when to use --keep-open (an intermediate change of",
+        "   a feature built in several changes)."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "tests/test_cycle_workflow.py:754 passes; errors without the fix."
+      ],
+      "severity": "MEDIUM",
+      "since": "473adc1451f5ef89d03734349264afe928f01195",
+      "source": "review-relay-land-closes-a-feature-after-its-fi.json",
+      "source_id": "F2",
+      "summary": "the cycle, which lands ready units by default, has no way to pass --keep-open, and no front text says when to use it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: `closed = [] if keep_open else _close_features(main)` drops the sweep for all items. Correct for the",
+        "common single-lane case, fragile otherwise. Likely solved together with F1 if the fix is per item. Size: 10 min."
+      ],
+      "evidence": [
+        "lib/relay_land.py:449 closed = [] if keep_open else _close_features(main)"
+      ],
+      "failing_case": [
+        "Feature other, taken by wt/z, was merged earlier and is still open (its close failed); landing wt/x with --keep-open closes",
+        "nothing at all, so other stays open too. Also landing wt/y with --keep-open, where wt/y holds a fix item or no item, gives",
+        "no word that the flag did nothing."
+      ],
+      "fix_hint": [
+        "Keep the sweep and exclude only the landed branch's own feature item; say in the output which item was kept open."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 449,
+      "pass_cases": [
+        "1. other (feature, wt/z landed earlier, still open) and feat (wt/x); land wt/x with --keep-open: other is closed, feat is not.",
+        "2. wt/y with no item; land wt/y with --keep-open: lands, and the output says no feature item was kept open (or the flag is refused before the gate)."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_land.py:605 and :613 pass; both fail on c35a09de^."
+      ],
+      "severity": "LOW",
+      "since": "473adc1451f5ef89d03734349264afe928f01195",
+      "source": "review-relay-land-closes-a-feature-after-its-fi.json",
+      "source_id": "F3",
+      "summary": "--keep-open skips the whole close sweep, so other landed features stay open and a flag on a fix or itemless branch passes silently",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Question for the owner. How it works: a queue item is \"taken\" by one branch; the landing deletes that branch. The owner's",
+        "pass case says the feature stays \"open and taken\". Taken by a branch that no longer exists is what the lanes code reads as",
+        "\"landed, still open\" (see F1), and it blocks the next change's start. Live example: the VPS feature, changes 3-5 had to be",
+        "re-queued by hand. Answer (a) makes the next change start with one command and avoids F1 by construction; (b) keeps the",
+        "owner's wording literally but needs a marker every reader honours and an extra release step per change.",
+        "Size: answer only; the fix sits in F1."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "After landing wt/x with --keep-open, feat is \"taken by wt/x\" but wt/x and its worktree are deleted by the landing. Change 3",
+        "runs `relay queue start feat`, which refuses: \"taken by wt/x; release it first\". The queue item's pass case says \"open and taken\"."
+      ],
+      "fix_hint": [
+        "Recommend (a): release the take and record the intermediate landing as a dated fact on the item."
+      ],
+      "id": "F4",
+      "kind": "question",
+      "line": 449,
+      "pass_cases": [
+        "1. (a) released: after the intermediate landing feat is open, not taken, with a dated record of the landed sha; `relay queue start feat` starts change 3 at once.",
+        "2. (b) taken: feat stays taken by wt/x with a record of the intermediate landing; change 3 needs `relay queue release feat` then start, or start learns to accept it."
+      ],
+      "path": "lib/relay_land.py",
+      "rank": "low",
+      "reason": [
+        "A question for the owner: the fixer chose option (a) released, as the review recommended. The owner decides."
+      ],
+      "severity": "LOW",
+      "since": "473adc1451f5ef89d03734349264afe928f01195",
+      "source": "review-relay-land-closes-a-feature-after-its-fi.json",
+      "source_id": "F4",
+      "summary": "after an intermediate landing, should the feature stay taken by the deleted branch, or go back to open for the next change?",
+      "verdict": "GAP"
+    },
+    {
+      "failing_case": [
+        "plugins/delegate/workflows/cycle.js came in from master (merge 1ecdcf06d171) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "medium",
+      "reason": [
+        "The merge only added the plan and design item keys to cycle.js; the keep_open code is intact, tests/test_cycle_workflow.py passes, and the gate on the merge head is green."
+      ],
+      "severity": "MEDIUM",
+      "since": "1ecdcf06d1713c4e57aab80715fd48cc457ca3e0",
+      "source": "merge",
+      "summary": "plugins/delegate/workflows/cycle.js was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "1ecdcf06d1713c4e57aab80715fd48cc457ca3e0.gate.log",
+  "head": "b31e71cdd67758425e3d49044bb78a8eb756e717",
+  "item": "relay-land-closes-a-feature-after-its-first-chan",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Ran tests.test_land.ReviewFixes and tests.test_cycle_workflow on head (97 OK). Gate log is for 1ecdcf06, exit 0; only the inert gate commit follows. The 4 new tests fail on c35a09de^ and pass on head. The precheck was not run separately; the gate covers it."
+  ],
+  "type": "check"
+}
