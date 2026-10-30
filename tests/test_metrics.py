@@ -442,7 +442,9 @@ class Reader(unittest.TestCase):
 
     def test_main_refuses_an_unknown_option_with_the_usage_line(self):
         err = io.StringIO()
-        with mock.patch.object(relay_queue, "_context", return_value=("/x", "main")), contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+        # main() imports relay_queue at call time; a test that dropped relay_* from sys.modules leaves the module-level copy stale
+        import relay_queue as queue_now
+        with mock.patch.object(queue_now, "_context", return_value=("/x", "main")), contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
             rc = relay_metrics.main(["--sinse", "6h"], "/x")
             bad_by = relay_metrics.main(["--by", "year"], "/x")
         self.assertEqual((rc, bad_by), (2, 2))
