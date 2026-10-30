@@ -1,0 +1,201 @@
+{
+  "branch": "wt/first-relay-setup-on-a-new-machine-fails",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, a throwaway project in a fake HOME (scratchpad reports/demo-and-release.md, part 1): relay setup shop exited 1, \"Not synced: waits for a green paid run ... no green run recorded\" and 50 of 174 commits; CLAUDE.local.md was not written. Every new machine hits it. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_setup.py (setup's own sync)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay setup <tmp project> with HOME set to an empty temporary folder: exit 1 and the hold message; no CLAUDE.local.md."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 284,
+      "pass_cases": [
+        "Same run: exit 0 and CLAUDE.local.md written (or exit 0 with a one-line note of what waits); the hold still applies to relay sync on a machine that has a paid-run record."
+      ],
+      "path": "lib/relay_rules.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup_worktree_rules.py::test_setup_on_a_machine_with_no_paid_run_record_writes_the_rules_file passes at head and fails at base (hold message printed)."
+      ],
+      "severity": "HIGH",
+      "since": "6d641ed65388ad666c9f9a75ecd99d4b6738ba23",
+      "source": "queue",
+      "summary": "First relay setup on a new machine fails on the paid hold",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. relay_rules.sync's guard is `if wait and not dry and ... and not RELAY_SKIP_PAID_DUE`; with",
+        "wait=False it never calls paid_due(), whatever the machine holds. The change sets wait=False for every setup and migrate",
+        "run. The paid-batch change (6bfea520, 24 Oct) put the wait in relay_rules.sync so that \"every caller (setup, adopt,",
+        "sync)\" waits, and the owner rule says rule texts reach projects only after the wave's paid run. The item is titled",
+        "\"on a new machine\", its notes name the cause as \"the record of paid runs is in the machine's ~/.relay, which a fake",
+        "HOME, like a new user, does not have\", and its pass case keeps the hold \"on a machine that has a paid-run record\".",
+        "The fix drops it for setup on that machine as well. The item's What does offer \"like relay install, does not wait\" as",
+        "one option, so this is a reachable wrong case rather than a broken contract: MEDIUM. A fix inside the change meets",
+        "every case: wait only when a green run is recorded. Install has the same unconditional wait=False, but install renders",
+        "the head the owner chose on purpose; that call is not part of this change.",
+        "Size: 20 agent minutes (a helper in relay_rules or paid-cost that tells \"no green record\", one branch in cmd_setup, one",
+        "test for case 2)."
+      ],
+      "evidence": [
+        "$ sed -n 311,318p lib/relay_rules.py",
+        "    if wait and not dry and (not only or only - {\"agents\"}) and not os.environ.get(\"RELAY_SKIP_PAID_DUE\"):",
+        "        held = paid_due()",
+        "$ git diff master...HEAD -- bin/relay",
+        "-    try:",
+        "-        results = relay_rules.sync(..., only={d[\"name\"]}, adopt=d[\"name\"])",
+        "-    except relay_rules.Held:",
+        "-        print(\"\\nNot synced: waits for a green paid run (the setup itself is done); ...\")",
+        "+    results = relay_rules.sync(..., only={d[\"name\"]}, adopt=d[\"name\"], wait=False)",
+        "$ grep -n Held tests/test_paid_batch.py   (test comment, 6bfea520 24 Oct)",
+        "205: # relay_rules.sync is the one place every caller (setup, adopt, sync) passes; with a due list it refuses a ...",
+        "bin/paid-cost due(): with no green heads the list starts \"no green run recorded\" (line 204), else the bare commits."
+      ],
+      "failing_case": [
+        "The owner's machine: $RELAY_HOME/evals/relay holds a green paid run at commit X, and rules/ commits merged after X wait",
+        "for the wave's paid run (`bin/paid-cost due` lists them; `relay sync` exits 1 \"waits for a green paid run\").",
+        "`relay migrate ~/kartoteka --apply` (the handover's planned step 6) or `relay setup ~/shop --off metrics` now renders the",
+        "unverified rules into that project's CLAUDE.local.md and exits 0, because cmd_setup passes wait=False unconditionally",
+        "and relay_rules.sync skips paid_due() whenever wait is False (lib/relay_rules.py:315).",
+        "Expected: on a machine with a paid-run record the hold applies to setup's sync too (exit 0 with the one line \"Not",
+        "synced: waits for a green paid run ...\", the master behaviour, which the item allows as its second option); only a",
+        "machine with no green record (a new machine) syncs at once."
+      ],
+      "fix_hint": [
+        "Keep the try/except Held from master and pass wait=False only when the machine has no green paid-run record: e.g. a",
+        "relay_rules.no_green_record() (or paid-cost's green_heads() empty) checked in cmd_setup; when a record exists, sync with",
+        "the default wait and on Held print the master one-liner and return 0. Update the new test's docstring and add case 2."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 466,
+      "pass_cases": [
+        "1. RELAY_HOME empty (no green run recorded), RELAY_SKIP_PAID_DUE unset: `relay setup <tmp git project>` exits 0 and",
+        "   writes <project>/CLAUDE.local.md, stderr has no \"waits for a green paid run\" (the new test, kept).",
+        "2. RELAY_HOME holding a green record at an older head, with checked-path commits after it (paid_due returns a list not",
+        "   starting \"no green run recorded\"): `relay setup <tmp git project>` exits 0, stderr has the one \"Not synced: waits for",
+        "   a green paid run\" line, CLAUDE.local.md is not written.",
+        "3. Same as 2 with `relay migrate <dir> --apply`: same outcome as 2.",
+        "4. Same as 2 with `relay sync a`: exits 1 with the due list (test_paid_batch SyncWaits, unchanged).",
+        "5. Setup in a linked worktree: \"Not synced from a worktree\", exit 0, main checkout untouched (existing tests)."
+      ],
+      "path": "bin/relay",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup_worktree_rules.py test_setup_on_a_machine_with_a_paid_run_record_keeps_the_hold and test_migrate_apply_... assert exit 0, one hold line, no rules file; pass at head. They pass at base too (hold was the old behaviour); the fixer says they fail with wait=False."
+      ],
+      "severity": "MEDIUM",
+      "since": "a013bc8e0f4e4727a5e7a0d1b1de15b4ba29caad",
+      "source": "review-first-relay-setup-on-a-new-machine-fails.json",
+      "source_id": "F1",
+      "summary": "relay setup and relay migrate --apply now skip the paid-run hold on every machine, also on one that has a paid-run record and a wave waiting",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Size: 5 agent minutes, with F1's fix."
+      ],
+      "evidence": [
+        "$ sed -n 27,29p docs/setup.md",
+        "  `CLAUDE.local.md` (never committed). In a linked worktree setup skips the sync and says so; run `relay sync`",
+        "  after the branch is merged. A sync held by a waiting paid run leaves setup at exit 0 with one line;",
+        "$ git diff --stat master...HEAD   (docs/setup.md not in the list)"
+      ],
+      "failing_case": [
+        "A newcomer reads docs/setup.md line 29: \"A sync held by a waiting paid run leaves setup at exit 0 with one line\".",
+        "With this change `relay setup <dir>` never waits and never prints that line; the doc describes behaviour that no longer",
+        "exists (and the test file's docstring was updated, the doc was not)."
+      ],
+      "fix_hint": [
+        "Rewrite the one sentence to the behaviour F1's fix leaves."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 29,
+      "pass_cases": [
+        "1. docs/setup.md, the setup section, says what setup's sync does when a paid run is waiting, matching the code after F1's",
+        "   fix (for example: \"on a machine with no paid-run record setup syncs at once; with one, a waiting paid run leaves",
+        "   setup at exit 0 with one line\").",
+        "2. The sentence about the linked worktree (\"setup skips the sync and says so\") stays."
+      ],
+      "path": "docs/setup.md",
+      "rank": "low",
+      "reason": [
+        "docs/setup.md:29 now states new machine syncs at once, with a record the hold applies."
+      ],
+      "severity": "LOW",
+      "since": "a013bc8e0f4e4727a5e7a0d1b1de15b4ba29caad",
+      "source": "review-first-relay-setup-on-a-new-machine-fails.json",
+      "source_id": "F2",
+      "summary": "docs/setup.md still says a sync held by a waiting paid run leaves setup at exit 0 with one line; setup now never waits",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE: the red gate shows the order dependence and the fixer's own comment names the mechanism (\"binds ledger_dir at",
+        "its first import ... another test may have imported it under a patched ledger_dir\"), but the importing path under the",
+        "test_metrics patch was not traced. The quality-gate rule makes a flaky test a bug; principle 6 asks for the cause.",
+        "The fix lies in files this change did not touch (relay_ledger.py's import, or the leaking test), so outside: a fix item.",
+        "Size: 30 agent minutes."
+      ],
+      "evidence": [
+        "$ head/tail .relay/checks/47efc720...gate.log",
+        "    FAIL: test_has_start_scans_each_day_file_once_and_finds_either_day (test_hook_ledger.Ledger...)",
+        "    FAIL inert: ... -library tests FAILED +library tests ok",
+        "$ grep -n ledger_dir lib/relay_ledger.py",
+        "24:from relay_config import claude_json, ledger_dir",
+        "$ grep -rn ledger_dir tests | grep -v test_hook_ledger",
+        "tests/test_metrics.py:138: patcher = mock.patch(\"relay_config.ledger_dir\", return_value=self.ledger)"
+      ],
+      "failing_case": [
+        "Gate of 47efc720 (this branch): library tests FAILED in",
+        "test_hook_ledger.Ledger.test_has_start_scans_each_day_file_once_and_finds_either_day, and inert went red because the",
+        "probe run passed it: an order-dependent failure. relay_ledger does `from relay_config import claude_json, ledger_dir`",
+        "(lib/relay_ledger.py:24), so if relay_ledger is first imported while a test has relay_config.ledger_dir patched",
+        "(tests/test_metrics.py:138 is the only such patch), the module keeps that mock for the rest of the process. cfbde7a6",
+        "patches mod.relay_ledger.ledger_dir in the one failing test; any other test reading relay_ledger after it (for example",
+        "tests/test_transcripts_analysis.py:221 rl.ledger_dir()) still sees the stale folder.",
+        "Expected: no test leaves relay_ledger bound to another test's folder; the order of tests does not change a result."
+      ],
+      "fix_hint": [
+        "In lib/relay_ledger.py call relay_config.ledger_dir() through the module (import relay_config; relay_config.ledger_dir())",
+        "so a patch ends with its test; then the victim-side patch in test_hook_ledger can go."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 138,
+      "pass_cases": [
+        "1. Run test_metrics then test_hook_ledger in one process (parallel_unittest with one worker, or unittest with both",
+        "   modules): test_has_start... passes without the victim-side patch.",
+        "2. Same with test_metrics then test_transcripts_analysis: rl.ledger_dir() is under that test's RELAY_HOME.",
+        "3. relay_ledger.ledger_dir() in a fresh process still follows RELAY_HOME (the hook writes to $RELAY_HOME/ledger)."
+      ],
+      "path": "tests/test_metrics.py",
+      "rank": "medium",
+      "reason": [
+        "Fixer only made test_hook_ledger own its ledger dir (passes); the leak source in tests/test_metrics.py (untouched by the branch) stays. My view: acceptable as an outside fix item, though it remains MEDIUM-listed."
+      ],
+      "severity": "MEDIUM",
+      "since": "a013bc8e0f4e4727a5e7a0d1b1de15b4ba29caad",
+      "source": "review-first-relay-setup-on-a-new-machine-fails.json",
+      "source_id": "F3",
+      "summary": "a test leaves relay_ledger bound to a patched ledger_dir; this change only shields one victim test, the leak stays for every other relay_ledger test",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "2d1d8d9df8c071caa1ffa1034bbe1c423eb46f5e.gate.log",
+  "head": "7bb768450c70ea9b604200a7b677838fd10ec2d2",
+  "item": "first-relay-setup-on-a-new-machine-fails-on-the",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Gate for 2d1d8d9d is green (exit 0); later commit 7bb76845 is only the gate log. Check command: precheck green, 140 passed. Changed files: bin/relay, docs/setup.md, lib/relay_rules.py, two test files, all in scope. Q1 test run at base 6d641ed6 with the head test file: fails there."
+  ],
+  "type": "check"
+}
