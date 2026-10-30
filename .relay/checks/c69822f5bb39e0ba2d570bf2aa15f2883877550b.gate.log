@@ -1,0 +1,21 @@
+head c69822f5bb39e0ba2d570bf2aa15f2883877550b
+cmd bin/ci --quick
+wait 995.8
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (943s, log: .ci/steps/library-tests.log)
+    ERROR: test_fails_open_with_one_line_when_git_cannot_answer (test_digest.StopHook.test_fails_open_with_one_line_when_git_cannot_answer)
+    FAILED (errors=1)
+ci: coverage 89.8% of lib, bin, plugins (15145 of 16859 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (3s)
+ci: plugin validate ok (4s)
+ci: inert FAILED (171s, log: .ci/steps/inert.log)
+    FAIL inert: a step's result or the test count changed when only inert files changed (the probe's output is in .ci/steps/inert-nested.log):
+        --- outer run
+        +++ probe run
+        @@ -3 +3 @@
+        -library tests FAILED
+        +library tests ok
+ci: RED
+exit 1
