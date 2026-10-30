@@ -5,14 +5,35 @@ from __future__ import annotations
 
 import os
 import shlex
-from typing import TYPE_CHECKING, Optional, Sequence
+from dataclasses import dataclass
+from typing import Callable, NamedTuple, Optional, Sequence
 
 import relay_git
 import relay_inert
 import relay_marks
 
-if TYPE_CHECKING:
-    from relay_gate import Remote
+class RemoteUnavailable(Exception):
+    """The remote host could not run the gate (unreachable, busy, no end line): the text is the line after `gate: `, without the
+    closing "this gate runs on this Mac" (this module adds it)."""
+
+
+class RemoteResult(NamedTuple):
+    """A remote gate that reached its end line: the gate's exit, its output, the log's `host ...` line, the wait for a slot there."""
+    code: int
+    output: str
+    host_line: str
+    wait: float
+
+
+@dataclass(frozen=True)
+class Remote:
+    """A host that may decide a build-time gate. `run(worktree, head, command)` returns a RemoteResult or raises RemoteUnavailable
+    (the transport lives elsewhere; a test passes its own). `default_red`: a sentence when the default branch's newest Linux gate is
+    red ("" when it is not); `holds_fix`: this branch holds the fix item for that (5.2)."""
+    host: str
+    run: Callable[[str, str, Sequence[str]], RemoteResult]
+    default_red: str = ""
+    holds_fix: bool = False
 
 
 LIMIT_EXIT = 124        # bin/ci's exit when the quick gate stopped at its time limit (lib/relay_ci.py LIMIT_EXIT): not a test failure

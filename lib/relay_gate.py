@@ -26,8 +26,7 @@ import subprocess
 import sys
 import time
 import re
-from dataclasses import dataclass
-from typing import IO, Any, Callable, Mapping, NamedTuple, Optional, Sequence
+from typing import IO, Any, Callable, Mapping, Optional, Sequence
 
 import relay_config
 import relay_git
@@ -35,7 +34,7 @@ import relay_inert
 import relay_license
 import relay_marks
 import relay_tokens
-from relay_gate_logs import (FAILED_LINES, LIMIT_EXIT, MAC_SUFFIX, REMOTE_SUFFIX, STOPPED, STOPPED_LINE, TOOLCHAIN, _exit_code, _last_mac_red,  # noqa: F401
+from relay_gate_logs import (FAILED_LINES, Remote, RemoteResult, RemoteUnavailable, LIMIT_EXIT, MAC_SUFFIX, REMOTE_SUFFIX, STOPPED, STOPPED_LINE, TOOLCHAIN, _exit_code, _last_mac_red,  # noqa: F401
                             _log_lines, _toolchain_changed, deciding_host, finished_red, first_failure, log_sha_host, reusable)
 import relay_procs
 from relay_temp import prefixed_folders, temp_roots, under
@@ -51,30 +50,6 @@ KILLED = STOPPED + " the command of a gate that was killed"      # the reclaim's
 
 class GateRefused(Exception):
     """The gate was not started; the text says why in one line."""
-
-
-class RemoteUnavailable(Exception):
-    """The remote host could not run the gate (unreachable, busy, no end line): the text is the line after `gate: `, without the
-    closing "this gate runs on this Mac" (this module adds it)."""
-
-
-class RemoteResult(NamedTuple):
-    """A remote gate that reached its end line: the gate's exit, its output, the log's `host ...` line, the wait for a slot there."""
-    code: int
-    output: str
-    host_line: str
-    wait: float
-
-
-@dataclass(frozen=True)
-class Remote:
-    """A host that may decide a build-time gate. `run(worktree, head, command)` returns a RemoteResult or raises RemoteUnavailable
-    (the transport lives elsewhere; a test passes its own). `default_red`: a sentence when the default branch's newest Linux gate is
-    red ("" when it is not); `holds_fix`: this branch holds the fix item for that (5.2)."""
-    host: str
-    run: Callable[[str, str, Sequence[str]], RemoteResult]
-    default_red: str = ""
-    holds_fix: bool = False
 
 
 def quick_binding(worktree):
