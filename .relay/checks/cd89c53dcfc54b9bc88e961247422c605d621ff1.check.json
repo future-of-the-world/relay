@@ -1,0 +1,77 @@
+{
+  "branch": "wt/setup-enables-project-plugins-that-doctor-says-a",
+  "findings": [
+    {
+      "details": [
+        "25 Oct, the throwaway project (scratchpad reports/demo-and-release.md, part 1): setup enabled core, delegate, front and observe in .claude/settings.json; relay doctor then gave 4 FIX \"not installed at project scope\", and setup's to-do list did not name the install. IP chosen by the front (agent-chosen).",
+        "Also: lib/relay_setup.py:957 (doctor)"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay setup <tmp project> then relay doctor <tmp project>: FIX lines for core, delegate, front, observe; the setup output has no install command for them."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "After setup, doctor has no \"not installed\" FIX, or setup's to-do names `claude plugin install <name>@relay --scope project` for each."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup.py:700 test_setup_todo_names_install_for_always_on_plugins_doctor_flags passes at head, fails at base."
+      ],
+      "severity": "HIGH",
+      "since": "6ce8277f3fd6299b2eb239b02585febd53d7c279",
+      "source": "queue",
+      "summary": "setup enables project plugins that doctor says are missing",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Correct today (CONFIRMED by reading: the guard `if not installed_for(root, key)` at lib/relay_setup.py:992). Fragile: only the",
+        "not-installed side is tested. Size: 5 minutes."
+      ],
+      "evidence": [
+        "grep -n '\"scope\": \"user\"' tests/test_setup*.py -> only other@mk (test_setup.py:736) and test_setup_off.py:29; no test of setup() with always-on keys installed."
+      ],
+      "failing_case": [
+        "Mutate lib/relay_setup.py:992 to emit the to-do unconditionally for ALWAYS_ON plugins: every test in tests/test_setup.py still passes,",
+        "while on a set-up machine (all four installed at user scope, the owner's normal case) every `relay setup` would list 4 spurious",
+        "\"enabled but not installed\" to-dos."
+      ],
+      "fix_hint": [
+        "Add one test in PluginInstall: _registry with the four always-on keys at user scope, run setup, assert no to-do names \"claude plugin install\"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 699,
+      "pass_cases": [
+        "1. Registry {\"relay@amidman\",\"observe@amidman\",\"delegate@amidman\",\"front@amidman\": [{\"scope\": \"user\"}]}, setup(proj): no to-do contains \"claude plugin install\" and no \"enabled but not installed\" line.",
+        "2. Registry {} , setup(proj): one to-do per always-on key with `claude plugin install <key> --scope project` (the new test, keeps passing).",
+        "3. Registry with only \"front@amidman\" at project scope for proj, others empty: to-dos name relay, observe, delegate and not front."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py:716 passes; fails when guard replaced by True."
+      ],
+      "severity": "LOW",
+      "since": "8cf17a8dede168e4e9c730f7d244ba2c78098727",
+      "source": "review-setup-enables-project-plugins-that-doctor-says-a.json",
+      "source_id": "F1",
+      "summary": "no test that an always-on plugin installed at user scope gets no install to-do; dropping the installed_for guard would pass every test",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "96c3bab1e5d63d33732ee0596c1e52f92f83ec25.gate.log",
+  "head": "cd89c53dcfc54b9bc88e961247422c605d621ff1",
+  "item": "setup-enables-project-plugins-that-doctor-says-a",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Gate log for 96c3bab, exit 0; HEAD only adds the gate-log commit. Precheck green; 129 setup tests pass. Q1 test fails at base 6ce8277f, passes at head. F1 test fails with the installed_for guard mutated to True."
+  ],
+  "type": "check"
+}
