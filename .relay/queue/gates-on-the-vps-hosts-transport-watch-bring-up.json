@@ -16,8 +16,8 @@
     "lib/relay_land.py",
     "bin/relay"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T12:03:56Z",
+  "taken_by": "wt/gates-on-the-vps-hosts-transport-watch-b",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

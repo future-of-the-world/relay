@@ -28,7 +28,7 @@ const DEFAULTS = { gate_turns: 40, gate_fixes: 1, gate_reruns: 1, retry_dead: 1,
 const BOUNDS = { gate_turns: [20, 80], gate_fixes: [0, 3], gate_reruns: [0, 2], retry_dead: [0, 2], land_fixes: [0, 2], land_reruns: [0, 3] }
 const SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
 const TOP_KEYS = ['base', 'relay', 'scratch', 'gate', 'items', 'designs', 'settings']
-const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings', 'land']
+const UNIT_KEYS = ['name', 'kind', 'wt', 'check', 'branch', 'item', 'built', 'fix', 'fixes', 'findings', 'land', 'keep_open']
 const DESIGN_KEYS = ['name', 'brief', 'out', 'review', 'item']
 const KINDS = ['change', 'built', 'fix', 'recheck']
 const CFG = Object.assign({}, DEFAULTS, A.settings || {})
@@ -90,6 +90,7 @@ function refusal() {
     if (!it || !SLUG.test(it.name || '')) return `refused: ${who} needs a name of lower-case letters, digits and dashes`
     for (const f of Object.keys(it)) if (!UNIT_KEYS.includes(f)) return `refused: ${who} has an unknown field ${f} (known: ${UNIT_KEYS.join(', ')})`
     const kind = it.kind || 'change'
+    if (it.keep_open !== undefined && typeof it.keep_open !== 'boolean') return `refused: ${who} has keep_open ${JSON.stringify(it.keep_open)}: the field keep_open must be true or false`
     if (it.land !== undefined && typeof it.land !== 'boolean') return `refused: ${who} has land ${JSON.stringify(it.land)}: the field land must be true or false`
     if (!KINDS.includes(kind)) return `refused: ${who} has an unknown kind ${kind}`
     for (const f of ['wt', 'check']) if (typeof it[f] !== 'string' || !it[f]) return `refused: ${who} needs ${f}`
@@ -286,7 +287,7 @@ function ownerShow(it, shown, line) {
 // The land stage: `relay land` in one runner, branching on its exit code (not on a model's reading of the text).
 // The command a land runner starts: the shell writes the exit code of relay land as the last line of the log (a fact, not a reading of the text).
 function wrapped(it) {
-  return `\`sh -c 'relay land ${it.branch} -C ${it.wt}; echo "relay land exit $?"'\``
+  return `\`sh -c 'relay land ${it.branch}${it.keep_open === true ? ' --keep-open' : ''} -C ${it.wt}; echo "relay land exit $?"'\``
 }
 
 async function landRun(it, st, again) {

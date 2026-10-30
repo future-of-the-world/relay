@@ -1422,6 +1422,20 @@ def release(repo, slug, **engine):
     return _run(repo, planner, **engine)
 
 
+def release_kept_open(repo, slug, branch, sha, **engine):
+    """An intermediate change of a feature landed (`relay land --keep-open`): release the take of the deleted `branch` and record the
+    landing as a dated fact, so the item stays open for the next change and nothing reads it as landed, still open."""
+    def planner(reader):
+        item = _item_at(reader, slug)
+        if item["state"] != "taken" or item["taken_by"] != branch:
+            raise Refused(f"queue item '{slug}' is not taken by {branch}")
+        note = Note("fact", utcnow(), [f"{branch} landed at {sha}; the feature stays open for its next change"])
+        text = serialize(slug, changed(item, taken_at=None, taken_by=None, notes=notes_of(item) + [note]))
+        return Plan(slug, {_path(slug): text}, f"{item['kind']}, ip {item['ip']}", "released")
+
+    return _run(repo, planner, **engine)
+
+
 def _q1(item):
     """The finding Q1 a fix item becomes: its place, title, failing case, why and pass cases."""
     places = item.get("where") or [f"{_path(item['slug'])}:1"]
