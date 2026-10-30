@@ -26,8 +26,8 @@
     "tests/test_precheck.py",
     "tests/test_relay_tokens.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T13:32:26Z",
+  "taken_by": "wt/python-aborts-at-exit-in-gates-macos-sho",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
