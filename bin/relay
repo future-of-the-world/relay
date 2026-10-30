@@ -60,6 +60,13 @@
                                      take the default branch into the branch, gate the result, fast-forward on green; one
                                      landing at a time, no agent (0 landed, 1 red, 2 refused, 3 take conflict, 4 run again);
                                      --stats prints the counters computed from its events and git
+  relay digest [--since <sha|date>] [--all] [-C <repo>]
+                                     the one page for the owner: what merged and was added since the last digest sent, the decisions
+                                     agents took without him, questions waiting, numbers; printing it records nothing
+  relay digest --sent|--alert-sent [-C <repo>]
+                                     record that the page (or the spend alert) was sent to the owner: the next page starts here
+  relay digest --due [-C <repo>]     one line per reason a digest or an alert is due (a paid run ended, enough landings, spend
+                                     at the alert share of the day's cap); nothing when none is
   relay precheck [-C <worktree>]     the gate's quick steps (types and lint, python 3.9 imports, plugin lib links on HEAD,
                                      changed tests and the rules registry test under python3), read-only; the quiet check a worker loops on starts with it; exits 1 when one is red
   relay check show [-C <repo>] [--brief] <branch>
@@ -680,6 +687,14 @@ def cmd_land(args):
     return result.code
 
 
+def cmd_digest(args):
+    import relay_digest
+    try:
+        return relay_digest.main(args)
+    except relay_digest.DigestError as exc:
+        raise Usage(str(exc))
+
+
 def cmd_metrics(args):
     import relay_metrics
     return relay_metrics.main(args, os.getcwd())
@@ -1116,7 +1131,7 @@ def cmd_license(args):
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "land": cmd_land, "metrics": cmd_metrics, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "land": cmd_land, "digest": cmd_digest, "metrics": cmd_metrics, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
 }
 
 

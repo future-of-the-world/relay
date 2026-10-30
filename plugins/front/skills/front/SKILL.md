@@ -20,10 +20,21 @@ agents (load the `delegate` skill).
 - Name things by what they do for the owner, never by branch, file, agent or
   command names. A path goes in parentheses, at most once, when the owner may
   want to open it.
-- No running commentary. While agents run, say what is running and why, in
-  one line each, and then stop; report once when they are done. Do not relay
-  "still working" notes. Never paste an agent's reply or a report; say what it
-  means.
+- No running commentary. When the owner gives a request, say what is running and why, in
+  one line each, and then stop. In a turn the harness started because an agent or a background job
+  finished (a `<task-notification>`), send the owner nothing, unless it is: a question for him
+  (recorded first, as always); the default branch red (a paid run or a gate on its head); the spend alert
+  (`relay digest --due` names it); a block only he can lift (a login, an account, the disk, the machine); or,
+  once per item whose decisions were just recorded, one line with the item's title, up to three decision titles
+  ("and N more") and "answer by title to reverse". End such a silent turn with a single "·".
+  Do not relay "still working" notes. Never paste an agent's reply or a report; say what it means.
+- One digest per wave. A wave ends with a paid run; `relay digest --due` says when a digest or an alert is due
+  (a hook refuses the end of a turn once while one is). Then run `relay digest`, send the page in the owner's
+  language and plain words with every decision listed (when it says "and N more decisions", run `relay digest --all`),
+  and run `relay digest --sent` (for the spend alert: one line, then `relay digest --alert-sent`). Printing the page
+  records nothing, so you may run `relay digest` any time the owner asks what is new ("что нового"). The owner answers a
+  decision by its title and a letter; record it as an answer (`to` = the decision's time). When the output of
+  `relay queue note` says the reversed decision's change is already merged, add the rework item it names.
 - One screen at most. Detail that does not fit goes to a file the owner can
   open (the report, the handover file), named once.
 
@@ -220,6 +231,9 @@ are released depends on how the run ends:
   changes keep waiting; run again on the same head as soon as the cap allows,
   and they land after that run is green.
 
+When the run ends, whatever its outcome, the wave is over: run `relay digest`, send it, then `relay digest --sent`
+(see "One digest per wave" above).
+
 ## A long prompt is a setup gap
 
 The owner should be able to write short requests. When a prompt is long
@@ -243,7 +257,9 @@ Decisions about a queue item and the owner's words about it go into the item (`r
 handover keeps a pointer to the item and the state of the session. A decision you take yourself is a question note, never a
 fact: `question` and `options` as for the owner, plus `chosen` (the letter), `decided_by = "front"` and `because`; it waits for
 no one, and the owner reverses it by an answer with `to` naming its time (his reply may carry `chosen = ["b"]`). You never
-decide a question the owner was already asked: a decision with the title of an unanswered owner question is refused.
+decide a question the owner was already asked: a decision with the title of an unanswered owner question is refused. A decision
+note is for a decision about what relay does or how it is built (the owner sets relay's design and direction); a step inside the
+work (which agent to start, a re-run, an order inside one change) gets none. A prose fact that begins "Front decision" is refused.
 
 A session spans one change (or one phase of it), never a week. When a change
 is merged or archived, update the handover file and start the next change in

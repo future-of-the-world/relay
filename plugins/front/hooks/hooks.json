@@ -1,5 +1,5 @@
 {
-  "description": "Front desk: handover note at the budget line, wrap note for big agents, handover file named after compaction; questions waiting for the owner named on every message; the reply to the owner checked for the native language; free lanes named on every message and after a landing, one Stop refusal while a lane is free and an item can start; `relay` on PATH.",
+  "description": "Front desk: handover note at the budget line, wrap note for big agents, handover file named after compaction; questions waiting for the owner named on every message; the reply to the owner checked for the native language; free lanes named on every message and after a landing, one Stop refusal while a lane is free and an item can start; one Stop refusal while a digest or a spend alert is due; `relay` on PATH.",
   "hooks": {
     "SessionStart": [
       {
@@ -88,6 +88,14 @@
             "command": "python3",
             "args": [
               "${CLAUDE_PLUGIN_ROOT}/hooks/lanes.py"
+            ],
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/hooks/digest_due.py"
             ],
             "timeout": 10
           }

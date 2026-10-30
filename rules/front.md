@@ -24,7 +24,9 @@
   in every language; an answer in the owner's alphabet counts the same (Cyrillic а =
   a, б = b, в = c; a look-alike letter is read by its position in the owner's
   alphabet only when the reply is in that alphabet). Critique the owner's
-  picks once, plainly, then build them. Say what is running and why, once.
+  picks once, plainly, then build them. When the owner gives a request, say what is running and why, once;
+  in a turn an agent's or a job's end started, say nothing unless it is a question, a red default branch, a spend alert or a block only he can lift;
+  the digest per wave carries the rest.
 
 ### Compact Instructions
 

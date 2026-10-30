@@ -76,5 +76,7 @@
   verbatim in the language I wrote them.
 - Keep it simple. When I reject a direction, drop it and restart; don't
   patch it.
-- Status: say what is running and why; prune idle agents at once.
+- Status: when I give a request, say what is running and why, once; prune idle agents at once. In a turn started by an agent or a job
+  ending, say nothing unless it is a question for me, a red default branch, a spend alert or a block only I can lift: one digest per wave
+  (`relay digest`) tells me the rest.
 

@@ -1706,6 +1706,9 @@ def refuse_session_paths(done: str, **fields: object) -> None:
 
 # ---------------------------------------------------------------- notes: the command, the search, the view
 
+FRONT_DECISION_PREFIX = "Front decision"      # the wording the setup once taught for a prose decision; `note` refuses a fact that begins with it
+
+
 def decision_errors(fields: dict) -> list:
     """Why the decision keys of a question input (`chosen`, `decided_by`, `because`) are wrong, [] when they are right or absent. The one
     rule of the `note` input and of `note`."""
@@ -1809,10 +1812,15 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
     kind = fields["kind"]
     if kind == "question" and decision_errors(fields):
         raise Refused("nothing noted: " + "; ".join(decision_errors(fields)))
+    if kind == "fact" and next((x for x in fields["fact"] if x.strip()), "").lstrip().startswith(FRONT_DECISION_PREFIX):
+        raise Refused("nothing noted: a decision you took yourself is a decision note, not a fact: a `question` with `options`, `chosen` (the letter), "
+                      "`decided_by = \"front\"` and `because`; the owner reverses it by answering with another letter, and the digest lists it")
     refuse_session_paths("noted", **{k: fields[k] for k in ("fact", "question", "options", "reading", "because") if k in fields})
     stamp = now or utcnow()
+    reversed_merged: list = []      # decisions this answer reverses (another letter) whose change is already merged
 
     def planner(reader):
+        reversed_merged.clear()         # a retry plans again from the newest default branch
         item = reader.items().get(slug)
         if item is None:
             raise Refused(f"nothing noted: no queue item '{slug}'. A question or words about something no item covers: add the item first "
@@ -1867,6 +1875,8 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
                     if letter not in [chr(97 + n) for n in range(len(hit.options))]:
                         raise Refused(f"nothing noted: chosen '{letter}' is not one of the options of '{question_title(hit)}'")
             letter_of = dict(zip(targets, letters or []))
+            if item.get("closed_at"):
+                reversed_merged.extend(question_title(w) for w in waiting if w.at in letter_of and w.decided_by and letter_of[w.at] != w.chosen)
             notes = [n._replace(answered_at=when, answer=list(fields["answer"]), reading=list(fields.get("reading") or []),
                                 answer_choice=letter_of.get(n.at, ""))
                      if n in waiting and n.at in targets else n for n in notes]
@@ -1879,6 +1889,9 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
     text = _result(plan, sha, _context(repo)[1])
     if kind == "question" and "decided_by" in fields:
         text += f"\nDecided by {fields['decided_by']} at {fields.get('at') or stamp}: {fields['chosen']}; the owner reverses it by an answer with `to = [\"{fields.get('at') or stamp}\"]`. Nothing to show the owner as a question."
+    elif reversed_merged:
+        text += (f"\nThis reverses {' and '.join(repr(t) for t in reversed_merged)}, whose change is already merged: add the rework item, "
+                 "`relay queue add --kind fix ...` with the owner's words as `said`.")
     elif kind == "question":
         text += f"\nAsked at {fields.get('at') or stamp}; an answer to it names that time in `to`.\nShow the owner exactly this:\n" + question_block(Note("decision", "", fields["question"], 0, fields["options"]))
     return text
