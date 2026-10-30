@@ -7,6 +7,7 @@ import stat
 import subprocess
 import sys
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -778,6 +779,58 @@ class LeftoverModules(Land):
         self.assertIn("submodule", line)
         self.assertIn("worktree remove --force", line)
         self.assertIn(self.wt, line)
+
+    def test_a_refusal_git_keeps_is_told_once_and_again_when_it_changes(self):
+        # F1: wt/x with a cloned repository under its git folder stays; the first landing tells why, the second says nothing
+        self.merged()
+        modules = os.path.join(self.gitdir(), "modules", "sub", "HEAD")
+        write(modules, "ref: refs/heads/main\n")
+        first, second = self.cleanup(), self.cleanup()
+        self.assertIn("worktree remove --force", first)
+        self.assertEqual(second, "")
+        # the person clears modules/: the next landing removes it and says so
+        os.remove(modules)
+        self.assertTrue(self.cleanup().startswith("Removed"))
+        self.assertFalse(os.path.exists(self.wt))
+
+    def test_a_refusal_for_another_reason_is_told_again(self):
+        # F1 pass case 5: the same worktree, a different reason later, is reported once more
+        self.merged()
+        module = load_hook("merge_hook_refusal_test", HOOK)
+        self.assertTrue(module.remember_refusal(self.main, self.wt, "one"))
+        self.assertFalse(module.remember_refusal(self.main, self.wt, "one"))
+        self.assertTrue(module.remember_refusal(self.main, self.wt, "two"))
+
+    def test_a_committed_nested_repository_is_named_not_blamed_on_the_git_folder(self):
+        # F2: a gitlink `nested` committed in the branch, no modules/ folder: the line names `nested`
+        self.start()
+        git(self.main, "init", "-q", os.path.join(self.wt, "nested"))
+        git(os.path.join(self.wt, "nested"), "commit", "-q", "--allow-empty", "-m", "n")
+        git(self.wt, "add", "nested")
+        git(self.wt, "commit", "-q", "-m", "nested repository")
+        git(self.main, "merge", "-q", "--no-ff", "-m", "merge x", "wt/x")
+        line = self.cleanup()
+        self.assertTrue(os.path.exists(self.wt), line)
+        self.assertIn("nested", line)
+        self.assertNotIn("cloned under its git folder", line)
+
+    def test_an_empty_modules_folder_is_cleared_whatever_words_git_uses(self):
+        # F3: git's refusal translated (no word "submodule"): the empty modules/ is still cleared, judged from the folder
+        self.merged()
+        os.makedirs(os.path.join(self.gitdir(), "modules", "sub"))
+        module = load_hook("merge_hook_locale_test", HOOK)
+        real = subprocess.run
+
+        def translated(*args, **kwargs):
+            done = real(*args, **kwargs)
+            if done.returncode != 0:
+                done.stderr = "fatal: рабочие каталоги нельзя удалить\n"
+            return done
+
+        with mock.patch.object(module.subprocess, "run", translated):
+            reason = module.remove_worktree(self.main, self.wt)
+        self.assertIsNone(reason)
+        self.assertFalse(os.path.exists(self.wt))
 
     def test_a_worktree_without_nested_repositories_is_removed_as_before(self):
         self.merged()

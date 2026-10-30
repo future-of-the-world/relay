@@ -104,7 +104,7 @@ def clean(main, default, branch, hook):
         keep_direct_runs(path)
         reason = remove_worktree(main, path)
         if reason:
-            return "kept %s: %s; branch %s kept" % (name, reason, branch)
+            return "kept %s: %s; branch %s kept" % (name, reason, branch) if remember_refusal(main, path, reason) else None
         gone = name
         if ignored:
             extra = ", with %d ignored path%s gone: %s" % (len(ignored), "" if len(ignored) == 1 else "s", named(ignored))
@@ -532,18 +532,69 @@ def clear_empty_modules(path):
     return True
 
 
+REFUSED_NAME = "relay-refused.json"
+
+
+def refused_file(main):
+    rc, common = relay_git.git(main, "rev-parse", "--path-format=absolute", "--git-common-dir")
+    return os.path.join(common, REFUSED_NAME) if rc == 0 and common else None
+
+
+def refusals(main):
+    """{worktree path: the refusal already told} (a fact kept in the git common dir); {} when unreadable."""
+    path = refused_file(main)
+    if not path:
+        return {}
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return {}
+    return {k: v for k, v in data.items() if isinstance(k, str) and isinstance(v, str)} if isinstance(data, dict) else {}
+
+
+def remember_refusal(main, path, reason):
+    """Record `reason` for `path` (None forgets it); True when it is new, so the caller tells it, False when told before."""
+    known = refusals(main)
+    if known.get(path) == reason:
+        return False
+    if reason is None:
+        known.pop(path, None)
+    else:
+        known[path] = reason
+    target = refused_file(main)
+    if target:
+        try:
+            with open(target, "w", encoding="utf-8") as handle:
+                json.dump(known, handle, sort_keys=True)
+        except OSError:
+            return True
+    return reason is not None
+
+
+def nested_repositories(path):
+    """Paths of the gitlinks (mode 160000) in the worktree's index."""
+    rc, out = relay_git.git(path, "ls-files", "-s", raw=True)
+    return [l.split("\t", 1)[1] for l in out.splitlines() if l.startswith("160000 ") and "\t" in l] if rc == 0 else []
+
+
 def remove_worktree(main, path):
     """`git worktree remove` (never --force); None when it went, else the reason with the command that clears it. An empty
-    leftover `modules/` is cleared and the removal tried once more."""
+    leftover `modules/` is cleared and the removal tried once more. The cause is read from the disk, not from git's words."""
     done = subprocess.run(["git", "-C", main, "worktree", "remove", path], capture_output=True, text=True)
-    if done.returncode != 0 and "submodule" in done.stderr and clear_empty_modules(path):
+    if done.returncode != 0 and clear_empty_modules(path):
         done = subprocess.run(["git", "-C", main, "worktree", "remove", path], capture_output=True, text=True)
     if done.returncode == 0:
+        remember_refusal(main, path, None)
         return None
     reason = last_line(done.stderr)
-    if "submodule" in reason:
-        return ("git refused to remove it: %s (a repository is cloned under its git folder); after checking nothing in it is "
-                "needed, run: git -C %s worktree remove --force %s" % (reason, main, path))
+    gitdir = gitdir_of(path)
+    force = "after checking nothing in it is needed, run: git -C %s worktree remove --force %s" % (main, path)
+    if gitdir and os.path.isdir(os.path.join(gitdir, "modules")):
+        return "git refused to remove it: %s (a repository is cloned under its git folder); %s" % (reason, force)
+    nested = nested_repositories(path)
+    if nested:
+        return "git refused to remove it: %s (a nested repository is committed in it: %s); %s" % (reason, ", ".join(nested), force)
     return "git refused to remove it: %s" % reason
 
 
@@ -575,7 +626,8 @@ def remove_child(path, branch):
     keep_direct_runs(path)
     reason = remove_worktree(main, path)
     if reason:
-        log_line(main, "could not remove %s: %s" % (name, reason))
+        if remember_refusal(main, path, reason):
+            log_line(main, "could not remove %s: %s" % (name, reason))
         return 1
     done = subprocess.run(["git", "-C", main, "branch", "-d", branch], capture_output=True, text=True)
     if done.returncode != 0:
@@ -649,8 +701,10 @@ def sweep(hook):
         if mine and relay_git.git(main, "worktree", "unlock", path)[0] != 0:
             continue
         going.append((path, tree["branch"]))
+    told = refusals(main)
     for path, branch in going:
-        spawn_remove(path, branch)
+        spawn_remove(path, branch)                    # a refused one is tried again, silently while the reason is the same
+    going = [(p, b) for p, b in going if p not in told]
     if going:
         lines.append("Removing %d merged worktree%s: %s" % (
             len(going), "" if len(going) == 1 else "s", ", ".join("%s (%s)" % (rel(main, p), b) for p, b in going)))
