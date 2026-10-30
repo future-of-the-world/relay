@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-30T20:59:01Z",
   "taken_by": "wt/relay-setup-writes-worktrees-worktrees-and-ignor",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T21:27:34Z",
+  "test": "tests/test_setup.py::Setup::test_setup_uses_the_folder_bin_wt_makes",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

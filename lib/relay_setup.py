@@ -85,6 +85,7 @@ def detect(root):
     if d["stack"] == "unknown" and has_python_files(root):
         d["stack"], d["tool"] = "python", "python"
     d["default_branch"] = default_branch(root)
+    d["worktrees"] = worktrees_folder(root)
     d["openspec"] = os.path.isdir(os.path.join(root, "openspec"))
     d["has_bindings"] = os.path.isfile(bindings_path(root))
     d["bindings"] = relay_kit.load(root).raw      # the parsed file as written (setup edits it); wrong values are shown by doctor
@@ -101,6 +102,24 @@ def detect(root):
     cfg_specs = d["bindings"].get("specs", {}).get("method") if isinstance(d["bindings"].get("specs"), dict) else None
     d["specs_bound"] = cfg_specs if isinstance(cfg_specs, str) else None   # None: kit.toml has no [specs] setting
     return d
+
+
+def worktrees_folder(root: str) -> str:
+    """The folder the project's worktrees live in: ".worktree" when bin/wt names that folder (and not ".worktrees"), or a
+    registered linked worktree sits in it; ".worktrees" otherwise."""
+    script = os.path.join(root, "bin", "wt")
+    try:
+        text = open(script, encoding="utf-8", errors="replace").read()
+    except OSError:
+        text = ""
+    if re.search(r"\.worktree(?![\w-])", text) and not re.search(r"\.worktrees(?![\w-])", text):
+        return ".worktree"
+    listing = _git_out(root, "worktree", "list", "--porcelain") or ""
+    top = os.path.realpath(main_checkout(root) or root)
+    for line in listing.splitlines():
+        if line.startswith("worktree ") and os.path.dirname(os.path.realpath(line[9:])) == os.path.join(top, ".worktree"):
+            return ".worktree"
+    return ".worktrees"
 
 
 def default_branch(root):
@@ -193,7 +212,7 @@ def bindings_text(d, flow, specs="none"):
         f"# {name}: bindings for the relay plugins (written by `relay setup`, {dt.date.today()}).",
         "# Every key is documented in plugins/relay/README.md (gate, packet, guard)",
         "# and docs/flows.md ([flow]); [delegate] and [observe] in docs/delegation.md.", "",
-        "[project]", f'name = "{name}"', f'default_branch = "{d["default_branch"]}"', 'worktrees = ".worktrees"',
+        "[project]", f'name = "{name}"', f'default_branch = "{d["default_branch"]}"', f'worktrees = "{d.get("worktrees", ".worktrees")}"',
         f"stack_skills = {skills}", "",
         "[gate]", 'wt = "bin/wt"', 'check = "bin/check"', 'ci = "bin/ci"', 'ci_log = ".ci/ci.log"', 'final = "local"', "",
         "[flow]", f'kind = "{flow}"', "",
@@ -663,7 +682,7 @@ def gitignore_lines(d: dict) -> list[str]:
     outside the project), the stack's caches."""
     project = d["bindings"].get("project")
     folder = project.get("worktrees") if isinstance(project, dict) else None
-    folder = folder if isinstance(folder, str) and folder.strip("/") else ".worktrees"
+    folder = folder if isinstance(folder, str) and folder.strip("/") else d.get("worktrees") or ".worktrees"   # first setup: kit.toml is not read yet
     norm = posixpath.normpath(folder)
     lines = [".ci/"]
     if not (os.path.isabs(folder) or norm == ".." or norm.startswith("../")):
