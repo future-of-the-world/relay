@@ -34,9 +34,9 @@ def real_files(root: str) -> Iterator[list[str]]:
     try:
         for path, text in links:
             source = os.path.realpath(path)
+            done.append((path, text))   # before the swap: a failed copy still gets its link back
             os.remove(path)
-            shutil.copyfile(source, path)
-            done.append((path, text))
+            shutil.copy2(source, path)   # copy2 keeps the mode bits (a link to an executable stays executable)
         yield [path for path, _ in links]
     finally:
         for path, text in done:
