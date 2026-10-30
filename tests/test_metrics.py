@@ -464,6 +464,7 @@ class Reader(unittest.TestCase):
 
     def test_main_refuses_an_unknown_option_after_relay_modules_were_dropped(self):
         # failing case: relay_queue re-imported fresh (as test_bench does) while this file holds the old module; the refusal must not depend on it
+        import relay_queue as current  # noqa: F401  (an earlier test may have dropped it from sys.modules; this puts it back so the pop below finds it)
         saved = sys.modules.pop("relay_queue")
         self.addCleanup(sys.modules.__setitem__, "relay_queue", saved)
         import relay_queue as fresh  # noqa: F401
