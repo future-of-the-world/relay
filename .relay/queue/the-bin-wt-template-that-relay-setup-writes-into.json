@@ -26,8 +26,8 @@
   "where": [
     "templates/bin-wt:10"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T23:08:31Z",
+  "taken_by": "wt/the-bin-wt-template-that-relay-setup-writes-into",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
