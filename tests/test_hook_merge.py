@@ -443,7 +443,7 @@ class Sweep(Base):
         log = os.path.join(self.git(self.M, "rev-parse", "--path-format=absolute", "--git-common-dir"), "relay-cleanup.log")
         self.assertTrue(wait_for(lambda: os.path.exists(log) and os.path.getsize(log) > 0))
         self.sweep(self.M, "s0")
-        self.assertIn("could not remove .worktrees/t: simulated refusal", self.ctx)
+        self.assertIn("could not remove .worktrees/t: git refused to remove it: simulated refusal", self.ctx)
         self.sweep(self.M, "s0")
         self.assertNotIn("simulated refusal", self.ctx)  # the failure is named once (log cleared)
 
