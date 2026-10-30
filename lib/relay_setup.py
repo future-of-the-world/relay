@@ -17,6 +17,7 @@ import stat
 import subprocess
 import sys
 import tomllib
+from typing import Any
 
 import relay_config
 import relay_kit
@@ -204,7 +205,7 @@ def backup(path):
 
 # --- bindings ---------------------------------------------------------------
 
-def bindings_text(d, flow, specs="none"):
+def bindings_text(d: dict[str, Any], flow: str, specs: str = "none") -> str:
     """A kit.toml for a new project; sections relay needs, with the detected values."""
     name, stack = d["name"], d["stack"]
     skills = {"typescript": '["ts-dev"]', "rust": '["rust-dev"]', "elixir": '["elixir-dev"]', "go": '["go-dev"]'}.get(stack, "[]")
@@ -234,7 +235,7 @@ def bindings_text(d, flow, specs="none"):
     return "\n".join(lines)
 
 
-def rename_delegate_keys(root):
+def rename_delegate_keys(root: str) -> list[str]:
     """Rename the old [delegate] keys of kit.toml (relay_kit.RENAMED) to their new names; the lines it did, [] when none."""
     path = bindings_path(root)
     if not os.path.isfile(path):

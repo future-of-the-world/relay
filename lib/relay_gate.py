@@ -75,7 +75,20 @@ def refuse_bad_settings(worktree: str) -> None:
     the typo would land. The refusal names each line."""
     problems = relay_kit.load(worktree).problems
     if problems:
-        raise GateRefused("settings problem in the branch's .claude/kit.toml: " + "; ".join(p.line() for p in problems))
+        lines = [p.line() for p in problems]
+        if any("is an old name" in line for line in lines) and _kit_unchanged_from_default(worktree):
+            # the branch did not write the old name, it inherited it: the step is to take the default branch, not `relay setup`
+            lines = [line.replace("`relay setup` renames it", "this branch did not write it: take the default branch") for line in lines]
+        raise GateRefused("settings problem in the branch's .claude/kit.toml: " + "; ".join(lines))
+
+
+def _kit_unchanged_from_default(worktree: str) -> bool:
+    """True when the branch holds the same .claude/kit.toml as its merge-base with the default branch (it changed nothing there)."""
+    main = relay_git.main_checkout(worktree)
+    default = relay_git.default_branch(main) if main else None
+    if default is None:
+        return False
+    return relay_git.git(worktree, "diff", "--quiet", f"{default}...HEAD", "--", ".claude/kit.toml")[0] == 0
 
 
 def binding(worktree):

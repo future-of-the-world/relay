@@ -295,11 +295,23 @@ def warn(kit: Kit, *sections: str) -> None:
 
 
 def rename_old_delegate_keys(text: str) -> tuple[str, list[str]]:
-    """`text` of a kit.toml with the old [delegate] key names (RENAMED) and the old opus_for_builders values replaced; the lines it did."""
+    """`text` of a kit.toml with the old [delegate] key names (RENAMED) and the old opus_for_builders values replaced; the lines it did.
+    An old line whose new name the section already sets is dropped (the new name's value wins), never written twice."""
+    lines = text.split("\n")
+    present: dict[str, set[str]] = {}   # section -> keys written in it
+    section = None
+    for line in lines:
+        head = re.match(r"\s*\[([^\]]+)\]", line)
+        if head:
+            section = head.group(1).strip()
+        elif section is not None:
+            m = re.match(r"\s*([A-Za-z_]+)\s*=", line)
+            if m:
+                present.setdefault(section, set()).add(m.group(1))
     out: list[str] = []
     did: list[str] = []
     section = None
-    for line in text.split("\n"):
+    for line in lines:
         head = re.match(r"\s*\[([^\]]+)\]", line)
         if head:
             section = head.group(1).strip()
@@ -307,10 +319,13 @@ def rename_old_delegate_keys(text: str) -> tuple[str, list[str]]:
             m = re.match(r"(\s*)([A-Za-z_]+)(\s*=\s*)(.*)$", line)
             if m and ("delegate", m.group(2)) in RENAMED:
                 old, new, value = m.group(2), RENAMED[("delegate", m.group(2))], m.group(4)
+                if new in present.get("delegate", set()):
+                    did.append(f"[delegate] {old} removed ({new} is already set)")
+                    continue
                 if old == "build_tier_opus":
-                    v = re.match(r'"([^"]*)"(.*)$', value)
-                    if v and v.group(1) in OLD_OPUS_VALUES:
-                        value = f'"{OLD_OPUS_VALUES[v.group(1)]}"{v.group(2)}'
+                    v = re.match(r'(["\'])([^"\']*)\1(.*)$', value)
+                    if v and v.group(2) in OLD_OPUS_VALUES:
+                        value = f"{v.group(1)}{OLD_OPUS_VALUES[v.group(2)]}{v.group(1)}{v.group(3)}"
                 line = f"{m.group(1)}{new}{m.group(3)}{value}"
                 did.append(f"[delegate] {old} -> {new}")
         out.append(line)
