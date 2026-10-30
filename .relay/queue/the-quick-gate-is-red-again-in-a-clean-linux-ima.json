@@ -26,8 +26,8 @@
     "tests/test_rules_gate_isolation.py",
     "tests/test_gate_slots.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T01:26:46Z",
+  "taken_by": "wt/the-quick-gate-is-red-again-in-a-clean-l",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
