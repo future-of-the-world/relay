@@ -28,5 +28,22 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "asked_at": "2026-10-30T22:07:28Z",
+      "question": [
+        "Where does the signal log (the record of which relay process sent a stop signal) live while tests run?"
+      ],
+      "options": [
+        "a. One log per gate run, in the run's own temporary folder, shared by every test of that run and passed down like the test token pool",
+        "b. The owner's ~/.relay/signals.log, as the branch does now"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "the project's Python rule: tests use a temporary folder and never touch the live ~/.relay; one log per run also answers F1 (a stop sent from one test is seen by the others in the same run). Owner can reverse."
+      ]
+    }
+  ]
 }
