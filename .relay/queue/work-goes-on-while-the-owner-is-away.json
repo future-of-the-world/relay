@@ -84,6 +84,12 @@
       "because": [
         "principles 2 and 7: the measured gaps (none over 43 minutes in 3 absences) do not show the need yet, and the review showed the timer would not have covered the 25 Oct outage. Part A (reviewers and checkers decide reversible scope cuts) is built now. Owner can reverse."
       ]
+    },
+    {
+      "at": "2026-10-30T17:00:51Z",
+      "fact": [
+        "Design rev 2, 30 Oct 2026: part A (reviewers and checkers decide reversible scope cuts on MEDIUM or LOW findings, code refuses the rest) is about 130 agent minutes, above the item's 2 hours (not measured: a guess)."
+      ]
     }
   ]
 }
