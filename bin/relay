@@ -62,7 +62,7 @@
                                      4 run again, 5 waits for the owner (a hold or an unanswered question: ask the owner),
                                      6 waits for the paid run (no question to the owner: it lands after the run, see --waiting).
                                      --paid-fix lets the fix item of a red paid run land (refused in any other state)
-                                     --keep-open lands an intermediate change of a feature and leaves its item taken (default: the landing closes it)
+                                     --keep-open lands an intermediate change of a feature and leaves its item open for the next change (default: the landing closes it)
   relay land --hold <branch> "<the owner's words>" | --release <branch> [-C <repo>]
                                      the owner's hold on a branch (also one with no queue item); a held branch exits 5
   relay land --waiting [-C <repo>]   the branches that stopped on the paid run and still exist, one per line

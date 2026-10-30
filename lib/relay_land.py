@@ -434,6 +434,18 @@ def _close_features(main: str) -> list[str]:
         return [f"land: the landing happened, but the queue could not be updated: {exc}"]
 
 
+def _release_kept_open(main: str, branch: str, sha: str) -> list[str]:
+    """--keep-open: the feature items the landed branch took are released with a dated record of the landing (a fix is left alone)."""
+    try:
+        import relay_queue
+        items = [i for i in relay_queue.read_queue(main) if i.get("state") == "taken" and i.get("taken_by") == branch and i.get("kind") == "feature"]
+        for item in items:
+            relay_queue.release_kept_open(main, item["slug"], branch, sha)
+        return [f"kept open: {i['slug']} (released, open for its next change)" for i in items] or [f"{branch} holds no feature item: --keep-open changed nothing"]
+    except Exception as exc:        # the landing already happened (the rule _close_features follows)
+        return [f"land: the landing happened, but the queue could not be updated: {exc}"]
+
+
 def _landed(main: str, default: str, branch: str, stats: Event, started: float, keep_open: bool = False) -> Result:
     stats.sha = _sha(main, "refs/heads/" + default)
     lines: list[str] = []
@@ -446,9 +458,10 @@ def _landed(main: str, default: str, branch: str, stats: Event, started: float, 
                          f"{(done.stderr.strip().splitlines() or ['no reason given'])[-1]}")
     except subprocess.TimeoutExpired:
         lines.append(f"land: {branch} landed, but the cleanup of its worktree and branch did not finish in {JUDGE_TIMEOUT_S} s")
-    closed = [] if keep_open else _close_features(main)      # an intermediate change of a feature leaves its item taken
+    kept = _release_kept_open(main, branch, stats.sha) if keep_open else []      # before the sweep: an intermediate change leaves its feature open
+    closed = _close_features(main)
     how = f"gate {stats.gate_seconds / 60:.1f} min" if stats.gates_run else "gate reused: only queue records or the handover came in"
-    return Result(LANDED, [f"landed {branch} on {default} at {stats.sha[:12]} ({how})", *lines, *closed], units)
+    return Result(LANDED, [f"landed {branch} on {default} at {stats.sha[:12]} ({how})", *lines, *kept, *closed], units)
 
 
 def _units(main: str, before: Optional[str], head: Optional[str] = None, branch: Optional[str] = None) -> list[tuple[str, str]]:
