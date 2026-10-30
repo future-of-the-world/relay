@@ -87,6 +87,12 @@
         "b. any text of the front plugin (about 18 stops per 55 landings, an upper bound: 18 commits touching the front plugin landed in 36 hours)",
         "c. none: relay's own texts never stop a landing"
       ]
+    },
+    {
+      "at": "2026-10-30T05:47:13Z",
+      "said": [
+        "Можешь привести примеры на каждый вариант по вопросу автоматической отправки в master, разве мы уже не делаем так ? Полагаю что вопрос о том какие решения ты можешь принимать самостоятельно"
+      ]
     }
   ]
 }
