@@ -155,6 +155,18 @@
         "b. a separate `relay session` command",
         "c. project files only, no launcher (user rules, memory, agents and skills still load)"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T11:53:06Z",
+      "question": [
+        "(Design rev 4) Where does a project's memory live? Same clean-up first in every option (14 notes deleted as duplicates of relay rules, 20 moved into rules or the queue); the options differ in where new notes go."
+      ],
+      "options": [
+        "a. notes in the project's git, each landed at once through a staging folder outside every checkout (the owner's 24 Oct pick; recommended; ~100 agent minutes)",
+        "b. clean-up only; new notes stay on the machine (~30)",
+        "c. a personal notes repository with a sync command (~75)",
+        "d. do nothing"
+      ]
     }
   ]
 }
