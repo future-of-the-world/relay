@@ -1,0 +1,34 @@
+{
+  "kind": "fix",
+  "ip": 78,
+  "time": 30,
+  "found_at": "2026-10-30T20:17:59Z",
+  "found_in": "finding F3 of review-setup-commits-an-absolute-relay-path-into-settin.json",
+  "title": "The relay wrapper looks up extraKnownMarketplaces.relay…",
+  "what": [
+    "plugins/front/bin/relay:9: MEDIUM: F3 the relay wrapper looks up extraKnownMarketplaces.relay, but the marketplace is named amidman since 28 Oct, so it always falls back to ~/relay"
+  ],
+  "why": [
+    "The relay wrapper looks up extraKnownMarketplaces.relay, but the marketplace has been named amidman since 28 Oct, so it always falls back to ~/relay: on a machine where relay lives elsewhere the wrapper runs the wrong copy."
+  ],
+  "failing_case": [
+    "Relay checked out at /opt/relay, `relay setup --global` run (user settings hold extraKnownMarketplaces.amidman.source.path = /opt/relay),",
+    "RELAY_ROOT unset, no ~/relay. A session's `relay ...` on PATH runs the wrapper: jq '.extraKnownMarketplaces.relay.source.path' is empty,",
+    "root = ~/relay, and it fails \"relay: repository not found\". Expected: it runs /opt/relay/bin/relay."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "User settings with extraKnownMarketplaces.amidman.source.path = <dir with bin/relay>, RELAY_ROOT unset -> the wrapper execs <dir>/bin/relay.",
+    "RELAY_ROOT=<dir> set -> it uses RELAY_ROOT regardless of settings.",
+    "No settings file and ~/relay present -> falls back to ~/relay."
+  ],
+  "where": [
+    "plugins/front/bin/relay:9"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

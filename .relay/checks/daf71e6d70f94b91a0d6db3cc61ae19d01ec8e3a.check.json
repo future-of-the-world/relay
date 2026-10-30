@@ -1,0 +1,160 @@
+{
+  "branch": "wt/setup-commits-an-absolute-relay-path-into-settin",
+  "findings": [
+    {
+      "details": [
+        "Found 30 Oct by the trial of relay on a copy of relay cleaned of relay (owner, 30 Oct: \"\u041f\u043e\u043b\u0430\u0433\u0430\u044e \u0447\u0442\u043e \u0434\u043b\u044f \u0442\u0435\u043a\u0443\u0449\u0438\u0445 \u0437\u0430\u0434\u0430\u0447 \u0431\u0443\u0434\u0435\u0442 \u043d\u0435 \u043b\u0438\u0448\u043d\u0438\u043c \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 relay \u043a \u0441\u0430\u043c\u043e\u043c\u0443 relay, \u043e\u0447\u0438\u0449\u0435\u043d\u043d\u043e\u043c\u0443 \u043e\u0442 relay\"); sandbox HOME, RELAY_HOME and RELAY_PROJECTS, claude stubbed. setup wrote the shared .claude/settings.json with extraKnownMarketplaces pointing at the absolute path /Users/amidman/relay, 'openspec@amidman': false, and permissions allow Bash(kit:*), Bash(bin/kit:*), Bash(relay:*); the file is committed for the whole team, the path is this Mac's, and setup's Done list mentions none of it."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "`relay setup` in a fresh repo: .claude/settings.json contains '/Users/amidman/relay' and three Bash permissions; the Done list names none."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the committed settings.json holds no absolute path",
+        "the Done list names each permission added",
+        "a project with its own settings.json keeps its entries"
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup_off.py t1b (no absolute path, Done names additions) fails at base, passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "e46b6b018746c023eb1ce575cc992ff1b9bd5f59",
+      "source": "queue",
+      "summary": "setup commits an absolute relay path into settings.json",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading docs/setup.md lines 15-16 at HEAD; the change did not touch docs. The doc is the description of setup's promise,",
+        "and now contradicts the very fix (Principle 10: a newcomer does the task from the program's own texts). Size: 5 minutes."
+      ],
+      "evidence": [
+        "$ sed -n 15,16p docs/setup.md",
+        "- `.claude/settings.json`: the relay marketplace and the plugins for the",
+        "  flow (`relay`, `observe`, `delegate`, `front`, + `openspec`), `Bash(kit:*)` allowed. ...",
+        "$ git diff --stat master...HEAD   -> no docs/ file"
+      ],
+      "failing_case": [
+        "Read docs/setup.md at HEAD, the list of what `relay setup <dir>` writes: \"`.claude/settings.json`: the relay marketplace and the plugins",
+        "for the flow (...), `Bash(kit:*)` allowed\". After this change setup writes no marketplace there (it removes an old one) and allows three",
+        "rules: Bash(kit:*), Bash(bin/kit:*), Bash(relay:*). A newcomer reading the doc expects the marketplace in the committed file."
+      ],
+      "fix_hint": [
+        "Rewrite the first line of that bullet: \"`.claude/settings.json`: the plugins for the flow (...), and `Bash(kit:*)`, `Bash(bin/kit:*)`,",
+        "`Bash(relay:*)` allowed, each named in the done list; no marketplace path (it is the machine's, in ~/.claude/settings.json), and an",
+        "old one an earlier setup wrote is removed and said.\""
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 15,
+      "pass_cases": [
+        "docs/setup.md, the .claude/settings.json bullet, says the marketplace is not written there (it lives in ~/.claude/settings.json via `relay setup --global`) and that an old directory entry of relay's marketplace is removed and said in the done list.",
+        "The same bullet names the three permissions Bash(kit:*), Bash(bin/kit:*), Bash(relay:*), and that the done list names each one it adds.",
+        "The \"Nothing in ~/.claude\" bullet stays as it is (it already says the marketplace is the user's file)."
+      ],
+      "path": "docs/setup.md",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup_off.py test_f1_docs_describe_what_setup_writes_into_settings_json; fails at base, passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "47726895ee97908d861a3020f7e3af2b8158b421",
+      "source": "review-setup-commits-an-absolute-relay-path-into-settin.json",
+      "source_id": "F1",
+      "summary": "docs/setup.md still says setup writes the relay marketplace into .claude/settings.json and allows only Bash(kit:*)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading settings_additions: `key not in plugins(before) and value is False`. The brief asks for every permission and setting",
+        "setup *added*; a changed value is beyond the letter, hence LOW, but it is the same trust problem the trial found (a committed file",
+        "changed silently). Size: 10 minutes."
+      ],
+      "evidence": [
+        "lib/relay_setup.py:402-403: lines += [... for key, value in plugins(after).items() if key not in plugins(before) and value is False]"
+      ],
+      "failing_case": [
+        "Project .claude/settings.json {\"enabledPlugins\": {\"openspec@amidman\": true}}; run `relay setup <dir> --specs none`.",
+        "merge_settings sets openspec@amidman to false (remove=turned_off), but settings_additions skips it (key already in before), and the",
+        "plugins line lists only the enabled ones. Done says nothing about openspec being turned off in the committed file. Expected: a line",
+        "such as \".claude/settings.json: openspec@amidman true -> false\"."
+      ],
+      "fix_hint": [
+        "Also emit a line for a key whose value differs between before and after (before[key] is not after[key])."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 402,
+      "pass_cases": [
+        "{\"enabledPlugins\": {\"openspec@amidman\": true}} + `--specs none` -> one Done line names openspec@amidman turned false.",
+        "Fresh repo, `--off gopls-lsp@claude-plugins-official` -> Done still has \"added openspec@amidman = false\" once (t1b) and no line for a key already false.",
+        "Second run with nothing changed -> no settings_additions line (t2 stays)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup_off.py test_f2_a_switch_flipped_true_to_false_is_named_in_done (fails at base) and test_f2_a_key_already_false_gets_no_line pass."
+      ],
+      "severity": "LOW",
+      "since": "47726895ee97908d861a3020f7e3af2b8158b421",
+      "source": "review-setup-commits-an-absolute-relay-path-into-settin.json",
+      "source_id": "F2",
+      "summary": "Done names a switch only when the key is new; a relay key setup flips from true to false (specs turned off) is still silent",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: .claude-plugin/marketplace.json name is \"amidman\"; the wrapper (last changed 21 Oct, before the 28 Oct rename)",
+        "still reads `.relay`. Outside this change (untouched), but it is the one reader of the marketplace path this change now makes the only",
+        "home of it. Works on the owner's Mac only because relay sits at ~/relay. Size: 15 minutes (read the name from marketplace.json or try both)."
+      ],
+      "evidence": [
+        "$ sed -n 9p plugins/front/bin/relay -> jq -r '.extraKnownMarketplaces.relay.source.path // empty'",
+        "$ grep '\"name\"' .claude-plugin/marketplace.json -> \"name\": \"amidman\",",
+        "$ git log -1 --date=short -- plugins/front/bin/relay -> f88542c0 2026-10-21"
+      ],
+      "failing_case": [
+        "Relay checked out at /opt/relay, `relay setup --global` run (user settings hold extraKnownMarketplaces.amidman.source.path = /opt/relay),",
+        "RELAY_ROOT unset, no ~/relay. A session's `relay ...` on PATH runs the wrapper: jq '.extraKnownMarketplaces.relay.source.path' is empty,",
+        "root = ~/relay, and it fails \"relay: repository not found\". Expected: it runs /opt/relay/bin/relay."
+      ],
+      "fix_hint": [
+        "Look up .extraKnownMarketplaces.amidman (or the name read from the marketplace file next to the wrapper), keeping the RELAY_ROOT and ~/relay fallbacks."
+      ],
+      "id": "F3",
+      "kind": "outside",
+      "line": 9,
+      "pass_cases": [
+        "User settings with extraKnownMarketplaces.amidman.source.path = <dir with bin/relay>, RELAY_ROOT unset -> the wrapper execs <dir>/bin/relay.",
+        "RELAY_ROOT=<dir> set -> it uses RELAY_ROOT regardless of settings.",
+        "No settings file and ~/relay present -> falls back to ~/relay."
+      ],
+      "path": "plugins/front/bin/relay",
+      "rank": "medium",
+      "reason": [
+        "Kind outside, wrapper untouched; goes to a fix item. Agree with the fixer."
+      ],
+      "severity": "MEDIUM",
+      "since": "47726895ee97908d861a3020f7e3af2b8158b421",
+      "source": "review-setup-commits-an-absolute-relay-path-into-settin.json",
+      "source_id": "F3",
+      "summary": "the relay wrapper looks up extraKnownMarketplaces.relay, but the marketplace is named amidman since 28 Oct, so it always falls back to ~/relay",
+      "verdict": "OUTSIDE"
+    }
+  ],
+  "gate": "593893c38e8b6697d6f8cd52fcfc87c4467d9aa0.gate.log",
+  "head": "daf71e6d70f94b91a0d6db3cc61ae19d01ec8e3a",
+  "item": "setup-commits-an-absolute-relay-path-into-settin",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range e46b6b018746..HEAD; changed own files: docs/setup.md, lib/relay_setup.py, tests/test_setup_off.py. Gate green on 593893c3, only gate-log commit after. Precheck green, 126 tests passed. Tests copied to base e46b6b018746: 5 failed there."
+  ],
+  "type": "check"
+}

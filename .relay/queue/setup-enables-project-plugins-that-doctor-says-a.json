@@ -22,10 +22,10 @@
     "lib/relay_setup.py (project-scope plugin install)",
     "lib/relay_setup.py:957 (doctor)"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T20:17:48Z",
+  "taken_by": "wt/setup-enables-project-plugins-that-doctor-says-a",
+  "closed_at": "2026-10-30T20:42:32Z",
+  "test": "tests/test_setup.py::PluginInstall::test_setup_todo_names_install_for_always_on_plugins_doctor_flags",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

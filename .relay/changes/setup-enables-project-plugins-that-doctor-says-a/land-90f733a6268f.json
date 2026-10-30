@@ -1,0 +1,145 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1563,
+   "id": "ae9f11dbc85c595fb",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T20:18:00.317Z",
+   "stop": "2026-10-30T20:20:21.959Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "aa5bac5364badd423",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T20:20:24.762Z",
+   "stop": "2026-10-30T20:29:21.685Z"
+  },
+  {
+   "cost_usd": 0.5926,
+   "id": "ab0fb8786334c38bf",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 16,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T20:29:24.273Z",
+   "stop": "2026-10-30T20:31:08.542Z"
+  },
+  {
+   "cost_usd": 0.1378,
+   "id": "a17f104bcf656994a",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T20:31:10.870Z",
+   "stop": "2026-10-30T20:32:51.538Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "a650ddf85437df1cf",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T20:32:53.833Z",
+   "stop": "2026-10-30T20:41:06.397Z"
+  },
+  {
+   "cost_usd": 0.1254,
+   "id": "a6a2d1156540cb91b",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T20:41:09.028Z",
+   "stop": "2026-10-30T20:42:24.258Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a826ad588d53f43d1",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T20:42:26.606Z",
+   "stop": "2026-10-30T20:42:35.665Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a2ce6e9df3c90a106",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T20:42:37.988Z",
+   "stop": "2026-10-30T20:42:45.251Z"
+  }
+ ],
+ "before": "8669dee63ce126c03810c7f27700014918734b92",
+ "branch": "wt/setup-enables-project-plugins-that-doctor-says-a",
+ "head": "90f733a6268f45c84db6d79e56825549b4579898",
+ "item": "setup-enables-project-plugins-that-doctor-says-a",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-29T16:17:00+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/relay-doctor-does-not-name-a-main-checko",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T01:39:35+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "first-relay-setup-on-a-new-machine-fails-on-the",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T17:06:33+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/a-wrong-value-in-project-settings-passes",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T18:37:25+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/a-new-project-s-gate-is-red-and-hides-the-cause",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T19:47:18+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/setup-commits-an-absolute-relay-path-into-settin",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T20:42:54+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T20:47:58+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T20:58:43+00:00",
+   "gate_seconds": 607.4118534580339,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "setup-enables-project-plugins-that-doctor-says-a"
+}

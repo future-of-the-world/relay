@@ -1,0 +1,150 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.2435,
+   "id": "ab942d921603f63c5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T19:37:20.051Z",
+   "stop": "2026-10-30T19:40:47.566Z"
+  },
+  {
+   "cost_usd": 0.0033,
+   "id": "a3d7505ca67b2d28d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T19:40:49.906Z",
+   "stop": "2026-10-30T19:47:46.665Z"
+  },
+  {
+   "cost_usd": 0.6758,
+   "id": "a8d20c976cefee102",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 13,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T19:47:49.190Z",
+   "stop": "2026-10-30T19:50:12.445Z"
+  },
+  {
+   "cost_usd": 0.1974,
+   "id": "a084ca1213cc02088",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 12,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T19:50:15.212Z",
+   "stop": "2026-10-30T19:52:30.524Z"
+  },
+  {
+   "cost_usd": 0.0035,
+   "id": "af881f950387376cc",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 5,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T19:52:32.833Z",
+   "stop": "2026-10-30T20:03:29.793Z"
+  },
+  {
+   "cost_usd": 0.125,
+   "id": "a01fa94570fdfb8b6",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T20:03:32.355Z",
+   "stop": "2026-10-30T20:05:33.245Z"
+  },
+  {
+   "cost_usd": 0.0021,
+   "id": "ae3522abc131a7e59",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T20:05:36.899Z",
+   "stop": "2026-10-30T20:05:48.162Z"
+  },
+  {
+   "cost_usd": 0.0028,
+   "id": "ae3522abc131a7e59",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T20:05:36.899Z",
+   "stop": "2026-10-30T20:05:50.554Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a1b72a2bd70b6713f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T20:05:53.192Z",
+   "stop": "2026-10-30T20:06:00.787Z"
+  }
+ ],
+ "before": "3f621b267f09a275cf9663aeab8da2c2248266d8",
+ "branch": "wt/setup-commits-an-absolute-relay-path-into-settin",
+ "head": "c09ac6813557a8440a9014702b23ca431d8f56dd",
+ "item": "setup-commits-an-absolute-relay-path-into-settin",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T08:48:00+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/setup-silently-turns-off-a-project-s-age",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T14:27:20+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/speed-up-the-quick-gate",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T17:06:33+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/a-wrong-value-in-project-settings-passes",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T18:37:25+00:00",
+   "file": "lib/relay_setup.py",
+   "holder": "wt/a-new-project-s-gate-is-red-and-hides-the-cause",
+   "kind": "held"
+  },
+  {
+   "at": "2026-10-30T20:06:10+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T20:08:09+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T20:17:29+00:00",
+   "gate_seconds": 496.48761758301407,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "setup-commits-an-absolute-relay-path-into-settin"
+}
