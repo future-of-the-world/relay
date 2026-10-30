@@ -23,8 +23,9 @@
   ],
   "taken_at": "2026-10-28T08:38:31Z",
   "taken_by": "wt/queue-time-estimates-are-guesses-with-no",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T00:40:20Z",
+  "test": "tests/test_queue_estimate.py::BriefFile::test_branch_from_brief_read",
+  "fixed_by": "dd408aa497a37379b94325a45c4ccd19e383c968",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

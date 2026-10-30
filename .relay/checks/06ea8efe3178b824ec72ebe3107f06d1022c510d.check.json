@@ -1,0 +1,86 @@
+{
+  "branch": "wt/a-close-runner-refuses-on-the-run-s-firs",
+  "findings": [
+    {
+      "details": [
+        "Closing an item after open 0 is a recorded rule, not the agent's call; a random refusal (1 of 3) leaves items open and the front closes them by hand."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A cycle run started in the turn of an owner question: a close runner may refuse to close a checked item."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "cycle.js tells the close step that closing is the cycle's rule after open 0, whatever the triggering message, or closes by a script step without an agent's judgement.",
+        "A run started on a go closes all its items, as now."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "high",
+      "reason": [
+        "tests/test_cycle_workflow.py:89 passes at head, fails at base a1a588a2."
+      ],
+      "severity": "HIGH",
+      "since": "a1a588a2726f7836c7c84887d79495eb617ec513",
+      "source": "queue",
+      "summary": "A close runner refuses on the run's first message",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "PLAUSIBLE. The item's What names the cause for every workflow agent; the fix addresses the one step where a refusal was",
+        "seen. Principle 6 (cause, not symptom) would put the sentence in one shared constant appended by ask() or by the runner",
+        "prompts, not in one prompt. Kept LOW: no second occurrence measured, and the gate/show steps stop visibly if they refuse.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "grep -n \"ask(\" plugins/delegate/workflows/cycle.js: runner prompts at 113 (dead note), 173/178 (gate), 235 (close, fixed), 245 (check show).",
+        "pytest -q tests/test_cycle_workflow.py: 48 passed."
+      ],
+      "failing_case": [
+        "A cycle run started in the turn of an owner question (as wf_a74e8dbc-fb9). The close runner now gets the sentence",
+        "\"Closing a checked item is the cycle's rule ... whatever message started this run\". The check show runner (cycle.js:245),",
+        "the gate runner (gatePrompt, cycle.js:143) and the dead-note runner (cycle.js:113) get prompts with no such sentence; the",
+        "cause named by the item (\"every workflow agent sees the message that started the run as the owner's only words\") still",
+        "applies to them. Not observed failing yet (no measured refusal outside the close step), so correct today but fragile."
+      ],
+      "fix_hint": [
+        "A const RUN_RULE = 'The steps of this run are the cycle's rules, whatever message started the run: ...' added to the",
+        "runner prompts (or in ask() for all agents), with the close step keeping its specific sentence; one test asserting it",
+        "on the gate and check show prompts."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 245,
+      "pass_cases": [
+        "1. Fake runtime, a unit with item \"the-item\", GREEN answers: the prompt of \"close queue item: the-item\" contains \"is the cycle's rule\" (as now).",
+        "2. Same run: the prompts of \"check show: the-item\" and \"gate 1: the-item\" also carry the run-rule sentence (one shared constant).",
+        "3. A run with no item: no close stage, and the other prompts carry the sentence once each."
+      ],
+      "path": "plugins/delegate/workflows/cycle.js",
+      "rank": "low",
+      "reason": [
+        "tests/test_cycle_workflow.py test_gate_and_show_runners_carry_the_run_rule passes; fails at base."
+      ],
+      "severity": "LOW",
+      "since": "b734ea4a4a073e8a1b35726100a0923b6aaa69d5",
+      "source": "review-a-close-runner-refuses-on-the-run-s-firs.json",
+      "source_id": "F1",
+      "summary": "the run's-first-message rule is told only to the close runner; other single-command runners (check show, gate, dead note) see the same trigger with no such sentence",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "1a9a7ff029f6d45acc1ca981eb71bcb331b3bab9.gate.log",
+  "head": "06ea8efe3178b824ec72ebe3107f06d1022c510d",
+  "item": "a-close-runner-refuses-on-the-run-s-first-messag",
+  "notes": [
+    "Dead-note runner not given the rule: no refusal trigger, acceptable."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range a1a588a2..HEAD; changed own files: cycle.js and test_cycle_workflow.py only. Ran unittest of tests/test_cycle_workflow.py (49 OK) at head; at base commit with head tests, both relied tests fail. Gate log head 1a9a7ff0 ends exit 0; only inert commit after."
+  ],
+  "type": "check"
+}

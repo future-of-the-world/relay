@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 90,
+  "time": 15,
+  "found_at": "2026-10-30T01:07:20Z",
+  "found_in": "relay queue add",
+  "title": "The podman machine lost the size the owner chose",
+  "what": [
+    "Set the machine back to the chosen size when no container runs, and make relay's setup or doctor name a machine smaller than the recorded choice, so a reset is seen."
+  ],
+  "why": [
+    "The owner chose 10 CPUs and 20 GiB for the podman machine on 29 Oct; `podman machine list` on 30 Oct shows 6 CPUs and 8 GiB. Container gates measured on it run on fewer cores than decided."
+  ],
+  "failing_case": [
+    "30 Oct: `podman machine list` prints podman-machine-default ... 6 CPUs, 8GiB."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "`podman machine list` shows 10 CPUs and 20GiB.",
+    "relay doctor names a machine below the chosen size."
+  ],
+  "where": [
+    "lib/relay_setup.py",
+    "bin/relay doctor"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}

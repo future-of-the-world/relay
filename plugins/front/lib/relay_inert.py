@@ -51,11 +51,14 @@ def matches(path):
     return any(rx.match(path) for rx in _COMPILED)
 
 
-def _git(repo, *args):
-    run = subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True)
-    if run.returncode != 0:
-        raise ValueError(f"git {' '.join(args)} failed in {repo}: {run.stderr.strip()}")
-    return run.stdout
+def _git(repo: str, *args: str) -> str:
+    try:
+        code, out, err = relay_git.capture(repo, *args, timeout=None)
+    except relay_git.GitError as exc:
+        raise ValueError(str(exc))
+    if code != 0:
+        raise ValueError(f"git {' '.join(args)} failed in {repo}: {err.strip()}")
+    return out
 
 
 _SHA = re.compile(r"[0-9a-f]{40}\Z")
@@ -63,7 +66,12 @@ _TREES: dict[tuple[str, str], dict[str, str]] = {}      # (repo, commit sha) -> 
 
 
 def _blobs(repo, commit):
-    """{path: blob id} of every file at `commit` (one `git ls-tree -r` call; kept per commit sha)."""
+    """{path: blob id} of every file at `commit` (one `git ls-tree -r` call; kept per commit sha). Inside `relay_git.reading()` a
+    lazy view of the same (`get`, `in`) that reads only the paths asked, with no process per commit."""
+    if _SHA.match(commit):
+        lazy = relay_git.tree_files(repo, commit)
+        if lazy is not None:
+            return lazy
     key = (repo, commit)
     if _SHA.match(commit) and key in _TREES:
         return _TREES[key]
@@ -79,11 +87,21 @@ def _blobs(repo, commit):
 
 
 def _sha(repo, rev):
-    return _git(repo, "rev-parse", "--verify", rev + "^{commit}").strip()
+    sha = relay_git.resolve_commit(repo, rev)
+    if sha is None:
+        raise ValueError(f"git rev-parse --verify {rev}^{{commit}} failed in {repo}")
+    return sha
+
+
+def _merge_base(repo: str, one: str, other: str) -> str:
+    base = relay_git.merge_base(repo, one, other)
+    if base is None:
+        raise ValueError(f"git merge-base {one} {other} failed in {repo}")
+    return base
 
 
 def _is_ancestor(repo, older, newer):
-    return relay_git.git(repo, "merge-base", "--is-ancestor", older, newer)[0] == 0
+    return relay_git.is_ancestor(repo, older, newer)
 
 
 def _default_ref(repo):
@@ -124,7 +142,7 @@ def _covered(repo, paths, until, default, absorbed):
     tops, head = _blobs(repo, until), _blobs(repo, _sha(repo, default))
     sides = {}
     for branch, tip in absorbed.items():
-        base = _git(repo, "merge-base", tip, default).strip()
+        base = _merge_base(repo, tip, default)
         sides[branch] = (_blobs(repo, tip), _blobs(repo, base))
     covered = set()
     for p in paths:
@@ -155,18 +173,18 @@ def twin(repo: str, old: str, ref: str) -> str | None:
     of the branch whose change from its merge-base with the default branch has the same patch id as `old`'s (the check files
     left out). None when `old` is not a commit here, is already in the history (then it is itself the answer, `old`), or no
     commit of the branch has that patch: a rebase that changed the patch has no twin."""
-    if relay_git.git(repo, "cat-file", "-e", old + "^{commit}")[0] != 0:
+    if relay_git.resolve_commit(repo, old) is None:
         return None
     if _is_ancestor(repo, old, ref):
         return old
     default = _default_ref(repo)
-    rc, base = relay_git.git(repo, "merge-base", old, default)
-    wanted = _patch_id(repo, base, old) if rc == 0 else None
+    base = relay_git.merge_base(repo, old, default)
+    wanted = _patch_id(repo, base, old) if base is not None else None
     if wanted is None:
         return None
     for commit in _git(repo, "rev-list", "--topo-order", ref, "^" + default).split():
-        rc, fork = relay_git.git(repo, "merge-base", commit, default)
-        if rc == 0 and _patch_id(repo, fork, commit) == wanted:
+        fork = relay_git.merge_base(repo, commit, default)
+        if fork is not None and _patch_id(repo, fork, commit) == wanted:
             # the default branch changed a file the branch also changed: the combined file was never checked (as by a merge)
             return None if changed(repo, old, commit, own=True) else commit
     return None
@@ -186,7 +204,7 @@ def _passes(repo, tip, default, inner):
     of `inner` are covered, or its newest mark (none inside `inner`) whose own files are unchanged up to the tip says `open 0`."""
     import relay_marks
     if inner:
-        fork = _git(repo, "merge-base", default, tip).strip()
+        fork = _merge_base(repo, default, tip)
         if not changed(repo, fork, tip, own=True, archive=True, absorbed=inner):
             return True
     stored = dict(relay_marks.marks(repo, tip))
@@ -224,8 +242,8 @@ def dropped(repo, merge, names):
     merge left exactly as the first parent had them: the other side's change thrown away, by a hand-resolved merge."""
     merge = _sha(repo, merge)
     first, second = _sha(repo, merge + "^1"), _sha(repo, merge + "^2")
-    rc, fork = relay_git.git(repo, "merge-base", first, second)
-    if rc != 0:
+    fork = relay_git.merge_base(repo, first, second)
+    if fork is None:
         return []
     t_fork, t_first, t_second = _blobs(repo, fork), _blobs(repo, first), _blobs(repo, second)
     t_merge = _blobs(repo, merge)
@@ -247,16 +265,18 @@ def changed(repo, since, until="HEAD", own=False, archive=False, absorbed=None):
     absorbed (with own=True): the {branch: tip} that `absorbed()` returned for `until`; a file one of them covers is left
     out as well (`_covered`)."""
     since, until = _sha(repo, since), _sha(repo, until)
-    out = _git(repo, "diff", "--name-only", "--no-renames", "-z", f"{since}..{until}")
-    paths = [line for line in out.split("\0") if line and not matches(line)]
+    names = relay_git.changed_paths(repo, since, until)
+    if names is None:
+        raise ValueError(f"git diff {since}..{until} failed in {repo}")
+    paths = [line for line in names if not matches(line)]
     if archive:
         gone = set(_archiving(paths, _blobs(repo, since), _blobs(repo, until)))
         paths = [p for p in paths if p not in gone]
     if not own or not paths:
         return paths
     default = _default_ref(repo)
-    base_since = _git(repo, "merge-base", since, default).strip()
-    base_until = _git(repo, "merge-base", until, default).strip()
+    base_since = _merge_base(repo, since, default)
+    base_until = _merge_base(repo, until, default)
     trees = {c: _blobs(repo, c) for c in {since, until, base_since, base_until}}
     paths = [p for p in paths
              if trees[since].get(p) != trees[base_since].get(p) or trees[until].get(p) != trees[base_until].get(p)]
@@ -266,6 +286,35 @@ def changed(repo, since, until="HEAD", own=False, archive=False, absorbed=None):
     return paths
 
 
+def _by_hand(repo: str, merge: str, first: str, second: str) -> list[str] | None:
+    """What `resolved` finds, worked out from the files alone when git's own merge is trivial for every file: no file deleted or
+    renamed on a side, none changed on both sides to different content. Then git's merge takes, for each file, the side that
+    changed it, and the files where `merge` differs from that are by hand. None when git's merge must be asked (or outside
+    `relay_git.reading()`)."""
+    fork = relay_git.merge_base(repo, first, second)
+    if fork is None or relay_git.objects(repo) is None:
+        return None
+    t_fork, t_first, t_second, t_merge = (relay_git.tree_files(repo, c) for c in (fork, first, second, merge))
+    sides = (relay_git.changed_paths(repo, fork, first), relay_git.changed_paths(repo, fork, second))
+    after = (relay_git.changed_paths(repo, first, merge), relay_git.changed_paths(repo, second, merge))
+    if t_fork is None or t_first is None or t_second is None or t_merge is None or None in sides or None in after:
+        return None
+    theirs: list[str] = []
+    for lists in (sides, after):
+        for names in lists:
+            theirs.extend(names or [])
+    out = []
+    for path in sorted(set(theirs)):
+        base, x, y, m = t_fork.entry(path), t_first.entry(path), t_second.entry(path), t_merge.entry(path)
+        if base is not None and (x is None or y is None):
+            return None
+        if x != base and y != base and x != y:
+            return None
+        if m != (y if x == base else x):
+            out.append(path)
+    return out
+
+
 def resolved(repo: str, merge: str) -> list[str]:
     """The non-inert files a merge commit's author decided by hand (design relay-land 4.2): the paths git's own merge of the
     two parents reports as conflicted (`git merge-tree`, which also names a modify/delete conflict kept as one side) plus the
@@ -273,6 +322,9 @@ def resolved(repo: str, merge: str) -> list[str]:
     merge git did by itself, also of a file both sides changed, lists nothing."""
     merge = _sha(repo, merge)
     first, second = _sha(repo, merge + "^1"), _sha(repo, merge + "^2")
+    by_hand = _by_hand(repo, merge, first, second)
+    if by_hand is not None:
+        return sorted(p for p in by_hand if not matches(p))
     rc, out = relay_git.git(repo, "merge-tree", "--write-tree", "--name-only", "--no-messages", "-z", first, second, raw=True)
     if rc not in (0, 1):
         raise ValueError(f"git merge-tree failed in {repo} for {merge}")

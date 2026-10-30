@@ -1,0 +1,13 @@
+head 5a2fc52fdf2adb83ed5a189292b70ed1b4b1635d
+cmd bin/ci --quick
+wait 97.7
+ci: types and lint FAILED (1s, log: .ci/steps/types-and-lint.log)
+    FAIL mypy 1.18.2:
+    lib/relay_inert.py:161: error: Name "subprocess" is not defined  [name-defined]
+    lib/relay_inert.py:165: error: Name "subprocess" is not defined  [name-defined]
+    Found 2 errors in 1 file (checked 61 source files)
+    FAIL ruff 0.13.3 (pyflakes rules):
+    Found 6 errors.
+ci: lib copies identical ok (0s)
+ci: RED (a fast step failed: the slow steps were not started)
+exit 1
