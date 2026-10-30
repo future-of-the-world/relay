@@ -1,0 +1,126 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0032,
+   "id": "a974a328a8cc26eab",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 3,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T16:32:47.331Z",
+   "stop": "2026-10-30T16:33:02.435Z"
+  },
+  {
+   "cost_usd": 0.2387,
+   "id": "aa2714f04bc87db7d",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 17,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "build",
+   "start": "2026-10-30T16:33:11.251Z",
+   "stop": "2026-10-30T16:42:22.954Z"
+  },
+  {
+   "cost_usd": 0.0057,
+   "id": "ac679ad3bf3a10d0f",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T16:42:27.071Z",
+   "stop": "2026-10-30T16:52:07.010Z"
+  },
+  {
+   "cost_usd": 0.6346,
+   "id": "ac8ab3f8261451528",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 14,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "review",
+   "start": "2026-10-30T16:52:09.367Z",
+   "stop": "2026-10-30T16:56:38.436Z"
+  },
+  {
+   "cost_usd": 0.2041,
+   "id": "a38237dfc937a2d13",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 11,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T16:56:41.066Z",
+   "stop": "2026-10-30T17:05:53.834Z"
+  },
+  {
+   "cost_usd": 0.0044,
+   "id": "a93f32d9249f50995",
+   "model": "claude-haiku-5-5",
+   "n": 2,
+   "requests": 6,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T17:05:56.745Z",
+   "stop": "2026-10-30T17:16:45.457Z"
+  },
+  {
+   "cost_usd": 0.1023,
+   "id": "ac4ca97a19d7d4eea",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T17:16:48.888Z",
+   "stop": "2026-10-30T17:28:46.666Z"
+  },
+  {
+   "cost_usd": 0.0025,
+   "id": "a2fd0db955df1702d",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "close queue item",
+   "start": "2026-10-30T17:28:49.480Z",
+   "stop": "2026-10-30T17:29:08.565Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a05347471289a7878",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 2,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T17:29:10.870Z",
+   "stop": "2026-10-30T17:29:17.754Z"
+  }
+ ],
+ "before": "66d52bfd8f77658c2a2ee0612a724e7d39cfb2a7",
+ "branch": "wt/pytest-on-a-machine-without-relay-still",
+ "head": "284ebec64eebbc73739b8dfd12383b83ebebd680",
+ "item": "pytest-on-a-machine-without-relay-still-creates",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T17:29:26+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T17:29:26+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T17:39:05+00:00",
+   "gate_seconds": 544.8574895410566,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "pytest-on-a-machine-without-relay-still-creates"
+}
