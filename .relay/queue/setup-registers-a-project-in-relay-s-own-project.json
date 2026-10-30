@@ -26,8 +26,8 @@
   ],
   "taken_at": "2026-10-30T09:58:39Z",
   "taken_by": "wt/setup-registers-a-project-in-relay-s-own",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T13:07:55Z",
+  "test": "tests/test_registry_fixes.py::test_first_command_in_a_git_checkout_leaves_it_clean",
   "dropped_at": null,
   "dropped_why": null
 }
