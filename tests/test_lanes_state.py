@@ -13,6 +13,8 @@ import test_queue as tq  # noqa: E402
 
 sys.path.insert(0, os.path.join(tq.ROOT, "lib"))
 import relay_lanes as rl  # noqa: E402
+import relay_git  # noqa: E402
+import relay_tidy  # noqa: E402
 
 # the queue module relay_lanes itself holds: a test that dropped relay_* from sys.modules before this file was imported leaves
 # tq.rq a different copy, and a mock or an exception class taken from it would miss the one relay_lanes uses
@@ -69,6 +71,32 @@ class Lanes(LaneBase):
         s = self.state()
         self.assertEqual([(l.branch, l.slug) for l in s.running], [("wt/x", "x")])
         self.assertEqual(s.landed_open, [])
+
+    def test_has_own_commits_ignores_a_fast_forward_taken_with_a_message_and_tidy_lists_nothing(self):
+        # F1: one shared reading of "own commits". Reflog of wt/x: "branch: Created", then "merge master: Fast-forward (no commit created;
+        # -m option ignored)". No commit of its own, so not "merged with work" for doctor or the merge hook either.
+        path = self.worktree("x")
+        self.write_commit(self.main, {"lib/other.py": "o\n"}, "other")
+        git(path, "merge", "-m", "take master", "master")
+        self.assertFalse(relay_git.has_own_commits(self.main, "wt/x"))
+        self.assertEqual([t for _, t in relay_tidy.lines(self.main) if "(wt/x)" in t], [])
+
+    def test_a_real_commit_then_merged_counts_as_own_commits(self):
+        # F1 pass case 3: one real commit, fast-forwarded into master: own commits, and tidy lists it as a merged worktree.
+        self.branch_with_commit("x", {"lib/x.py": "x\n"})
+        git(self.main, "merge", "-q", "--ff-only", "wt/x")
+        self.assertTrue(relay_git.has_own_commits(self.main, "wt/x"))
+        self.assertEqual(len([t for _, t in relay_tidy.lines(self.main) if "merged worktree" in t and "(wt/x)" in t]), 1)
+
+    def test_commit_message_mentioning_fast_forward_is_an_own_commit_and_lands(self):
+        # F2: reflog "commit: docs: explain Fast-forward merges" is a commit of its own; the merged item is landed_open, not running.
+        self.seed({Q + "x.json": item("x", **taken("wt/x"))})
+        self.branch_with_commit("x", {"lib/x.py": "x\n"}, "docs: explain Fast-forward merges")
+        git(self.main, "merge", "-q", "--ff-only", "wt/x")
+        self.assertTrue(relay_git.has_own_commits(self.main, "wt/x"))
+        s = self.state()
+        self.assertEqual([x.slug for x in s.landed_open], ["x"])
+        self.assertEqual(s.running, [])
 
     def test_merged_branch_with_item_closed_is_not_running(self):
         self.seed({Q + "x.json": item("x", **taken("wt/x"))})

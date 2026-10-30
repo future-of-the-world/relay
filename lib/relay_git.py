@@ -505,7 +505,9 @@ def has_own_commits(repo: str, branch: str) -> bool:
     if rc != 0:
         return False
     for subject in out.splitlines():
-        if subject.startswith("branch: Created from") or subject.endswith("Fast-forward") or subject.startswith("reset: moving to"):
+        # git appends " (no commit created; -m option ignored)" to a fast-forward entry when a message was given; a commit whose message
+        # merely mentions Fast-forward is "commit: ..." and counts.
+        if subject.startswith("branch: Created from") or subject.startswith("reset: moving to") or (subject.startswith("merge ") and ": Fast-forward" in subject):
             continue
         return True
     return False
