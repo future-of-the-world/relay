@@ -25,8 +25,8 @@
   ],
   "taken_at": "2026-10-30T10:26:44Z",
   "taken_by": "wt/relay-land-closes-a-feature-after-its-fi",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T12:25:23Z",
+  "test": "tests/test_land.py::ReviewFixes::test_keep_open_feature_stays_open_after_the_lanes_sweep",
   "dropped_at": null,
   "dropped_why": null
 }
