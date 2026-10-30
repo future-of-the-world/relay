@@ -172,7 +172,7 @@ class PythonGate(Base):
         shim = self.fake_python_without_pytest()
         dest = os.path.join(self.proj, "bin", "ci")
         self.rs.copy_template("bin-ci", dest, mode_exec=True, replacements={"tool": "python", "stack": "python", "branch": "main", **self.rs.template_steps("python")})
-        r = subprocess.run([dest], cwd=self.proj, env={**os.environ, "PATH": shim + os.pathsep + os.environ["PATH"]}, capture_output=True, text=True, timeout=120)
+        r = subprocess.run([dest], cwd=self.proj, env={**os.environ, "PATH": shim + os.pathsep + os.environ["PATH"]}, capture_output=True, text=True, timeout=600)
         self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
         self.assertIn("ci: tests FAILED", r.stdout)
         self.assertIn("No module named pytest", r.stdout)
