@@ -22,8 +22,8 @@
     "plugins/relay/hooks/merge.py",
     "lib/relay_marks.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T05:07:52Z",
+  "taken_by": "wt/build-time-gates-on-the-vps-landing-gate",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
@@ -56,6 +56,29 @@
       ],
       "reading": [
         "relay creates the relay-gate account on ai.amidman.com itself with the owner's root login (3 commands, once, each shown before it runs)."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T04:57:06Z",
+      "question": [
+        "Does the VPS gate build take one lane now, ahead of the queue's fixes, or wait its turn after the 39 open fixes (about 23 agent hours by the queue's estimates, roughly a day at today's pace of about 1.5 landings an hour)?"
+      ],
+      "options": [
+        "a. One lane now for the VPS build (changes 2-4 in sequence, about 4 h agent time, ~6-8 h wall with reviews; bring-up after the clean-Linux fix): five lanes keep fixing; later gates on the VPS speed every change.",
+        "b. Strict order: fixes first; the VPS build starts in about a day."
+      ],
+      "answered_at": "2026-10-30T04:58:31Z",
+      "answer": [
+        "a, разве мы не приняли решение 3 на 3 ?"
+      ],
+      "reading": [
+        "Option a: the VPS build takes a lane now. The owner recalls the recorded 29 Oct decision: 3 lanes for relay's development (product features, the container gate on top) and 3 for fixes. The front had filled all 6 lanes with fixes; the lane pick offers fixes only, so the split was lost."
+      ]
+    },
+    {
+      "at": "2026-10-30T06:12:02Z",
+      "fact": [
+        "30 Oct ~06:20Z: the landing gate of wt/the-quick-gate-is-red-again-in-a-clean-l went red on this Mac with one library-test error, BlockingIOError [Errno 35] Resource temporarily unavailable (a git process could not be started, 834 s step); 6 lanes and 2 gate slots were busy. A red that found nothing wrong in the code; the landing was run again. Evidence for moving gates to the VPS (process start 0.7 ms there vs 5-10 ms here)."
       ]
     }
   ]

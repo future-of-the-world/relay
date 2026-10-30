@@ -39,6 +39,26 @@
       "fact": [
         "Live case, 30 Oct: `relay metrics` (landed 29 Oct) and `relay queue release` are missing from help; the front did not find metrics and built a manual collector instead. Front decision (owner can reverse; principle 5, fact to code): that a command is listed is checked by code (the item's pass case, in the gate); the review check the owner asked for goes into the judge base as \"a change to a command's behaviour or options updates its usage line; a usage line that no longer matches the code is a finding\", the part that needs reading."
       ]
+    },
+    {
+      "at": "2026-10-30T05:22:26Z",
+      "said": [
+        "Думаю что впоследствии в README.md будут содержаться только одна команда установки с подписью INSTALLATION",
+        "",
+        "Как обычно устроены утилиты",
+        "",
+        "relay --help выдаёт информацию о дочерних командах, setup, queue, land",
+        "",
+        "relay <command> --help выдаёт информацию о конкретной дочерней команды с её опциями и флагами",
+        "",
+        "И так далее, я хочу чтобы ты понял мысль которую я доношу, вероятно ты знаешь это лучше меня, полагаю что именно так сейчас и есть, тебе лишь надо проверить текущее состоянии и выдать мне отчет о том как это устроено сейчас"
+      ]
+    },
+    {
+      "at": "2026-10-30T05:22:27Z",
+      "fact": [
+        "Measured 30 Oct: `relay --help` prints 90 lines, a flat list of 35 command forms with their arguments (not one line per command); `relay <command> --help` prints that command's slice of the same hand-written text (queue 43 lines, check 23, setup 7, gate 7, bench 6, land 4), forms and flags on one line, no per-flag lines; 20 commands in bin/relay's dispatch table, `metrics` missing from help, and `relay metrics --help` prints the whole top-level help instead. README.md is 120 lines."
+      ]
     }
   ]
 }

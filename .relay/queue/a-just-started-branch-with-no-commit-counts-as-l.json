@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 88,
+  "time": 30,
+  "found_at": "2026-10-30T06:12:15Z",
+  "found_in": "relay queue add",
+  "title": "A just-started branch with no commit counts as landed",
+  "what": [
+    "A taken item's branch that has no commit of its own (its head is an ancestor of or equal to the default branch and the item is not closed on the default branch) counts as a running lane, not as landed; the hook never tells the front to close such an item."
+  ],
+  "why": [
+    "Found by the front 30 Oct ~06:20Z: right after `relay queue start one-digest-per-wave-instead-of-status-messages`, before its worker's first commit, the lanes hook said 'landed, still open: one-digest-per-wave-instead-of-status-messages (wt/one-digest-per-wave-instead-of-status-me landed)', told the front to close it by hand with `relay queue done --evidence`, and counted 5 of 6 lanes running while 6 were busy, offering a start that would overfill the lanes. A branch whose head equals the default branch's (nothing committed yet) is read as merged."
+  ],
+  "failing_case": [
+    "Take an item with `relay queue start`; before any commit on its branch, lanes_state lists it under landed_open and not under running."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "A taken item with a fresh branch at the default branch's head is running, not landed",
+    "A branch merged into the default branch with the item closed there is not running",
+    "A branch merged with the item still open on the default branch is landed_open"
+  ],
+  "where": [
+    "lib/relay_lanes.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
