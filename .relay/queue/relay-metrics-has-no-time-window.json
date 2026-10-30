@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-30T00:34:19Z",
   "taken_by": "wt/relay-metrics-has-no-time-window",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T01:28:56Z",
+  "test": "tests/test_metrics_window.py::Window::test_coverage_outside_the_window_makes_no_block",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

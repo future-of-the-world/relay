@@ -11,6 +11,7 @@ import json
 import os
 import re
 import statistics
+import sys
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Optional
@@ -331,8 +332,51 @@ def _week(stamp: float) -> str:
     return datetime.fromtimestamp(stamp, timezone.utc).strftime("%G-W%V")
 
 
-def coverage_by_week(main: str, rev: str) -> dict[str, list[float]]:
-    """{week: coverage percents} from the `ci: coverage N%` lines of the committed gate logs; a log is placed in the week of the commit that added it."""
+def _hour(stamp: float) -> str:
+    return datetime.fromtimestamp(stamp, timezone.utc).strftime("%Y-%m-%dT%H")
+
+
+def _day(stamp: float) -> str:
+    return datetime.fromtimestamp(stamp, timezone.utc).strftime("%Y-%m-%d")
+
+
+BUCKETS: dict[str, tuple[Callable[[float], str], int]] = {"hour": (_hour, 3600), "day": (_day, 86400), "week": (_week, 7 * 86400)}
+USAGE = "usage: relay metrics [<unit> | sweep | backfill | [--since 6h|1d|<date>] [--until <date>] [--by hour|day|week]]"
+
+
+def parse_moment(text: str, now: float) -> float:
+    """A point in time: `6h` or `1d` (that long before now), or an ISO date or date-time (UTC unless it carries an offset); ValueError otherwise."""
+    m = re.fullmatch(r"(\d+)([hd])", text)
+    if m:
+        return now - int(m.group(1)) * (3600 if m.group(2) == "h" else 86400)
+    try:
+        moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        raise ValueError(f"not a time: {text}")
+    return (moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)).timestamp()
+
+
+def _bucket_labels(since: float, until: float, by: str) -> list[str]:
+    """Every bucket label from `since` up to `until`, in order, so an empty one can be named."""
+    label, step = BUCKETS[by]
+    t = since - since % 3600 if by == "hour" else since - since % 86400
+    if by == "week":
+        t -= (datetime.fromtimestamp(t, timezone.utc).weekday()) * 86400
+    out: list[str] = []
+    seen: set[str] = set()
+    while t < until:
+        name = label(t)
+        if name not in seen:
+            seen.add(name)
+            out.append(name)
+        t += step
+    return out
+
+
+def coverage_by_week(main: str, rev: str, label: Callable[[float], str] = _week,
+                     keep: Callable[[float], bool] = lambda stamp: True) -> dict[str, list[float]]:
+    """{bucket: coverage percents} from the `ci: coverage N%` lines of the committed gate logs; a log is placed in the bucket (week by default) of the commit that added it,
+    and only when `keep` accepts that commit's time."""
     rc, hits = relay_git.git(main, "grep", "-e", "^ci: coverage ", rev, "--", ".relay/checks")
     percent = {m.group(1): float(m.group(2)) for m in re.finditer(r"^[^:\n]*:(\S+\.gate\.log):ci: coverage ([\d.]+)%", hits, re.M)} if rc == 0 else {}
     if not percent:
@@ -348,29 +392,52 @@ def coverage_by_week(main: str, rev: str) -> dict[str, list[float]]:
     weeks: dict[str, list[float]] = {}
     for name, value in percent.items():
         name = name.rsplit("/", 1)[-1]
-        if name in when:
-            weeks.setdefault(_week(when[name]), []).append(value)
+        if name in when and keep(when[name]):
+            weeks.setdefault(label(when[name]), []).append(value)
     return weeks
 
 
-def summary(main: str, rev: str) -> list[str]:
-    """The repository, per week: median and p90 agent minutes per stage, cost per change, and the coverage of the gates, from the records at `rev`."""
+def summary(main: str, rev: str, since: Optional[str] = None, until: Optional[str] = None, by: str = "week", now: Optional[float] = None) -> list[str]:
+    """The repository, per bucket (week by default): median and p90 agent minutes per stage, cost per unit, gate time and the coverage of the gates, from the
+    records at `rev`. `since` and `until` (see parse_moment) cut the window; with `since` set, a bucket with nothing in it is named."""
+    now = time.time() if now is None else now
+    low = parse_moment(since, now) if since else None
+    high = parse_moment(until, now) if until else (now if since else float('inf'))     # no window at all keeps every record
+    label = BUCKETS[by][0]
+    if low is not None and low >= high:
+        raise ValueError(f"--since {since} is not before --until {until or 'now'}: the window is empty")
+
+    def inside(stamp: float) -> bool:
+        return (low is None or stamp >= low) and stamp < high
+
     records = stored(main, rev)
     stage: dict[tuple[str, str], list[float]] = {}
     cost: dict[tuple[str, str], float] = {}
+    gates: dict[str, list[float]] = {}
     for rec in records:
         for a in rec["agents"]:
-            week = _week(_epoch(a["start"]))
+            if not inside(_epoch(a["start"])):
+                continue
+            week = label(_epoch(a["start"]))
             stage.setdefault((week, a["stage"]), []).append(_minutes(a))
             cost[(week, rec["unit"])] = cost.get((week, rec["unit"]), 0.0) + a["cost_usd"]
+        for row in rec.get("land", []):
+            if isinstance(row.get("gate_seconds"), (int, float)) and inside(_epoch(row["at"])):
+                gates.setdefault(label(_epoch(row["at"])), []).append(row["gate_seconds"] / 60)
     lines = [f"records: {len(records)}; units: {len({r['unit'] for r in records})}"]
     front: dict[str, list[dict[str, Any]]] = {}
     for rec in records:
-        if rec.get("front"):
-            front.setdefault(_week(_epoch(rec["front"]["day"] + "T00:00:00Z")), []).append(rec["front"])
-    coverage = coverage_by_week(main, rev)
-    for week in sorted({w for w, _ in stage} | set(coverage) | set(front)):
+        if rec.get("front") and inside(_epoch(rec["front"]["day"] + "T00:00:00Z")):
+            front.setdefault(label(_epoch(rec["front"]["day"] + "T00:00:00Z")), []).append(rec["front"])
+    coverage = coverage_by_week(main, rev, label, inside)
+    buckets = {w for w, _ in stage} | set(coverage) | set(front) | set(gates)
+    filled = buckets.copy()
+    if low is not None:
+        buckets |= set(_bucket_labels(low, high, by))
+    for week in sorted(buckets):
         lines.append(week + ":")
+        if week not in filled:
+            lines.append("  nothing recorded")
         for (w, name), mins in sorted(stage.items()):
             if w == week:
                 ordered = sorted(mins)
@@ -379,6 +446,8 @@ def summary(main: str, rev: str) -> list[str]:
         week_cost = [v for (w, _), v in cost.items() if w == week]
         if week_cost:
             lines.append(f"  cost per unit: median ${statistics.median(week_cost):.2f}, total ${sum(week_cost):.2f}")
+        if week in gates:
+            lines.append(f"  gate runs at landing: {len(gates[week])}, total {_fmt(sum(gates[week]))} min")
         if week in front:
             estimated = sum(1 for f in front[week] if f["basis"] == "estimate")
             lines.append(f"  front: ${sum(f['cost_usd'] for f in front[week]):.2f} over {len(front[week])} days ({estimated} estimated, the rest exact)")
@@ -456,8 +525,20 @@ def backfill(repo: str, notify: Callable[[str], None]) -> list[str]:
     return lines
 
 
+def _window_options(argv: list[str]) -> Optional[dict[str, str]]:
+    """{since, until, by} from `--name value` pairs; None when anything else is there or `--by` is not a bucket."""
+    out: dict[str, str] = {}
+    if len(argv) % 2:
+        return None
+    for name, value in zip(argv[::2], argv[1::2]):
+        if name not in ("--since", "--until", "--by") or name[2:] in out:
+            return None
+        out[name[2:]] = value
+    return out if out.get("by", "week") in BUCKETS else None
+
+
 def main(argv: list[str], repo: str) -> int:
-    """`relay metrics [<unit> | sweep | backfill]`."""
+    """`relay metrics [<unit> | sweep | backfill | --since <t> --until <t> --by <bucket>]`."""
     import relay_queue
     root, default = relay_queue._context(repo)
     if argv[:1] == ["backfill"]:
@@ -467,5 +548,16 @@ def main(argv: list[str], repo: str) -> int:
         record_landing(repo, [], None, relay_git.git(root, "rev-parse", default)[1], [], 0, print, now=time.time())
         return 0
     rev = "refs/heads/" + default
-    print("\n".join(unit_lines(root, rev, argv[0]) if argv else summary(root, rev)))
+    if argv and not argv[0].startswith("-"):
+        print("\n".join(unit_lines(root, rev, argv[0])))
+        return 0
+    options = _window_options(argv)
+    if options is None:
+        print(USAGE, file=sys.stderr)
+        return 2
+    try:
+        print("\n".join(summary(root, rev, options.get("since"), options.get("until"), options.get("by", "week"))))
+    except ValueError as exc:
+        print(f"metrics: {exc}\n{USAGE}", file=sys.stderr)
+        return 2
     return 0
