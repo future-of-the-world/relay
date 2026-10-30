@@ -63,6 +63,13 @@
       "options": [
         "a. no review file; the revised plan's section 'what changed after the review' keeps each finding, whether it held and the fix (recommended: this plan's section maps all 7 findings; one file per item, no second name in the queue folder)",
         "b. the latest review as <slug>.plan-review.md beside the item, overwritten by a new review; older reviews only in git history (as designed)"
+      ],
+      "answered_at": "2026-10-30T05:47:12Z",
+      "answer": [
+        "Рецензию не храним"
+      ],
+      "reading": [
+        "a: no review file; the findings live in the revised plan's section on what changed after the review."
       ]
     }
   ]
