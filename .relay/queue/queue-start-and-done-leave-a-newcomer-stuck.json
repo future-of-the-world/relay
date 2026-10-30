@@ -1,0 +1,32 @@
+{
+  "kind": "fix",
+  "ip": 75,
+  "time": 45,
+  "found_at": "2026-10-30T08:20:36Z",
+  "found_in": "relay queue add",
+  "title": "queue start and done leave a newcomer stuck",
+  "what": [
+    "queue start has a default scratch folder under $RELAY_HOME and says where it wrote the brief; queue done's refusal says a fix closes with a regression test that fails without the fix and names the form; queue drop says what the TOML holds in one line with an example."
+  ],
+  "why": [
+    "Found 30 Oct by the trial of relay on a copy of relay cleaned of relay (owner, 30 Oct: \"Полагаю что для текущих задач будет не лишним проверить подключение relay к самому relay, очищенному от relay\"); sandbox HOME, RELAY_HOME and RELAY_PROJECTS, claude stubbed. `relay queue start <slug>` without --scratch prints only the usage line (rc 2) and has no default folder; its JSON names kind 'change' for a fix item. `relay queue done <slug> -C <wt> --test tests/test_x.py::test_a` in a project with no tests refuses ('not in the last commit') with no hint that a fix needs a real regression test, and `queue drop` needs a TOML with the owner's words, so a trial item cannot be dismissed from a plain terminal."
+  ],
+  "failing_case": [
+    "`relay queue start <slug>` with no --scratch exits 2 with only the usage line."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "queue start without --scratch writes the brief under $RELAY_HOME and prints the path",
+    "queue done's refusal names the regression-test rule",
+    "queue drop's refusal shows a one-line TOML example"
+  ],
+  "where": [
+    "lib/relay_queue.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
