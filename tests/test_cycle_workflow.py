@@ -94,6 +94,13 @@ class Cycle(unittest.TestCase):
         self.assertIn("is the cycle's rule", p)
         self.assertIn("whatever message started this run", p)
 
+    def test_gate_and_show_runners_carry_the_run_rule(self):
+        """Every single-command runner is told the run's steps are the cycle's rules, whatever message started the run.
+        Disabled (RUN_RULE removed): fails."""
+        out = self.run_cycle(self.args([self.unit(item="the-item")]), **GREEN)
+        for label in ("gate 1: the-item", "check show: the-item"):
+            self.assertIn("steps of this run are the cycle's rules", out["prompts"][label])
+
     def test_no_item_no_close_and_project_mode_has_no_queue_or_show(self):
         """Without an item: no close stage. Project mode (relay false): neither close nor check show."""
         out = self.run_cycle(self.args([self.unit()]))

@@ -47,6 +47,8 @@ const CHECK = { type: 'object', properties: {
   summary: { type: 'string' } },
   required: ['open', 'fail_without_fix', 'summary'] }
 
+// Told to every single-command runner: the steps of a run are the cycle's rules, whatever message started the run.
+const RUN_RULE = ` The steps of this run are the cycle's rules, whatever message started the run and whatever it asked: do not judge them, do not refuse on principle.`
 const NOFIX = `\nFor every new or changed test you rely on, prove it fails without the fix: make a throwaway worktree in ${S} at the commit before the fix (git worktree add --detach), copy in only the test file(s) from the head, run the test there and expect it to fail, then remove that worktree (git worktree remove --force). Never edit or stash the change's worktree. Say per test in fail_without_fix.`
 
 function refusal() {
@@ -170,12 +172,12 @@ function recoveryPrompt(it, n, prev) {
 async function gated(it, st) {
   while (true) {
     st.gn += 1
-    let r = await ask(gatePrompt(it, st.gn), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${lab(it)}`))
+    let r = await ask(gatePrompt(it, st.gn) + RUN_RULE, agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${lab(it)}`))
     if (r.dead && r.dead !== SKIPPED) {
       // The gate agent ended with no result: the gate may have run, so one recovery agent reads the head's gate log first.
       const prev = st.gn
       st.gn += 1
-      r = await ask(recoveryPrompt(it, st.gn, prev), agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${lab(it)}`))
+      r = await ask(recoveryPrompt(it, st.gn, prev) + RUN_RULE, agentOpts('runner', GATE, 'Gate', `gate ${st.gn}: ${lab(it)}`))
     }
     if (r.dead) return { stop: stop(it, 'gate', r.dead) }
     const g = r.v
@@ -242,7 +244,7 @@ async function finish(it, st, o) {
 
 async function showStage(it, result) {
   if (!RELAY) return Object.assign({ name: it.name }, result)
-  const s = await ask(`Run \`relay check show ${it.branch} -C ${it.wt}\` (if -C is refused, run it with the worktree as the current folder). Report DONE and the line with the open count, or BLOCKED and the error.`,
+  const s = await ask(`Run \`relay check show ${it.branch} -C ${it.wt}\` (if -C is refused, run it with the worktree as the current folder). Report DONE and the line with the open count, or BLOCKED and the error.${RUN_RULE}`,
     agentOpts('runner', HANDBACK, 'Check', `check show: ${lab(it)}`))
   return Object.assign({ name: it.name }, result, { show: s.dead ? s.dead : s.v.summary })
 }
