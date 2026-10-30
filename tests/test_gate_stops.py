@@ -56,6 +56,7 @@ class RunnerStopped(unittest.TestCase):
         f = test_gate.Fixture("setUp")
         f.setUp()
         self.addCleanup(f.doCleanups)
+        patcher = mock.patch.dict(os.environ, test_gate.GIT_ENV); patcher.start(); self.addCleanup(patcher.stop)      # relay_gate commits its log with this process's environment
         f.repo(gate="kill -TERM $$\n")
         code, log, _ = relay_gate.run(f.wt, environ=f.env)
         self.assertEqual(code, 143)      # 128 + 15
