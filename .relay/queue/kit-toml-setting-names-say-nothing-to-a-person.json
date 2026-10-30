@@ -27,8 +27,8 @@
     "plugins/delegate/hooks/route-guard.py",
     "lib/relay_analyze.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T21:35:52Z",
+  "taken_by": "wt/kit-toml-setting-names-say-nothing-to-a-person",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
