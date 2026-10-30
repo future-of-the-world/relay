@@ -44,7 +44,7 @@ def stop(folder: str, notes: Optional[List[str]] = None) -> List[Tuple[int, str]
     """Stop the leaked processes (a gate, its command, a script or sleep) under `folder`: SIGTERM (the gate ends its command's group and frees its slot), SIGKILL if
     it is still there after STOP_GRACE. Returns the ones found."""
     found = find(folder, notes)
-    relay_procs.stop([(pid, False) for pid, _ in found])
+    relay_procs.stop([(pid, False) for pid, _ in found], "test run leak scan: still running under the run's temporary folder %s" % folder)
     return found
 
 

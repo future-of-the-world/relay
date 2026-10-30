@@ -229,5 +229,113 @@ class StopWhilePopenReturns(unittest.TestCase):
         self.assertEqual(held, [])
 
 
+class SenderReasons(unittest.TestCase):
+    """Review F3, F5, F6, F7 of a-sigterm-in-a-gate-does-not-name-its-sender."""
+
+    def log(self):
+        logdir = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, logdir, ignore_errors=True)
+        return patch_signal_log(self, os.path.join(logdir, "signals.log"))
+
+    def test_f3_the_leak_scan_names_itself_and_the_folder(self):
+        """F3: leaked_gates.stop on a sleeper under the folder writes one line naming the leak scan and the folder, not 'no reason given'."""
+        import leaked_gates
+        path = self.log()
+        folder = os.path.realpath(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, folder, ignore_errors=True)
+        sleeper = subprocess.Popen(["sleep", "600"], cwd=folder); self.addCleanup(sleeper.wait)
+        with mock.patch.object(leaked_gates, "find", lambda f, notes=None: [(sleeper.pid, "sleep 600")]):
+            leaked_gates.stop(folder)
+        text = open(path, encoding="utf-8").read()
+        self.assertIn("test run leak scan: still running under the run's temporary folder %s" % folder, text)
+        self.assertNotIn("no reason given", text)
+
+    def test_f5_the_sweep_stops_with_a_reason_holding_the_leftovers_why(self):
+        """F5: a leftover in a deleted folder is stopped with a reason starting 'leftover sweep: ' and holding 'folder deleted'."""
+        import relay_gate
+        import relay_procs
+        root = os.path.realpath(tempfile.mkdtemp()); self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        os.makedirs(os.path.join(root, "relay-run-X"))
+        seen = []
+        me = [relay_procs.Proc(999, 50, 50, time.time() - 5, "python3 relay gate"), relay_procs.Proc(50, 40, 50, time.time() - 5, "zsh")]
+        gone = relay_procs.Proc(1469, 1, 1469, time.time() - 5, "/bin/sh %s/relay-run-X/relay-gate-Y/gate.sh" % root)
+        with mock.patch.object(relay_procs, "stop", lambda targets, reason="": (seen.append(reason), [])[1]):
+            relay_gate.sweep([root], lambda: me + [gone], lambda pids: {}, [999])
+        self.assertEqual(len(seen), 1)
+        self.assertTrue(seen[0].startswith("leftover sweep: "), seen)
+        self.assertIn("folder deleted", seen[0])
+
+    def test_f5_the_reclaim_stops_the_group_with_its_reason(self):
+        """F5: reclaim of a held lock of an ended gate stops the holder's group with the reclaim reason (the signal log line)."""
+        import relay_gate
+        import relay_procs
+        path = self.log()
+        tmp = tempfile.mkdtemp(); self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        lock = os.path.join(tmp, "lockfile")
+        holder = subprocess.Popen([sys.executable, "-c", "import fcntl,sys,time; f=open(sys.argv[1], 'w'); fcntl.flock(f, fcntl.LOCK_EX); print('locked', flush=True); time.sleep(600)", lock],
+                                  stdout=subprocess.PIPE, text=True, start_new_session=True)
+        self.addCleanup(holder.wait); self.addCleanup(holder.stdout.close)
+        self.assertEqual(holder.stdout.readline().strip(), "locked")
+        done = subprocess.Popen([sys.executable, "-c", "pass"]); done.wait()
+        with open(lock, "w") as handle:
+            handle.write("%d %d\n" % (done.pid, holder.pid))
+        with mock.patch.object(relay_procs, "STOP_GRACE", 0.3):
+            text_in_lock = "%d %d\n" % (done.pid, holder.pid)
+            self.assertTrue(relay_gate.reclaim(lock, text_in_lock, lambda line: None))
+        text = open(path, encoding="utf-8").read()
+        self.assertIn("sent SIGTERM to group %d: reclaim: the gate that held the worktree lock ended" % holder.pid, text)
+
+    def test_f5_f6_a_gate_whose_command_ended_logs_that_cleanup(self):
+        """F5 pass 3 and F6 pass 2: the gate's cleanup line names the command's group and says 'its command ended'."""
+        path = self.log()
+        import test_gate
+        import relay_gate
+        f = test_gate.Fixture("setUp"); f.setUp(); self.addCleanup(f.doCleanups)
+        patcher = mock.patch.dict(os.environ, test_gate.GIT_ENV); patcher.start(); self.addCleanup(patcher.stop)
+        f.repo(gate='echo $$ > "%s/pid"\nexit 0\n' % f.tmp)
+        relay_gate.run(f.wt, environ=f.env)
+        pid = int(open(os.path.join(f.tmp, "pid")).read())
+        self.assertIn("sent SIGKILL to group %d: gate: its command ended" % pid, open(path, encoding="utf-8").read())
+
+    def test_f6_a_gate_stopped_while_its_command_runs_names_the_stop(self):
+        """F6: SIGTERM to the gate while its command sleeps: the group's SIGKILL line says the gate was stopped, not that the command ended."""
+        import test_gate
+        import relay_gate
+        path = self.log()
+        f = test_gate.Fixture("setUp"); f.setUp(); self.addCleanup(f.doCleanups)
+        patcher = mock.patch.dict(os.environ, test_gate.GIT_ENV); patcher.start(); self.addCleanup(patcher.stop)
+        f.repo(gate='echo $$ > "%s/pid"\nexec sleep 600\n' % f.tmp)
+        old = signal.getsignal(signal.SIGTERM); self.addCleanup(signal.signal, signal.SIGTERM, old)
+
+        def stopper():
+            wait_pid(os.path.join(f.tmp, "pid"), WAIT)
+            os.kill(os.getpid(), signal.SIGTERM)
+        thread = threading.Thread(target=stopper); thread.start(); self.addCleanup(thread.join)
+        with self.assertRaises(SystemExit):
+            relay_gate.run(f.wt, environ=f.env)
+        pid = int(open(os.path.join(f.tmp, "pid")).read())
+        text = open(path, encoding="utf-8").read()
+        self.assertIn("sent SIGKILL to group %d: gate: the gate was stopped while its command ran" % pid, text)
+        self.assertNotIn("its command ended", text)
+
+    def test_f7_an_unnamed_signal_is_found_by_the_reader(self):
+        """F7 pass 2: a line 'sent signal 99 to pid N' is found by sent_by_relay."""
+        import relay_procs
+        self.log()
+        relay_procs.record_sent(4242, False, 99, "x")
+        self.assertIn("sent signal 99 to pid 4242: x", relay_procs.sent_by_relay(4242, 0))
+
+    def test_f7_an_unreadable_log_is_not_reported_as_not_sent_by_relay(self):
+        """F7 pass 1: a log that exists but cannot be read (a directory here) says so; a missing log and a log with no line say 'not sent by relay'."""
+        import relay_gate
+        path = self.log()
+        self.assertIn("not sent by relay", relay_gate.signal_line(15, 4242, 0))      # pass 3 (nothing was ever sent: no file yet)
+        os.mkdir(path)
+        text = relay_gate.signal_line(15, 4242, 0)
+        self.assertIn("could not be read", text)
+        self.assertNotIn("not sent by relay", text)
+        os.rmdir(path)
+        open(path, "w").write("t=1.000 relay pid 1 sent SIGTERM to pid 7: other\n")
+        self.assertIn("not sent by relay", relay_gate.signal_line(15, 4242, 0))
+
+
 if __name__ == "__main__":
     unittest.main()

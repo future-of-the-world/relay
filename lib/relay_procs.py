@@ -153,15 +153,16 @@ def record_sent(pid: int, group: bool, sig: int, reason: str, now: Optional[floa
 
 
 def sent_by_relay(number: int, since: float) -> Optional[str]:
-    """The newest line of the signal log from `since` on (epoch seconds) that sent a signal to pid or group `number`, else None."""
+    """The newest line of the signal log from `since` on (epoch seconds) that sent a signal to pid or group `number`, else None.
+    A log that does not exist yet means nothing was sent (None); a log that exists and cannot be read raises OSError."""
     try:
         with open(signal_log(), encoding="utf-8", errors="replace") as handle:
             lines = handle.read().splitlines()
-    except OSError:
+    except FileNotFoundError:
         return None
     found = None
     for line in lines:
-        m = re.match(r"t=([0-9.]+) (relay pid .* sent \S+ to (?:pid|group) (\d+): .*)", line)
+        m = re.match(r"t=([0-9.]+) (relay pid .* sent .+? to (?:pid|group) (\d+): .*)", line)
         if m and int(m.group(3)) == number and float(m.group(1)) >= since:
             found = m.group(2)
     return found
