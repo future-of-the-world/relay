@@ -1,0 +1,371 @@
+{
+  "branch": "wt/kit-toml-setting-names-say-nothing-to-a-person",
+  "findings": [
+    {
+      "details": [
+        "Owner, 30 Oct, reading the kit.toml relay setup writes (shown on the setup walkthrough page): the [delegate] keys name how the code is built, carry no units and need relay's internals to read (principle 10: a message to the user that needs the program's internal names). Facts, 30 Oct: lib/relay_config.py:118-122 defaults typed_only = true, fork_limit = 100000 (tokens), max_parallel = 4, build_tier_opus = \"escalate\" (escalate | allow | deny); readers: lib/relay_config.py, lib/relay_analyze.py, plugins/delegate/hooks/route-guard.py; only relay is registered in projects.toml, so one existing kit.toml to migrate.",
+        "Also: lib/relay_setup.py",
+        "Also: plugins/delegate/hooks/route-guard.py",
+        "Also: lib/relay_analyze.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The kit.toml `relay setup` writes holds [delegate] fork_limit = 100000 and build_tier_opus = \"escalate\" with no comment; the owner could not tell what build_tier_opus does."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "setup writes the new names, each with a comment",
+        "an old kit.toml is migrated with one line",
+        "an old name left in a file is refused naming its new name",
+        "the route guard reads the new names"
+      ],
+      "path": "lib/relay_config.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_kit_schema.py and tests/test_setup.py assert the new names; they fail at the base d2cc130c."
+      ],
+      "severity": "HIGH",
+      "since": "d2cc130c2ec034d0346213014a910be16c0f25bc",
+      "source": "queue",
+      "summary": "kit.toml setting names say nothing to a person",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED. relay_gate.run calls refuse_bad_settings(worktree) on every gate, and the relay on PATH",
+        "(~/.local/bin/relay -> ~/relay/bin/relay) imports ~/relay/lib, i.e. master's relay_kit after the merge, whatever the lane's own",
+        "code is. The new RENAMED branch in parse() turns the old key into a problem, so every branch still holding master's pre-merge",
+        "kit.toml is refused. Running this branch's refuse_bad_settings on the live lane worktree",
+        ".worktrees/a-sigterm-in-a-gate-does-not-name-its-sender reproduces it. 19 of the 20 wt/* branches hold `max_parallel`. The",
+        "message's next step, `relay setup`, run inside a lane worktree also rewrites settings.json, .gitignore and the projects.toml",
+        "registration (seen in the probe's done list), which is not what a lane should do; the right step for a lane is to take the",
+        "default branch. \"Work goes on while the owner is away\" lanes would each stop on a red gate after this lands: ordinary use",
+        "fails, so HIGH. The brief asks that an old name be refused; this keeps that for files that wrote the old name, and only spares",
+        "(or redirects) branches that inherited it.",
+        "Size: 30 minutes."
+      ],
+      "evidence": [
+        "$ python3 -I -c \"...relay_gate.refuse_bad_settings('/Users/amidman/relay/.worktrees/a-sigterm-in-a-gate-does-not-name-its-sender')\"",
+        "REFUSED: settings problem in the branch's .claude/kit.toml: .claude/kit.toml [delegate] max_parallel is an old name; it is now max_agents_per_change (`relay setup` renames it)",
+        "$ for b in wt/*: git show $b:.claude/kit.toml | grep -q '^max_parallel'",
+        "19 of 20",
+        "$ ls -la ~/.local/bin/relay -> /Users/amidman/relay/bin/relay ; bin/relay:120 sys.path.insert(0, .../lib)"
+      ],
+      "failing_case": [
+        "Master after this merge: bin/relay (the main checkout's lib, used for every worktree's gate) refuses any kit.toml problem.",
+        "A lane branch cut before the merge, e.g. wt/a-sigterm-in-a-gate-does-not-name-its-sender, carries master's old",
+        ".claude/kit.toml `[delegate] max_parallel = 6` and has not touched it. Its next `relay gate` (the cycle gates the branch head",
+        "before the check) now raises GateRefused: \"settings problem in the branch's .claude/kit.toml: .claude/kit.toml [delegate]",
+        "max_parallel is an old name; it is now max_agents_per_change (`relay setup` renames it)\".",
+        "Should: a branch whose old name came unchanged from the default branch is not stopped by a rename it never made (or, at the",
+        "least, the refusal names the step that fixes it in a lane: take the default branch), and setup-registered projects keep the",
+        "loud refusal."
+      ],
+      "fix_hint": [
+        "In relay_gate.refuse_bad_settings, drop the RENAMED problems when the branch's kit.toml line is the one of the merge-base with",
+        "the default branch (the branch did not write it), or simplest: make the RENAMED message say \"run `relay setup` (in a task",
+        "branch: take the default branch)\" and have the gate accept a renamed key only when the default branch's own kit.toml still has",
+        "it. Either way add the fixture test of pass-case 1."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 173,
+      "pass_cases": [
+        "1. A git fixture: master commits kit.toml \"[delegate]\\nmax_parallel = 6\\n\"; branch \"task\" forks; master renames it to",
+        "   max_agents_per_change; relay_gate.run(task worktree) on the unchanged branch is not refused for the renamed key (or its",
+        "   refusal text contains \"take the default branch\"), per the chosen fix.",
+        "2. The same branch after it takes master by a merge commit: kit.toml has max_agents_per_change = 6 and the gate passes the",
+        "   settings step.",
+        "3. A branch that itself writes `typed_only = false` into kit.toml is still refused, naming typed_agents_only",
+        "   (tests/test_kit_schema.py keeps passing).",
+        "4. relay_kit.parse('[delegate]\\nmax_parallel = 4\\n').problems still names max_agents_per_change (doctor and the route guard",
+        "   keep reporting it)."
+      ],
+      "path": "lib/relay_kit.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_kit_rename_fixes.py and relay_gate_settings.refusal (inherited old name tells to take the default branch); passes."
+      ],
+      "severity": "HIGH",
+      "since": "e9038253775401c7922ae169e4b72b7b7ba96e45",
+      "source": "review-kit-toml-setting-names-say-nothing-to-a-person.json",
+      "source_id": "F1",
+      "summary": "after the merge every lane branch not yet on master is refused by the gate: its kit.toml still says max_parallel (19 of 20 wt/* branches), and the refusal names relay setup, the wrong next step in a lane",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the scratchpad probe. The rename rewrites each old line without looking at the keys already in the section. A",
+        "person reaches it by following the refusal (\"it is now max_agents_per_change\") by adding a line, or by a merge that brings the",
+        "new key next to an old one. The result is a kit.toml the gate refuses as unreadable and the route guard runs on defaults.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "BOTH '[delegate]\\nmax_agents_per_change = 6\\nmax_agents_per_change = 4\\n' ['[delegate] max_parallel -> max_agents_per_change']",
+        "['.claude/kit.toml cannot be read: Cannot overwrite a value (at line 3, column 26); used the defaults']"
+      ],
+      "failing_case": [
+        "kit.toml \"[delegate]\\nmax_parallel = 6\\nmax_agents_per_change = 4\\n\" (a person added the new name the problem told them,",
+        "leaving the old line). `relay setup` (rename_old_delegate_keys) writes \"[delegate]\\nmax_agents_per_change = 6\\n",
+        "max_agents_per_change = 4\\n\"; relay_kit.parse then reports \".claude/kit.toml cannot be read: Cannot overwrite a value (at line",
+        "3, column 26); used the defaults\" for every section ([gate] ci, [project] default_branch included).",
+        "Should: the file stays valid TOML; the new name's value is kept and the old line is removed (or left alone and reported), and",
+        "the done line says which."
+      ],
+      "fix_hint": [
+        "Collect the section's keys first; when the new name is already present, drop the old line and say \"[delegate] max_parallel",
+        "removed (max_agents_per_change is already set)\"."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 308,
+      "pass_cases": [
+        "1. rename_old_delegate_keys(\"[delegate]\\nmax_parallel = 6\\nmax_agents_per_change = 4\\n\") returns a text relay_kit.parse reads",
+        "   with kit.broken None and max_agents_per_change == 4.",
+        "2. rename_old_delegate_keys(\"[delegate]\\nmax_parallel = 6\\n\") still gives \"[delegate]\\nmax_agents_per_change = 6\\n\" and one done",
+        "   line.",
+        "3. The existing test_rename_rewrites_names_and_the_opus_values_and_keeps_comments still passes."
+      ],
+      "path": "lib/relay_kit.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_kit_rename_fixes.py:27-31 duplicate old/new key removed; passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "e9038253775401c7922ae169e4b72b7b7ba96e45",
+      "source": "review-kit-toml-setting-names-say-nothing-to-a-person.json",
+      "source_id": "F2",
+      "summary": "the migration writes a duplicate key when the file already has the new name beside the old one, and the whole kit.toml becomes unreadable",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: test_setup_migrates_an_old_kit_toml_with_one_line_per_key calls relay_setup.rename_delegate_keys",
+        "directly; no test drives setup() with an old key. The wiring works today (the probe's setup() run renamed all three keys), so",
+        "LOW. Size: 5 minutes (the Fixture.run_setup of tests/test_setup_off.py does it)."
+      ],
+      "evidence": [
+        "probe: setup() done list holds 'kit.toml: [delegate] max_parallel -> max_agents_per_change', ... ; grep of tests for setup( with an old key: none"
+      ],
+      "failing_case": [
+        "Delete lines 951-952 of lib/relay_setup.py (the rename_delegate_keys loop in setup()). tests/test_setup.py and the other",
+        "setup tests still pass, while `relay setup` no longer renames anything: the pass case \"an old kit.toml is migrated with one",
+        "line\" has no test of the one line."
+      ],
+      "fix_hint": [
+        "One test in tests/test_setup_off.py through Fixture.run_setup on relay_tree() with the old keys."
+      ],
+      "id": "F3",
+      "kind": "inside",
+      "line": 39,
+      "pass_cases": [
+        "1. relay_setup.setup(root) on a fixture whose kit.toml is \"[delegate]\\nmax_parallel = 6\\nbuild_tier_opus = \\\"allow\\\"\\n\"",
+        "   leaves max_agents_per_change = 6 and opus_for_builders = \"always\" in the file and lists",
+        "   \"kit.toml: [delegate] max_parallel -> max_agents_per_change\" in its done list.",
+        "2. A second setup() run lists no kit.toml rename line."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_kit_rename_fixes.py:47-53 runs setup end to end; passes."
+      ],
+      "severity": "LOW",
+      "since": "e9038253775401c7922ae169e4b72b7b7ba96e45",
+      "source": "review-kit-toml-setting-names-say-nothing-to-a-person.json",
+      "source_id": "F3",
+      "summary": "the one-line migration is tested only through rename_delegate_keys; removing its call from setup() leaves every test green",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by the probe. Rare (setup always wrote double quotes), loud (a problem line), so LOW. Dotted (delegate.typed_only)",
+        "and quoted keys are not renamed either but stay reported naming the new name, which is acceptable. Size: 5 minutes."
+      ],
+      "evidence": [
+        "CASE \"[delegate]\\nbuild_tier_opus = 'allow'\\n\" -> \"[delegate]\\nopus_for_builders = 'allow'\\n\" ... \"is not one of after_a_failure, always, never; used 'after_a_failure'\""
+      ],
+      "failing_case": [
+        "kit.toml \"[delegate]\\nbuild_tier_opus = 'allow'\\n\" (a TOML literal string). rename_old_delegate_keys gives",
+        "\"opus_for_builders = 'allow'\", which parse reports as \"is not one of after_a_failure, always, never; used 'after_a_failure'\".",
+        "Should: 'allow' becomes 'always' (or \"always\"), as \"allow\" does."
+      ],
+      "fix_hint": [
+        "Match the value with r'([\"\\'])([^\"\\']*)\\1(.*)$' and keep the quote."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 311,
+      "pass_cases": [
+        "1. rename_old_delegate_keys(\"[delegate]\\nbuild_tier_opus = 'allow'\\n\") yields a text whose parse gives opus_for_builders == \"always\" and no problem.",
+        "2. The double-quoted form keeps mapping escalate/allow/deny as tested today."
+      ],
+      "path": "lib/relay_kit.py",
+      "rank": "low",
+      "reason": [
+        "carried over from the earlier check; tests/test_kit_schema.py:205-219 pass."
+      ],
+      "severity": "LOW",
+      "since": "e9038253775401c7922ae169e4b72b7b7ba96e45",
+      "source": "review-kit-toml-setting-names-say-nothing-to-a-person.json",
+      "source_id": "F4",
+      "summary": "a single-quoted old value ('allow') is renamed to opus_for_builders but kept as 'allow', so the owner's choice silently becomes after_a_failure behind a problem line",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Project rule \"Python: every new or changed function has types\". The rule sets no severity; nothing",
+        "breaks today, so LOW. relay_kit.rename_old_delegate_keys is typed. Size: 5 minutes."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- lib/relay_setup.py: +def rename_delegate_keys(root):"
+      ],
+      "failing_case": [
+        "lib/relay_setup.py:237 `def rename_delegate_keys(root):` and :207 `def bindings_text(d, flow, specs=\"none\"):` have no",
+        "parameter or return types; the project rule says every new or changed function has types (the brief repeats it).",
+        "Should: `def rename_delegate_keys(root: str) -> list[str]:` and `def bindings_text(d: dict[str, Any], flow: str, specs: str = \"none\") -> str:`."
+      ],
+      "fix_hint": [
+        "Add the annotations."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 237,
+      "pass_cases": [
+        "1. Both signatures carry parameter and return types.",
+        "2. The type checker of the gate (when configured) and tests/test_setup.py stay green."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "low",
+      "reason": [
+        "carried over; relay precheck types and lint green."
+      ],
+      "severity": "LOW",
+      "since": "e9038253775401c7922ae169e4b72b7b7ba96e45",
+      "source": "review-kit-toml-setting-names-say-nothing-to-a-person.json",
+      "source_id": "F5",
+      "summary": "Python rule (types): the new rename_delegate_keys and the changed bindings_text carry no type annotations",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "Question for the owner. What it is about: the cap on agents that run at once. How it works: before each Agent call the route",
+        "guard counts the agents running in this session in today's ledger and adds a note (not a refusal) when the count reaches the",
+        "cap. Live example: relay builds 6 changes at once in one front session; with max_agents_per_change = 6 the note comes as soon",
+        "as each change has one agent, not when one change has 6. The owner suggested max_parallel_agents_per_change; the front chose",
+        "max_agents_per_change (owner can reverse). Answers: (a) rename to max_agents_at_once and say \"in this session\" in the",
+        "comment: name matches the count, drops the \"per change\" wording of the rule; (b) keep the name and make the guard count per",
+        "change: needs the ledger to know each agent's change, a bigger change; (c) keep as is.",
+        "Size: 5 minutes for (a)."
+      ],
+      "evidence": [
+        "plugins/delegate/hooks/route-guard.py:301 running = running_now(data.get(\"session_id\")); if running >= int(cfg[\"max_agents_per_change\"])"
+      ],
+      "failing_case": [
+        "Relay's own kit.toml sets max_agents_per_change = 6 (it was max_parallel = 6, matching 6 lanes). The guard",
+        "(route-guard.py:301-306) notes once 6 agents run in the session, summed over every change the front is building. A person",
+        "reading the name expects 6 agents in each change."
+      ],
+      "fix_hint": [
+        "(a): rename in RENAMED/SCHEMA/route-guard/docs and the setup comment."
+      ],
+      "id": "F6",
+      "kind": "question",
+      "line": 62,
+      "pass_cases": [
+        "1. Artifact: the key's name and its setup comment say the same unit the guard counts (session or change).",
+        "2. Artifact: docs/delegation.md \"Parallelism\" says which one is counted."
+      ],
+      "path": "lib/relay_kit.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py:34-38 pins max_agents_at_once and its comment; fails at base."
+      ],
+      "severity": "LOW",
+      "since": "e9038253775401c7922ae169e4b72b7b7ba96e45",
+      "source": "review-kit-toml-setting-names-say-nothing-to-a-person.json",
+      "source_id": "F6",
+      "summary": "max_agents_per_change names a per-change cap, but the route guard counts agents running in the whole session",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_gate.py came in from master (merge 25ffe15a9806) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_gate.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_gate.py merge resolution read: uses relay_gate_settings, RuntimeError becomes GateRefused; gate and tests green."
+      ],
+      "severity": "MEDIUM",
+      "since": "25ffe15a980633b3eb9075c07bee27e7123be7a6",
+      "source": "merge",
+      "summary": "lib/relay_gate.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "lib/relay_gate_settings.py came in from master (merge 25ffe15a9806) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M2",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "lib/relay_gate_settings.py",
+      "rank": "medium",
+      "reason": [
+        "lib/relay_gate_settings.py read: master's settings_problems plus old-name rewrite; tests/test_gate_branch_kit.py passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "25ffe15a980633b3eb9075c07bee27e7123be7a6",
+      "source": "merge",
+      "summary": "lib/relay_gate_settings.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    },
+    {
+      "failing_case": [
+        "tests/test_gate_branch_kit.py came in from master (merge 25ffe15a9806) after the point this branch was last reviewed or checked.",
+        "The branch's own change to it was never judged against the merged code."
+      ],
+      "id": "M3",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "At head the branch's own change to the file still does what the review said, against the merged code."
+      ],
+      "path": "tests/test_gate_branch_kit.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_gate_branch_kit.py passes; only key names differ from the merge."
+      ],
+      "severity": "MEDIUM",
+      "since": "25ffe15a980633b3eb9075c07bee27e7123be7a6",
+      "source": "merge",
+      "summary": "tests/test_gate_branch_kit.py was changed by a merge of master after it was last checked",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "7d53879d6db20561c35f5a889befdb60d452ea9d.gate.log",
+  "head": "19f13a1e0639dfc47e57a79019ee00a4be49b612",
+  "item": "kit-toml-setting-names-say-nothing-to-a-person",
+  "notes": [
+    "Tests copied to the pre-change base (d2cc130c) fail there: test_kit_rename_fixes, test_setup, test_gate_branch_kit, test_kit_schema."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head 7d53879d exit 0; only the gate-log commit 19f13a1e follows (relay changed lists nothing). Ran 5 related test files (178 OK) and relay precheck (green). Read the merge-resolved files relay_gate.py, relay_gate_settings.py, test_gate_branch_kit.py; no diff against the merge commit except the renamed keys in the test."
+  ],
+  "type": "check"
+}
