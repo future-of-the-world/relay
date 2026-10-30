@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.1276,
+   "id": "a9b135f53f943c304",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T15:39:27.235Z",
+   "stop": "2026-10-30T15:42:15.365Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "gates-on-the-vps-take"
+}

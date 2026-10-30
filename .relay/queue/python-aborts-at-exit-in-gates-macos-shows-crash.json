@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-30T15:39:06Z",
   "taken_by": "wt/gates-on-the-vps-hosts-transport-watch-b",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T16:11:25Z",
+  "test": "tests/test_gate_ssh.py::ProgramRuns::test_an_exception_after_the_watcher_started_is_exit_91_with_an_error_line_and_nothing_left",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [

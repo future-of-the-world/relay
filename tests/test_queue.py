@@ -396,12 +396,6 @@ class TestSchema(Base):
         self.assertEqual(git(self.main, "rev-parse", "master"), before)
 
 
-def read_ref(repo):
-    """Where the tests read inert-folder text from: "HEAD^" in an inert probe commit (the probe appends a line to every
-    inert file and commits it as "inert probe", so the commit before it holds the real text), else None: the checkout."""
-    return "HEAD^" if git(repo, "log", "-1", "--format=%s", "HEAD", check=False) == "inert probe" else None
-
-
 def show_raw(repo, ref, path):
     """The exact text of `path` at `ref` (git() strips; the working-tree read does not, so the two must agree), or None."""
     done = subprocess.run(["git", "-C", repo, "show", "%s:%s" % (ref, path)], capture_output=True, text=True)
@@ -409,15 +403,10 @@ def show_raw(repo, ref, path):
 
 
 def committed_items(repo):
-    """{file name: text} of the .relay/queue items. The queue folder is inert (bin/ci's inert probe appends a line to every
-    item and commits it as "inert probe"), so in a probe commit the items are read from git, from the commit before it. Anywhere
-    else they are read from the working tree, the text `bin/ci --quick` loops on and the gate will read on the commit."""
-    ref = read_ref(repo)
-    names = git(repo, "ls-tree", "--name-only", ref, ".relay/queue/", check=False).split("\n") if ref else [""]
-    if names == [""]:
-        folder = os.path.join(repo, ".relay", "queue")
-        return {n: open(os.path.join(folder, n), encoding="utf-8").read() for n in sorted(os.listdir(folder)) if n.endswith(".json")}
-    return {os.path.basename(n): show_raw(repo, ref, n) for n in sorted(names) if n.endswith(".json")}
+    """{file name: text} of the .relay/queue items, read from the working tree: the text `bin/ci --quick` loops on and the gate
+    will read on the commit. (The gate's copy has no queue at all, so a test of the real queue reads a pinned commit.)"""
+    folder = os.path.join(repo, ".relay", "queue")
+    return {n: committed_text(repo, os.path.join(".relay", "queue", n)) for n in sorted(os.listdir(folder)) if n.endswith(".json")}
 
 
 # The queue as committed at this commit (immutable): the tests that check real items read it, never the checkout's live queue,
@@ -438,10 +427,9 @@ def pinned_items(commit: str = QUEUE_COMMIT) -> dict[str, str]:
 
 
 def committed_text(repo, path):
-    """The text of `path`: the working tree's, except in an inert probe commit, where it is the commit before it (see committed_items)."""
-    ref = read_ref(repo)
-    out = show_raw(repo, ref, path) if ref else None
-    return out if out else open(os.path.join(repo, path), encoding="utf-8").read()
+    """The text of `path` in the working tree."""
+    with open(os.path.join(repo, path), encoding="utf-8") as handle:
+        return handle.read()
 
 
 def new_shape(**changes):
@@ -549,7 +537,7 @@ class TestSeedItems(unittest.TestCase):
 
     def test_f6_the_votes_item_names_the_grader_name_prefix_that_tally_reads(self):
         # Read the item and tally.py at b176e6d, the commit that set the item's `where`, never at HEAD: the live queue is
-        # inert (bin/ci's inert probe appends a line to every item), and the change the item asks for removes that regex.
+        # inert (the gate's copy has none), and the change the item asks for removes that regex.
         name = "eval-votes-in-file-names.json"
         text = git(ROOT, "show", "b176e6d:.relay/queue/" + name)
         path, _, line = json.loads(text)["where"].rpartition(":")
@@ -565,15 +553,6 @@ class TestFormat(Base):
             item = rq.parse(name[:-5], text)
             self.assertEqual(item["problems"], [], name)
             self.assertEqual(rq.serialize(name[:-5], item), text, name)
-
-    def test_the_seed_items_are_read_from_before_the_inert_probe_commit(self):
-        # the probe appends a line to every item and commits it: the committed items before it are what counts
-        repo = self.repo("probe", items={"x": fix_item("Long one")})
-        good = open(os.path.join(repo, ".relay", "queue", "x.json"), encoding="utf-8").read()
-        with open(os.path.join(repo, ".relay", "queue", "x.json"), "a", encoding="utf-8") as handle:
-            handle.write("inert probe line\n")
-        git(repo, "commit", "-aqm", "inert probe")
-        self.assertEqual(committed_items(repo), {"x.json": good})
 
     def test_the_file_form_is_indent_2_fixed_order_utf8_and_lines_as_arrays(self):
         item = rq.new_item("fix", 3, 5, "2026-10-01T00:00:00Z", "t", "Caf\u00e9 breaks", "first\nsecond", "why", failing="a\nb")

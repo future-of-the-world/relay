@@ -55,7 +55,16 @@
                                      day's spend first); -- <args> names the gate's own mode (the cycle passes --quick);
                                      --again runs it although the same code has a finished gate (a red one is otherwise reported, not run)
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
-                                     (a quick gate stopped at its time limit exits 124: run it again)
+                                     (a quick gate stopped at its time limit exits 124: run it again). With a gate host
+                                     recorded (relay hosts), a quick gate may run there; the line `gate: ...` says why not
+  relay gate --watch-default [-C <repo>] [<sha>]
+                                     gate a first-parent commit of the default branch (default: its tip) on the gate host and
+                                     keep the result in the git folder, never committed; a red result files one fix item
+  relay hosts add <host> [--user <account>] [-C <repo>] | set <host> <setting> <value> | remove <host> | status
+                                     the hosts quick gates may run on (the gate hosts record): add proves the login
+                                     and records it (or prints the 3 root commands the owner must see first); set changes a
+                                     setting within its bound; remove deletes the record and prints the one root command
+                                     that removes the account; status shows the newest Linux watch and the stop-sending rule
   relay land <branch> [--paid-fix] [--keep-open] [-C <repo>]
                                      take the default branch into the branch, gate the result, fast-forward on green; one
                                      landing at a time, no agent. Exit 0 landed, 1 red gate, 2 refused, 3 take conflict,
@@ -103,6 +112,7 @@ The repository root is this script's parent, or $RELAY_ROOT.
 import datetime as dt
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -114,7 +124,9 @@ import relay_bench  # noqa: E402
 import relay_checks_migrate  # noqa: E402
 import relay_config  # noqa: E402
 import relay_gate  # noqa: E402
+import relay_gate_watch  # noqa: E402
 import relay_git  # noqa: E402
+import relay_hosts  # noqa: E402
 import relay_inert  # noqa: E402
 import relay_land  # noqa: E402
 import relay_land_counters  # noqa: E402
@@ -632,11 +644,24 @@ def _print_paid_cost(worktree):
 
 
 def cmd_gate(args):
-    usage = "relay gate [-C <worktree>] [--paid] [--again] [-- <args>]"
+    usage = "relay gate [-C <worktree>] [--paid] [--again] [-- <args>] | relay gate --watch-default [-C <repo>] [<sha>]"
     args, extra = list(args), []
     if "--" in args:
         i = args.index("--")
         args, extra = args[:i], args[i + 1:]
+    if "--watch-default" in args:
+        args.remove("--watch-default")
+        repo = "."
+        if "-C" in args:
+            i = args.index("-C")
+            if i + 1 >= len(args):
+                raise Usage(usage)
+            repo = args[i + 1]
+            del args[i:i + 2]
+        if extra or len(args) > 1 or any(a.startswith("-") for a in args):
+            raise Usage(usage)
+        print("\n".join(relay_gate_watch.watch(repo, args[0] if args else None)))
+        return 0
     paid = "--paid" in args
     again = "--again" in args
     args = [a for a in args if a not in ("--paid", "--again")]
@@ -648,10 +673,21 @@ def cmd_gate(args):
         worktree = args[1]
     elif args:
         raise Usage(usage)
+    try:
+        quick_command = relay_gate.quick_binding(worktree)
+        if extra and not paid and quick_command and shlex.split(relay_gate.binding(worktree)) + extra == shlex.split(quick_command):
+            quick, extra = True, []      # `-- --quick` is the quick gate: the same command, so the same log and the same host (plan decision 7)
+    except relay_gate.GateRefused as exc:
+        raise ValueError(str(exc))
     if paid:
         _print_paid_cost(worktree)
+    remote = None
+    if quick:
+        remote, reason = relay_gate_watch.build_remote(worktree)
+        if reason:
+            print("gate: %s; this gate runs on this Mac" % reason, file=sys.stderr, flush=True)
     try:
-        code, log, red = relay_gate.run(worktree, extra, quick=quick, again=again)
+        code, log, red = relay_gate.run(worktree, extra, quick=quick, again=again, remote=remote)
     except relay_gate.GateRefused as exc:
         raise ValueError(str(exc))
     sha, host = relay_gate.log_sha_host(log)
@@ -660,6 +696,11 @@ def cmd_gate(args):
     for line in red:
         print(line)
     return code
+
+
+def cmd_hosts(args):
+    print("\n".join(relay_hosts.main(args)))
+    return 0
 
 
 def cmd_land(args):
@@ -1173,7 +1214,7 @@ def cmd_license(args):
 COMMANDS = {
     "status": cmd_status, "report": cmd_report, "improve": cmd_improve, "bench": cmd_bench, "profile": cmd_profile,
     "sync": cmd_sync, "candidate": cmd_candidate, "setup": lambda a: cmd_setup(a, migrate=False), "migrate": lambda a: cmd_setup(a, migrate=True),
-    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "land": cmd_land, "metrics": cmd_metrics, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
+    "calibrate": cmd_calibrate, "doctor": cmd_doctor, "install": cmd_install, "flows": cmd_flows, "rules": cmd_rules, "changed": cmd_changed, "check": cmd_check, "gate": cmd_gate, "hosts": cmd_hosts, "land": cmd_land, "metrics": cmd_metrics, "precheck": cmd_precheck, "queue": cmd_queue, "license": cmd_license,
 }
 
 

@@ -1,0 +1,26 @@
+{
+ "agents": [],
+ "before": "a15e07dd41af698bc0a038ae262bd7e528f4d21e",
+ "branch": "wt/gates-on-the-vps-hosts-transport-watch-b",
+ "head": "e4e99dc15af7de1e9e462642abdf4ace16bfc430",
+ "item": "gates-on-the-vps-hosts-transport-watch-bring-up",
+ "kind": "change",
+ "land": [
+  {
+   "at": "2026-10-30T16:23:27+00:00",
+   "kind": "asked"
+  },
+  {
+   "at": "2026-10-30T16:33:51+00:00",
+   "kind": "locked"
+  },
+  {
+   "at": "2026-10-30T16:42:41+00:00",
+   "gate_seconds": 485.7071692919126,
+   "gates_run": 1,
+   "kind": "done"
+  }
+ ],
+ "schema": 1,
+ "unit": "gates-on-the-vps-hosts-transport-watch-bring-up"
+}

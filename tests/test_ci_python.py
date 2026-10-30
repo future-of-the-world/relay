@@ -1,8 +1,7 @@
-"""lib/relay_ci.py (what bin/ci runs): the paid part, the record step, the rules gate's test names, and the inert probe that
-runs beside the outer steps. Free; no model call. Programs are replaced by a recording runner or by stubs in a temporary
+"""lib/relay_ci.py (what bin/ci runs): the paid part, the record step, the rules gate's test names, and the gate copy the
+single test run happens on. Free; no model call. Programs are replaced by a recording runner or by stubs in a temporary
 PATH; every tree is a temporary folder."""
 import contextlib
-import fcntl
 import signal
 import io
 import json
@@ -21,7 +20,7 @@ from typing import Any, Callable, List, Optional
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 import relay_ci  # noqa: E402
-import relay_ci_probe  # noqa: E402
+import relay_ci_copy  # noqa: E402
 from pidfile import wait_pid  # noqa: E402
 
 GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_SYSTEM": os.devnull, "GIT_AUTHOR_NAME": "t",
@@ -415,13 +414,6 @@ class QuickGateLimit(unittest.TestCase):
         self.assertEqual([ln for ln in lines if ln.startswith("gate: stopped")], [])
         self.assertIn("library tests ok", results)
 
-    def test_t4_the_inert_probe_run_has_no_limit_of_its_own(self) -> None:
-        ci = self.ci("1", RELAY_INERT_PROBE="1")
-        ci.lib_tests = self.sleeper(ci, "2")    # type: ignore[method-assign]
-        code, lines, results = self.run_main(ci)
-        self.assertEqual(code, 0)
-        self.assertIn("library tests ok", results)
-
     def test_t5_a_real_failure_before_the_stop_wins(self) -> None:
         # library tests FAILED at once; hook tests then run past the 2 s limit: exit 1 (not 124), FAILED line first, stopped line after
         ci = self.ci("2")
@@ -464,66 +456,113 @@ class QuickGateLimit(unittest.TestCase):
                 code = ci.main()
             self.assertEqual(code, 2, bad)
             self.assertEqual(err.getvalue().strip(), "bin/ci: RELAY_CI_QUICK_LIMIT must be a whole number of seconds, 1 or more "
-                                                     "(default 1800), not %r" % bad)
-        self.assertEqual(relay_ci.quick_limit({}), 1800)    # the owner's 30 minutes (29 Oct)
+                                                     "(default 1500), not %r" % bad)
+        self.assertEqual(relay_ci.quick_limit({}), 1500)    # the owner's 25 minutes (29 Oct: "25 после ускорения")
+        self.assertEqual(relay_ci.QUICK_LIMIT_SECONDS, 1500)
 
 
-class ProbeBesideTheRun(unittest.TestCase):
+class GateCopyTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = os.path.realpath(self.tmp.name)
         self.env = {**os.environ, **GIT_ENV}
         subprocess.run(["git", "init", "-q", "-b", "master", self.root], check=True, env=self.env)
-        with open(os.path.join(self.root, "docs.txt"), "w") as handle:
-            handle.write("x\n")
-        subprocess.run(["git", "-C", self.root, "add", "-A"], check=True, env=self.env)
-        subprocess.run(["git", "-C", self.root, "commit", "-q", "-m", "init"], check=True, env=self.env)
-        self.head = subprocess.run(["git", "-C", self.root, "rev-parse", "HEAD"], check=True, capture_output=True, text=True,
-                                   env=self.env).stdout.strip()
+        self.write("docs.txt", "x\n")
+        self.write("docs/handover.md", "state\n")
+        self.write(".relay/README.md", "readme\n")
+        self.write(".relay/queue/a.json", "{}\n")
+        self.write(".relay/queue/done/b.json", "{}\n")
+        self.write(".relay/checks/h.gate.log", "head 0\n")
+        self.write(".relay/changes/u/r.json", "{}\n")
+        self.head = self.commit("init")
+
+    def write(self, rel: str, text: str) -> None:
+        path = os.path.join(self.root, rel)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as handle:
+            handle.write(text)
+
+    def git(self, *args: str, cwd: str = "") -> str:
+        return subprocess.run(["git", "-C", cwd or self.root, *args], check=True, capture_output=True, text=True,
+                              env=self.env).stdout.strip()
+
+    def commit(self, message: str) -> str:
+        self.git("add", "-A")
+        self.git("commit", "-q", "-m", message)
+        return self.git("rev-parse", "HEAD")
 
     def worktrees(self) -> List[str]:
-        out = subprocess.run(["git", "-C", self.root, "worktree", "list", "--porcelain"], check=True, capture_output=True,
-                             text=True, env=self.env).stdout
-        return [ln for ln in out.splitlines() if ln.startswith("worktree ")]
+        return [ln for ln in self.git("worktree", "list", "--porcelain").splitlines() if ln.startswith("worktree ")]
 
-    def probe(self, script: str) -> relay_ci.Probe:
-        log = os.path.join(self.root, ".ci", "steps", "inert-nested.log")
-        return relay_ci.Probe(self.root, self.head, True, self.env, log, nested=("sh", "-c", script))
+    def started(self, root: str = "", head: str = "") -> relay_ci.GateCopy:
+        copy = relay_ci.GateCopy(root or self.root, head or self.head)
+        self.addCleanup(copy.stop)
+        copy.start()
+        self.assertEqual(copy.error, "")
+        return copy
 
-    def test_a_probe_whose_lane_worktree_was_removed_is_removed_by_the_next_gate_of_any_worktree(self) -> None:
-        # live case 29 Oct: a lane worktree removed (or killed) while its probe existed; the probe stays registered in the main
-        # repository because the record sat in the lane's own .ci. Two lanes: lane_a dies with its probe, lane_b runs a gate.
+    def test_the_copy_holds_no_inert_file_and_its_commit_is_named_gate_copy(self) -> None:
+        copy = self.started()
+        # the inert list (lib/relay_inert.py): the handover and everything under .relay/queue, .relay/checks, .relay/changes
+        for gone in ("docs/handover.md", ".relay/queue", ".relay/checks", ".relay/changes"):
+            self.assertFalse(os.path.exists(os.path.join(copy.work, gone)), gone)
+        self.assertEqual(open(os.path.join(copy.work, "docs.txt")).read(), "x\n")
+        self.assertEqual(open(os.path.join(copy.work, ".relay", "README.md")).read(), "readme\n")   # not inert: stays
+        self.assertEqual(self.git("log", "-1", "--format=%s", cwd=copy.work), "gate copy")
+        self.assertEqual(self.git("rev-parse", "HEAD~1", cwd=copy.work), self.head)   # the parent is the gated commit
+
+    def test_copies_of_two_commits_that_differ_only_in_inert_files_are_the_same_tree(self) -> None:
+        self.write("docs/handover.md", "other state\n")
+        self.write(".relay/queue/a.json", '{"changed": 1}\n')
+        self.write(".relay/queue/new.json", "{}\n")
+        later = self.commit("queue and handover")
+        self.write("docs.txt", "code change\n")
+        code = self.commit("code")
+        first, second, third = self.started(), self.started(head=later), self.started(head=code)
+        tree = lambda c: self.git("rev-parse", "HEAD^{tree}", cwd=c.work)
+        self.assertEqual(tree(first), tree(second))
+        self.assertNotEqual(tree(first), tree(third))   # a code change is a different copy
+
+    def test_stop_removes_the_worktree_the_folder_and_the_record_and_is_safe_twice(self) -> None:
+        copy = self.started()
+        self.assertEqual(len(self.worktrees()), 2)
+        assert copy.tmpd is not None
+        left = copy.tmpd
+        copy.stop()
+        copy.stop()
+        self.assertEqual(len(self.worktrees()), 1)
+        self.assertFalse(os.path.exists(left))
+        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "gate-copy")))
+
+    def test_a_copy_whose_lane_worktree_was_removed_is_removed_by_the_next_gate_of_any_worktree(self) -> None:
+        # live case 29 Oct: a lane worktree removed (or killed) while its copy existed; the copy stays registered in the main
+        # repository because the record sat in the lane's own .ci. Two lanes: lane_a dies with its copy, lane_b runs a gate.
         lanes = []
         for name in ("lane_a", "lane_b"):
             path = os.path.join(self.root, ".worktrees", name)
-            subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", path, self.head], check=True, env=self.env)
+            self.git("worktree", "add", "-q", "--detach", path, self.head)
             lanes.append(path)
-        log = os.path.join(lanes[0], ".ci", "steps", "inert-nested.log")
-        probe = relay_ci.Probe(lanes[0], self.head, True, self.env, log, nested=("true",))
-        probe.start()
-        probe.wait()
-        # 1 main + 2 lanes + 1 probe; the gate of lane_a is gone without stop() (killed) and so is its worktree
-        self.assertEqual(len(self.worktrees()), 4)
-        subprocess.run(["git", "-C", self.root, "worktree", "remove", "--force", lanes[0]], check=True, env=self.env)
-        self.assertEqual(len(self.worktrees()), 3)   # the probe is still registered: the leak
-        relay_ci.remove_leftover_probe(lanes[1])
+        copy = self.started(lanes[0])
+        self.assertEqual(len(self.worktrees()), 4)   # 1 main + 2 lanes + 1 copy; lane_a's gate is gone without stop()
+        self.git("worktree", "remove", "--force", lanes[0])
+        self.assertEqual(len(self.worktrees()), 3)   # the copy is still registered: the leak
+        relay_ci.remove_leftover_copy(lanes[1])
         self.assertEqual(len(self.worktrees()), 2)   # main + lane_b
-        assert probe.tmpd is not None
-        self.assertFalse(os.path.exists(probe.tmpd))
+        assert copy.tmpd is not None
+        self.assertFalse(os.path.exists(copy.tmpd))
 
     def test_two_gates_that_read_one_dead_owner_record_at_once_both_return(self) -> None:
-        # a probe worktree whose shared record names an owner folder that does not exist; two gates start together and both
-        # read the record before either removes it: the probe is removed once and neither raises
+        # a copy worktree whose shared record names an owner folder that does not exist; two gates start together and both
+        # read the record before either removes it: the copy is removed once and neither raises
         tmpd = tempfile.mkdtemp(dir=self.root)
-        subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", os.path.join(tmpd, "wt"), self.head],
-                       check=True, env=self.env)
-        folder = relay_ci_probe.shared_dir(self.root)
+        self.git("worktree", "add", "-q", "--detach", os.path.join(tmpd, "wt"), self.head)
+        folder = relay_ci_copy.shared_dir(self.root)
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, os.path.basename(tmpd)), "w") as handle:
             handle.write(os.path.join(self.root, "missing-lane") + "\n" + tmpd + "\n")
         barrier = threading.Barrier(2)
-        real = relay_ci_probe._read_lines
+        real = relay_ci_copy._read_lines
 
         def reading(path: str) -> List[str]:
             lines = real(path)
@@ -535,11 +574,11 @@ class ProbeBesideTheRun(unittest.TestCase):
 
         def gate() -> None:
             try:
-                relay_ci_probe.remove_leftover_probe(self.root)
+                relay_ci_copy.remove_leftover_copy(self.root)
             except BaseException as err:  # noqa: BLE001 - the test reports whatever escaped
                 errors.append(err)
 
-        with mock.patch.object(relay_ci_probe, "_read_lines", reading):
+        with mock.patch.object(relay_ci_copy, "_read_lines", reading):
             threads = [threading.Thread(target=gate) for _ in range(2)]
             for t in threads:
                 t.start()
@@ -549,137 +588,125 @@ class ProbeBesideTheRun(unittest.TestCase):
         self.assertEqual(len(self.worktrees()), 1)   # main only
         self.assertEqual(os.listdir(folder), [])
 
-    def test_a_probe_of_a_live_lane_is_not_touched_by_the_gate_of_another_lane(self) -> None:
+    def test_a_copy_of_a_live_lane_is_not_touched_by_the_gate_of_another_lane(self) -> None:
         lanes = []
         for name in ("lane_a", "lane_b"):
             path = os.path.join(self.root, ".worktrees", name)
-            subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", path, self.head], check=True, env=self.env)
+            self.git("worktree", "add", "-q", "--detach", path, self.head)
             lanes.append(path)
-        probe = relay_ci.Probe(lanes[0], self.head, True, self.env, os.path.join(lanes[0], ".ci", "n.log"), nested=("true",))
-        probe.start()
-        probe.wait()
-        self.addCleanup(probe.stop)
-        relay_ci.remove_leftover_probe(lanes[1])
-        self.assertEqual(len(self.worktrees()), 4)   # main + 2 lanes + the live probe
+        self.started(lanes[0])
+        relay_ci.remove_leftover_copy(lanes[1])
+        self.assertEqual(len(self.worktrees()), 4)   # main + 2 lanes + the live copy
 
-    def test_the_probe_run_is_marked_so_its_test_runner_only_reads_the_class_times(self) -> None:
-        # the nested run gets RELAY_INERT_PROBE=1 (the outer run's environment does not have it)
-        mark = os.path.join(self.root, "mark.txt")
-        probe = self.probe('printf "%%s" "$RELAY_INERT_PROBE" > "%s"' % mark)
-        probe.start()
-        probe.wait()
-        with open(mark) as handle:
-            self.assertEqual(handle.read(), "1")
-        probe.stop()
-
-    def test_a_group_kill_of_the_run_ends_the_probe_and_frees_the_lock(self) -> None:
-        # relay gate stops a gate with killpg(SIGKILL) on bin/ci's group: the probe must be in that group, or it outlives the gate,
-        # keeps the worktree lock fd and the next gate waits on it. The "bin/ci" here leads its own session as relay_gate.run's
-        # command does, holds a flocked fd (the lock), and starts a probe whose nested command sleeps.
-        lock_path = os.path.join(self.root, "lock")
-        outer = (
-            "import fcntl, os, sys, time\n"
-            "sys.path.insert(0, %r)\n"
-            "import relay_ci\n"
-            "fd = os.open(%r, os.O_CREAT | os.O_RDWR)\n"
-            "fcntl.flock(fd, fcntl.LOCK_EX)\n"
-            "p = relay_ci.Probe(%r, %r, True, dict(os.environ), %r, nested=('sh', '-c', 'sleep 600 & wait'))\n"
-            "p.start()\n"
-            "print(p.proc.pid, flush=True)\n"
-            "time.sleep(600)\n"
-        ) % (os.path.dirname(relay_ci.__file__), lock_path, self.root, self.head, os.path.join(self.root, ".ci", "o.log"))
-        proc = subprocess.Popen([sys.executable, "-c", outer], stdout=subprocess.PIPE, text=True, env=self.env,
-                                start_new_session=True, pass_fds=())
-        self.addCleanup(lambda: proc.poll() is None and proc.kill())
-        assert proc.stdout is not None
-        probe_pid = int(proc.stdout.readline())
-        children = wait_for(lambda: relay_ci._descendants(probe_pid))
-        os.killpg(proc.pid, signal.SIGKILL)
-        proc.wait()
-        # every process of the probe is gone, and the lock can be taken
-        wait_for(lambda: not alive(probe_pid) and not any(alive(c) for c in children))
-        fd = os.open(lock_path, os.O_RDWR)
-        self.addCleanup(os.close, fd)
-        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-
-    def test_the_probe_stop_leaves_a_process_of_the_outer_group_alone(self) -> None:
-        # the stop works by pids, not by a group signal: a sibling in our own process group survives it
-        sibling = subprocess.Popen(["sleep", "60"])
-        self.addCleanup(sibling.kill)
-        probe = self.probe("sleep 600 & wait")
-        probe.start()
-        assert probe.proc is not None
-        self.assertEqual(os.getpgid(probe.proc.pid), os.getpgrp())
-        wait_for(lambda: relay_ci._descendants(probe.proc.pid))   # the nested sleep exists, so the stop's snapshot sees it
-        probe.stop()
-        self.assertIsNotNone(probe.proc.poll())
-        self.assertIsNone(sibling.poll())
-
-    def test_stop_ends_the_probe_and_everything_below_it_and_removes_the_worktree(self) -> None:
-        # case 3: the outer run leaves early; the nested run's own child (sleep) must not outlive it, and no worktree stays
-        probe = self.probe("sleep 600 & wait")
-        probe.start()
-        self.assertEqual(len(self.worktrees()), 2)
-        assert probe.proc is not None
-        child = wait_for(lambda: relay_ci._descendants(probe.proc.pid))[0]
-        probe.stop()
-        self.assertIsNotNone(probe.proc.poll())
-        wait_for(lambda: not alive(child))
+    def test_a_gate_killed_without_cleanup_leaves_a_copy_that_the_next_run_of_that_worktree_removes(self) -> None:
+        # relay gate SIGKILLs the group, so stop() never runs; the record in .ci/gate-copy lets the next prepare() clean up
+        copy = self.started()
+        assert copy.tmpd is not None
+        left = copy.tmpd
+        self.assertEqual(len(self.worktrees()), 2)   # the leak, as the kill leaves it
+        relay_ci.Ci(self.root, True, env={"PATH": os.environ["PATH"]}).prepare()
         self.assertEqual(len(self.worktrees()), 1)
-        probe.stop()   # twice is safe
+        self.assertFalse(os.path.exists(left))
+        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "gate-copy")))
 
-    def test_the_probe_is_running_before_the_first_step_and_a_step_that_stops_the_run_removes_it(self) -> None:
-        # B: the nested run starts before "library tests", not after "plugin validate"; an interrupt in a step stops it
-        flag = os.path.join(self.root, "flag")
-        env = {"PATH": os.environ["PATH"], "RELAY_GATE": self.head, "FLAG": flag}
-        ci = relay_ci.Ci(self.root, True, env=env)
-        ci.nested = ("sh", "-c", 'until [ -e "$FLAG" ]; do sleep 0.02; done')
-        started = []
-
-        def library_tests(log: Any) -> int:
-            try:
-                assert ci.probe is not None and ci.probe.proc is not None
-                started.append(ci.probe.proc.poll() is None)   # still running: it began before this step
-                raise KeyboardInterrupt
-            finally:
-                open(flag, "w").close()   # lets a nested run end, so a failing test never hangs
-        ci.lib_tests = library_tests   # type: ignore[assignment,method-assign]
-        ci.types_lint = lambda log: 0   # type: ignore[assignment,method-assign]  # the fast steps run before library tests
-        ci.lib_links = lambda log: 0   # type: ignore[assignment,method-assign]
-        with redirect_stdout(io.StringIO()), self.assertRaises(KeyboardInterrupt):
-            ci.main()
-        self.assertEqual(started, [True])
-        assert ci.probe is not None and ci.probe.proc is not None
-        self.assertIsNotNone(ci.probe.proc.poll())
-        self.assertEqual(len(self.worktrees()), 1)
-
-    def test_t6_a_stop_at_the_limit_removes_the_probe_and_its_record(self) -> None:
-        env = {"PATH": os.environ["PATH"], "RELAY_GATE": self.head, "RELAY_CI_QUICK_LIMIT": "2"}
-        ci = relay_ci.Ci(self.root, True, env=env)
-        ci.nested = ("sh", "-c", "sleep 600 & wait")
+    # ---- the gate around the copy ----------------------------------------------------------------------------------
+    def gate_ci(self, quick: bool = True, runner: Any = subprocess.run, **env: str) -> relay_ci.Ci:
+        ci = relay_ci.Ci(self.root, quick, env={"PATH": os.environ["PATH"], "RELAY_GATE": self.head, **env}, runner=runner)
         for name in ("types_lint", "lib_links", "hook_tests", "grader_tests", "validate_all"):
             setattr(ci, name, lambda log: 0)
+        return ci
+
+    def test_the_steps_run_on_the_copy_without_relay_gate_and_write_their_logs_in_the_real_worktree(self) -> None:
+        ci = self.gate_ci()
+        probe = ("import os; print('GATE=' + os.environ.get('RELAY_GATE', 'none'), 'REL=' + os.environ['RELAY_ROOT'], "
+                 "'CWD=' + os.getcwd(), 'HANDOVER=' + str(os.path.exists('docs/handover.md')))")
+        seen: List[str] = []
+
+        def library_tests(log: Any) -> int:
+            seen.append(ci.work)
+            return ci.run([sys.executable, "-c", probe], log).returncode
+        ci.lib_tests = library_tests   # type: ignore[method-assign]
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(ci.main(), 0)
+        with open(os.path.join(self.root, ".ci", "steps", "library-tests.log")) as handle:   # this gate's log, in the real worktree
+            line = handle.read().strip()
+        copy = seen[0]
+        self.assertNotEqual(copy, self.root)
+        self.assertEqual(line, "GATE=none REL=%s CWD=%s HANDOVER=False" % (copy, copy))
+        self.assertIn("library tests ok", open(os.path.join(self.root, ".ci", "results.txt")).read())
+        self.assertEqual(out.getvalue().splitlines()[-2:], ["ran on a copy without queue, handover and check records; covers every "
+                                                           "commit with the same code",
+                                                           "ci: green (QUICK MODE: paid steps skipped, not a release gate)"])
+        self.assertEqual((ci.work, ci.env["RELAY_GATE"]), (self.root, self.head))   # the real worktree and its environment are back
+        self.assertEqual(len(self.worktrees()), 1)
+        self.assertFalse(os.path.exists(copy))
+
+    def test_a_plain_run_without_relay_gate_makes_no_copy(self) -> None:
+        ci = relay_ci.Ci(self.root, True, env={"PATH": os.environ["PATH"]})
+        for name in ("types_lint", "lib_links", "hook_tests", "grader_tests", "validate_all"):
+            setattr(ci, name, lambda log: 0)
+        seen: List[str] = []
+        ci.lib_tests = lambda log: (seen.append(ci.work), 0)[1]   # type: ignore[method-assign]
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(ci.main(), 0)
+        self.assertEqual(seen, [self.root])
+        self.assertNotIn("ran on a copy", out.getvalue())
+
+    def test_a_copy_that_cannot_be_made_turns_the_gate_red_and_leaves_nothing(self) -> None:
+        ci = self.gate_ci(RELAY_GATE="0" * 40)   # no such commit
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self.assertEqual(ci.main(), 1)
+        self.assertIn("ci: FAIL gate copy: cannot make a worktree", out.getvalue())
+        self.assertEqual(len(self.worktrees()), 1)
+        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "gate-copy")))
+
+    def test_the_paid_steps_run_on_the_real_worktree_and_the_record_names_the_real_branch(self) -> None:
+        # review F3: the eval record must name the branch and commit of the worktree gated, never the copy's
+        calls: List[tuple] = []
+
+        def runner(argv: List[str], **kwargs: Any) -> subprocess.CompletedProcess:
+            env = kwargs.get("env") or {}
+            calls.append((list(argv), kwargs.get("cwd"), env.get("RELAY_GATE")))
+            out = {"symbolic-ref": "wt/x\n", "rev-parse": self.head + "\n"}.get(argv[1] if argv[0] == "git" else "", "")
+            return subprocess.CompletedProcess(argv, 0, out if kwargs.get("text") else None)
+
+        stub = stubs(os.path.join(self.root, "stub"), ["claude"])
+        ci = self.gate_ci(quick=False, runner=runner, PATH=stub + os.pathsep + os.environ["PATH"])
+        ci.lib_tests = lambda log: ci.run(["free-step"], log).returncode   # type: ignore[method-assign]
+        ci.clean_image = lambda log: ci.run(["paid-step"], log).returncode   # type: ignore[method-assign]
+        ci.plugin_evals = lambda: None   # type: ignore[method-assign]
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(ci.main(), 0)
+        free = next(c for c in calls if c[0] == ["free-step"])
+        self.assertNotEqual(free[1], self.root)       # the free step ran on the copy, without RELAY_GATE
+        self.assertIsNone(free[2])
+        paid = next(c for c in calls if c[0] == ["paid-step"])
+        self.assertEqual((paid[1], paid[2]), (self.root, self.head))
+        filed = next(c for c in calls if "bin/eval-record" in c[0])
+        self.assertEqual((filed[1], filed[0][filed[0].index("--branch") + 1], filed[0][filed[0].index("--head") + 1]),
+                         (self.root, "wt/x", self.head))
+
+    def test_a_stop_at_the_limit_removes_the_copy_and_its_record(self) -> None:
+        ci = self.gate_ci(RELAY_CI_QUICK_LIMIT="2")
         ci.lib_tests = lambda log: ci.run([sys.executable, "-c", "import time; time.sleep(600)"], log).returncode   # type: ignore[method-assign]
         with redirect_stdout(io.StringIO()):
             code = ci.main()
         self.assertEqual(code, 124)
-        assert ci.probe is not None and ci.probe.proc is not None
-        self.assertIsNotNone(ci.probe.proc.poll())
         self.assertEqual(len(self.worktrees()), 1)
-        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "inert-probe")))
+        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "gate-copy")))
+        self.assertEqual(os.listdir(relay_ci_copy.shared_dir(self.root)), [])
 
-    def test_f3_the_probe_cleanup_starts_after_the_watchdog_has_finished_its_kills(self) -> None:
-        # the watchdog's kills are replaced by 0.5 s of work (the probe's own stop_tree calls are not); the step returns at once,
-        # so without the fix Probe.stop (git worktree remove) starts while the watchdog may still kill every descendant
-        env = {"PATH": os.environ["PATH"], "RELAY_GATE": self.head, "RELAY_CI_QUICK_LIMIT": "1"}
-        ci = relay_ci.Ci(self.root, True, env=env)
-        ci.nested = ("sh", "-c", "sleep 600 & wait")
-        for name in ("types_lint", "lib_links", "hook_tests", "grader_tests", "validate_all"):
-            setattr(ci, name, lambda log: 0)
+    def test_the_copy_is_removed_after_the_watchdog_has_finished_its_kills(self) -> None:
+        # the watchdog's kills are replaced by 0.5 s of work; the step returns at once, so without the wait the cleanup
+        # (git worktree remove) would start while the watchdog may still kill every descendant
+        ci = self.gate_ci(RELAY_CI_QUICK_LIMIT="1")
         order: list[str] = []
         entered = threading.Event()
         ci.lib_tests = lambda log: (entered.wait(30), 0)[1]    # type: ignore[method-assign]
-        real_stop_tree, real_probe_stop = relay_ci.stop_tree, relay_ci.Probe.stop
+        real_stop_tree, real_stop = relay_ci.stop_tree, relay_ci.GateCopy.stop
 
         def slow_stop(pids: Any, root: Any) -> None:
             if not isinstance(threading.current_thread(), threading.Timer):
@@ -688,98 +715,56 @@ class ProbeBesideTheRun(unittest.TestCase):
             time.sleep(0.5)
             order.append("kills end")
 
-        def probe_stop(probe: Any) -> None:
+        def copy_stop(copy: Any) -> None:
             order.append("cleanup")
-            real_probe_stop(probe)
-        relay_ci.stop_tree, relay_ci.Probe.stop = slow_stop, probe_stop    # type: ignore[assignment,method-assign]
-        self.addCleanup(lambda: (setattr(relay_ci, "stop_tree", real_stop_tree), setattr(relay_ci.Probe, "stop", real_probe_stop)))
+            real_stop(copy)
+        relay_ci.stop_tree, relay_ci.GateCopy.stop = slow_stop, copy_stop    # type: ignore[assignment,method-assign]
+        self.addCleanup(lambda: (setattr(relay_ci, "stop_tree", real_stop_tree), setattr(relay_ci.GateCopy, "stop", real_stop)))
         with redirect_stdout(io.StringIO()):
             self.assertEqual(ci.main(), 124)
         self.assertEqual(order, ["kills end", "cleanup"])
         self.assertEqual(len(self.worktrees()), 1)
 
-    def test_a_probe_that_dies_makes_inert_failed(self) -> None:
-        # case 2: the nested run is killed (signal 9) -> exit code -9 -> the step is FAILED, never ok
-        ci = relay_ci.Ci(self.root, True, env={"PATH": os.environ["PATH"], "RELAY_GATE": self.head})
-        ci.prepare()
-        ci.probe = self.probe("kill -9 $$")
-        out = io.StringIO()
-        with redirect_stdout(out):
-            ci.probe.start()
-            ci.step("inert", ci.inert_step, show_all=True)
-            ci.probe.stop()
-        self.assertEqual(ci.status, 1)
-        self.assertIn("ci: inert FAILED", out.getvalue())
-        self.assertIn("stopped by signal 9", out.getvalue())
+    def test_a_gate_ended_by_sigterm_leaves_no_worktree_and_no_folder(self) -> None:
+        driver = (
+            "import signal, sys, time\n"
+            "sys.path.insert(0, %r)\n"
+            "import relay_ci\n"
+            "signal.signal(signal.SIGTERM, relay_ci._raise_exit)\n"
+            "ci = relay_ci.Ci(%r, True, env={'PATH': %r, 'RELAY_GATE': %r})\n"
+            "for name in ('types_lint', 'lib_links', 'hook_tests', 'grader_tests', 'validate_all'):\n"
+            "    setattr(ci, name, lambda log: 0)\n"
+            "def tests(log):\n"
+            "    print(ci.work, flush=True)\n"
+            "    time.sleep(600)\n"
+            "ci.lib_tests = tests\n"
+            "sys.exit(ci.main())\n"
+        ) % (os.path.dirname(relay_ci.__file__), self.root, os.environ["PATH"], self.head)
+        proc = subprocess.Popen([sys.executable, "-c", driver], stdout=subprocess.PIPE, text=True, env=self.env)
+        self.addCleanup(lambda: proc.poll() is None and proc.kill())
+        assert proc.stdout is not None
+        copy = None
+        for line in proc.stdout:     # the line the step prints once it runs on the copy
+            if line.startswith("/"):
+                copy = line.strip()
+                break
+        assert copy is not None
+        self.assertEqual(len(self.worktrees()), 2)
+        proc.send_signal(signal.SIGTERM)
+        proc.wait(timeout=WAIT)
         self.assertEqual(len(self.worktrees()), 1)
-
-    def test_a_gate_killed_without_cleanup_leaves_a_probe_that_the_next_run_of_that_worktree_removes(self) -> None:
-        # F1: relay gate SIGKILLs the group, so stop() never runs; the record in .ci/inert-probe lets the next prepare() clean up
-        probe = self.probe("sleep 600 & wait")
-        probe.start()
-        assert probe.proc is not None and probe.tmpd is not None
-        left = probe.tmpd
-        child = wait_for(lambda: relay_ci._descendants(probe.proc.pid))[0]
-        for pid in (child, probe.proc.pid):   # the kill: no finally, no stop()
-            os.kill(pid, 9)
-        probe.proc.wait()
-        self.assertEqual(len(self.worktrees()), 2)   # the leak, as reproduced
-        ci = relay_ci.Ci(self.root, True, env={"PATH": os.environ["PATH"]})
-        ci.prepare()
-        self.assertEqual(len(self.worktrees()), 1)
-        self.assertFalse(os.path.exists(left))
-        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "inert-probe")))
-
-    def test_cleanup_removes_only_the_probe_recorded_for_this_worktree(self) -> None:
-        # pass case 2: a second worktree of the repo has a live probe; the first one's prepare() leaves it alone
-        other = os.path.join(self.root, "other")
-        subprocess.run(["git", "-C", self.root, "worktree", "add", "-q", "--detach", other, self.head], check=True, env=self.env)
-        live = probe_for(other, self.head, self.env)
-        live.start()
-        try:
-            relay_ci.Ci(self.root, True, env={"PATH": os.environ["PATH"]}).prepare()
-            self.assertTrue(os.path.isdir(live.work))
-            self.assertEqual(len(self.worktrees()), 3)   # root, other, the live probe
-        finally:
-            live.stop()
-
-    def test_a_probe_that_ends_normally_leaves_no_record(self) -> None:
-        probe = self.probe("true")
-        probe.start()
-        probe.wait()
-        probe.stop()
-        self.assertFalse(os.path.exists(os.path.join(self.root, ".ci", "inert-probe")))
-        self.assertEqual(len(self.worktrees()), 1)
-
-
-def probe_for(root: str, head: str, env: Any) -> relay_ci.Probe:
-    return relay_ci.Probe(root, head, True, env, os.path.join(root, ".ci", "steps", "inert-nested.log"),
-                          nested=("sh", "-c", "sleep 600"))
+        self.assertFalse(os.path.exists(os.path.dirname(copy)))   # the temporary folder holds the worktree "wt"
 
 
 class LockFdReachesChildren(unittest.TestCase):
-    def test_a_fd_inherited_by_the_gate_is_open_in_step_children_and_in_the_probe(self) -> None:
+    def test_a_fd_inherited_by_the_gate_is_open_in_step_children(self) -> None:
         # F2: relay gate passes a lock fd; every child of bin/ci must keep it (close_fds=False), or killing bin/ci frees the lock
-        genv = {**os.environ, **GIT_ENV}
         with tempfile.TemporaryDirectory() as tmp:
             fd = os.open(os.path.join(tmp, "lock"), os.O_CREAT | os.O_RDWR)
             try:
                 os.set_inheritable(fd, True)
                 ci = relay_ci.Ci(tmp, True, env={"PATH": os.environ["PATH"]})
                 self.assertEqual(ci.run(["sh", "-c", "test -e /dev/fd/%d" % fd]).returncode, 0)
-                root = os.path.join(tmp, "repo")
-                os.makedirs(root)
-                subprocess.run(["git", "init", "-q", root], check=True, env=genv)
-                subprocess.run(["git", "-C", root, "commit", "-q", "--allow-empty", "-m", "i"], check=True, env=genv)
-                head = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"], check=True, capture_output=True, text=True,
-                                      env=genv).stdout.strip()
-                probe = relay_ci.Probe(root, head, True, genv, os.path.join(root, ".ci", "n.log"),
-                                       nested=("sh", "-c", "test -e /dev/fd/%d" % fd))
-                try:
-                    probe.start()
-                    self.assertEqual(probe.wait(), 0)
-                finally:
-                    probe.stop()   # also when an assertion fails: the worktree and its temporary folder never stay
             finally:
                 os.close(fd)
 

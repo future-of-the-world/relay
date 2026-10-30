@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from typing import Any
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -58,6 +59,49 @@ class Fakes(unittest.TestCase):
         for name, output in {**GOOD, **changes}.items():
             if output is not None:
                 self.fake(name, output)
+
+
+class GitFirstOnPath(Fakes):
+    """Part A of the quick-gate speed-up: relay doctor warns on macOS when the first git is Apple's launcher or a bare symlink."""
+
+    def test_the_launcher_path_is_not_ok_and_names_the_fix(self):
+        self.assertIn("docs/macos.md section 1", relay_setup.git_first_problem("/usr/bin/git", "/Library/Developer/x") or "")
+
+    def test_a_symlink_to_the_launcher_is_not_ok(self):
+        # the launcher is stood in for by a fake file; PATH's git is a link to it, with an exec-path folder that exists
+        libexec = os.path.join(self.tmp, "libexec")
+        os.makedirs(libexec)
+        launcher = os.path.join(self.tmp, "launcher-git")
+        install_fake(launcher, "#!/bin/sh\necho '%s'\n" % libexec)
+        os.symlink(launcher, os.path.join(self.bin, "git"))
+        with unittest.mock.patch.object(relay_setup, "APPLE_GIT_LAUNCHER", launcher):
+            line = relay_setup.git_first_check("Darwin")
+        assert line is not None
+        self.assertFalse(line[1])
+        self.assertIn("docs/macos.md section 1", line[2])
+
+    def test_a_git_whose_exec_path_folder_is_missing_is_not_ok(self):
+        install_fake(os.path.join(self.bin, "git"), "#!/bin/sh\necho '%s'\n" % os.path.join(self.tmp, "missing-libexec"))
+        line = relay_setup.git_first_check("Darwin")
+        assert line is not None
+        self.assertEqual((line[0], line[1]), ("git first on PATH is the real git", False))
+        self.assertIn("docs/macos.md section 1", line[2])
+
+    def test_a_real_git_is_ok(self):
+        libexec = os.path.join(self.tmp, "libexec")
+        os.makedirs(libexec)
+        install_fake(os.path.join(self.bin, "git"), "#!/bin/sh\necho '%s'\n" % libexec)
+        self.assertEqual(relay_setup.git_first_check("Darwin"), ("git first on PATH is the real git", True, ""))
+
+    def test_the_line_is_absent_on_linux_and_doctor_shows_it_on_macos(self):
+        self.assertIsNone(relay_setup.git_first_check("Linux"))
+        self.fakes()
+        with unittest.mock.patch.object(relay_setup.platform, "system", return_value="Darwin"):
+            names = [name for name, _, _ in relay_setup.doctor()]
+        self.assertIn("git first on PATH is the real git", names)
+        with unittest.mock.patch.object(relay_setup.platform, "system", return_value="Linux"):
+            names = [name for name, _, _ in relay_setup.doctor()]
+        self.assertNotIn("git first on PATH is the real git", names)
 
 
 class DepsFile(unittest.TestCase):

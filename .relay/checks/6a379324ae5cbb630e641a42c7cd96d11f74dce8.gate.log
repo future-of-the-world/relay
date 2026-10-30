@@ -1,0 +1,20 @@
+head 6a379324ae5cbb630e641a42c7cd96d11f74dce8
+cmd bin/ci --quick
+wait 0.0
+gate: stopped a leftover test process 11225 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, folder deleted
+gate: stopped a leftover test process 37020 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, folder deleted
+gate: stopped a leftover test process 63618 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, folder deleted
+gate: stopped a leftover test process 81975 (/opt/homebrew/Cellar/python@3.14/3.14.6/Frameworks/Python.framework/Versions/3.14/Resources/Python.app/Contents/MacOS/Py): parent gone, folder deleted
+ci: types and lint ok (0s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (762s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_timeout_with_mypy_missing_names_mypy_and_the_install_step (test_precheck.TestTypesStep.test_a_timeout_with_mypy_missing_names_mypy_and_the_install_step)
+    AssertionError: 'mypy is not installed' not found in 'RED  types and lint\n  FAIL types and lint took longer than 1 s\nskip python 3.9 (no plugin modules here)\nRED  plugin lib links\n  FAIL plugin lib links: cannot read HEAD: fatal: Not a valid object name HEAD\nskip changed tests (no tests/run_unittest.py here)\nprecheck: RED (the gate would be red; fix these first)'
+    FAILED (failures=1)
+ci: coverage 90.0% of lib, bin, plugins (15092 of 16762 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (4s)
+ci: inert ok (9s)
+ci: RED
+exit 1
