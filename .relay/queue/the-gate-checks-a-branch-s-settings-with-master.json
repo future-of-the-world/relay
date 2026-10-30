@@ -20,8 +20,8 @@
     "lib/relay_kit.py",
     "tests/test_kit_schema.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T21:52:23Z",
+  "taken_by": "wt/the-gate-checks-a-branch-s-settings-with-master",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
