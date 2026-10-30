@@ -986,10 +986,12 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
     todo.append("in Claude Code, run `/plugin marketplace add " + marketplace_root() + "` once, then `/reload-plugins` (or restart) so the plugins load")
     runner = install_runner or run_plugin_install
     for p in plugins:
-        if p in ALWAYS_ON:
-            continue
         key = plugin_key(p)
         cmd = f"claude plugin install {key} --scope project"
+        if p in ALWAYS_ON:   # the user scope owns these; but one installed nowhere is a doctor FIX, so name the command
+            if not installed_for(root, key):
+                todo.append(f"{key} is enabled but not installed, so its skills are missing: after the marketplace step above, run `{cmd}` in {root} (or `relay setup --global` for every project)")
+            continue
         if installed_for(root, key):
             done.append(f"{key} already installed")
         else:

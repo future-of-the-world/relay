@@ -696,6 +696,21 @@ class PluginInstall(Base):
         self.assertIn("installed openspec@amidman at project scope", done)
         self.assertFalse([t for t in todo if "openspec@amidman" in t])
 
+    def test_setup_todo_names_install_for_always_on_plugins_doctor_flags(self):
+        import relay_setup
+        self._registry({})
+        proj = self._proj()
+        calls = []
+        _, _, _, todo = relay_setup.setup(proj, install_runner=lambda r, k: (calls.append(k) or True, ""))
+        # always-on plugins are not installed by setup (user scope owns them), but doctor flags each
+        # one that is installed nowhere, so the to-do must carry the exact command for each
+        flagged = [n for n, ok, _ in relay_setup.doctor(proj, profile={}) if n.endswith(" installed") and not ok]
+        self.assertTrue(flagged)
+        for name in flagged:
+            key = name[: -len(" installed")]
+            self.assertTrue([t for t in todo if f"claude plugin install {key} --scope project" in t], key)
+        self.assertEqual(calls, [])
+
     def test_setup_install_failure_todo_names_the_command(self):
         import relay_setup
         self._registry({})
