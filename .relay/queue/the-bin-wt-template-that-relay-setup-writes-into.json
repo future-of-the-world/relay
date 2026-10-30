@@ -28,8 +28,9 @@
   ],
   "taken_at": null,
   "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T23:12:19Z",
+  "test": "tests/test_bin_wt.py::TemplateBinWtNew::test_queue_prefix_refused",
+  "fixed_by": "c77fba2a2b3ed118eecc47b780911c94ee2237cd",
   "dropped_at": null,
   "dropped_why": null
 }
