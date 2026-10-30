@@ -167,6 +167,16 @@
         "c. a personal notes repository with a sync command (~75)",
         "d. do nothing"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T11:53:11Z",
+      "question": [
+        "(Design rev 4) Does relay stay in the owner's user folder (~/.claude/CLAUDE.md rules and 4 user-wide plugins) for folders outside relay projects and for sessions from an IDE or the desktop app?"
+      ],
+      "options": [
+        "a. keep it, as today, keeping the person's own lines (recommended: the guard stays on for any relay session; the owner's working rules follow them)",
+        "b. shell block only: folders outside relay are exactly as before relay; an IDE session in a relay project has no guard and no relay rules"
+      ]
     }
   ]
 }
