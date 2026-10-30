@@ -1,0 +1,37 @@
+{
+  "kind": "fix",
+  "ip": 75,
+  "time": 30,
+  "found_at": "2026-10-30T16:56:42Z",
+  "found_in": "finding F2 of review-branch-names-cut-at-40-characters-mid-wo.json",
+  "title": "A task branch of an item whose slug starts with queue- is…",
+  "what": [
+    "lib/relay_tidy.py:54: MEDIUM: F2 a task branch of an item whose slug starts with queue- is named wt/queue-..., which relay reads as a leftover queue-landing branch"
+  ],
+  "why": [
+    "A task branch for an item whose slug starts with queue- is named wt/queue-..., which relay reads as a leftover queue-landing branch and may treat wrongly."
+  ],
+  "failing_case": [
+    "Live queue has 9 open-or-closed items whose slug starts with \"queue-\" (e.g. queue-items-point-at-session-files-that-vanish).",
+    "`relay queue start queue-items-point-at-session-files-that-vanish` makes branch wt/queue-items-point-at-session-files-that-vanish.",
+    "relay_queue.leftover_branches lists it, so relay tidy/doctor reports \"leftover queue branch: wt/queue-items-...\" (a fixable leftover) while",
+    "the change is being built; relay_tidy.lines skips its worktree after merge; relay_inert absorbed() ignores it. Expected: a task branch is",
+    "never mistaken for a queue-landing branch."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. Start item \"queue-items-point-at-session-files-that-vanish\": relay doctor/tidy do not list its branch as a leftover queue branch.",
+    "2. A real leftover landing branch wt/queue-<slug> (left by a failed `relay queue` landing) is still listed.",
+    "3. After that task branch merges, tidy reports its worktree as \"merged worktree still present\" like any other task worktree.",
+    "4. Start item \"refuse-folder-and-pattern-entries-in-where-a\": branch wt/refuse-folder-and-pattern-entries-in-where-a, unchanged."
+  ],
+  "where": [
+    "lib/relay_tidy.py:54"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
