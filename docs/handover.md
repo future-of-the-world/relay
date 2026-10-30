@@ -1814,3 +1814,60 @@ Each branch waits for its answer; then a fix unit with the review's other findin
 ### Next steps
 1. Next free lanes: reports-a-task-needs-are-kept-in-the-repository (93, design in scratchpad reports/design-reports-in-repo.md, backup copy in ~/.relay/backup), one-stuck-queue-pick-hides-every-other-startable (94), work-goes-on-while-the-owner-is-away (reviewer decides + self-wake), the-front-reviews-code-itself-instead-of-startin (87).
 2. Next handover worktree: handover-47.
+
+## Addendum 35 (30 Oct, ~07:00 local; session 6c217ef4)
+
+### Landed since addendum 34
+- relay check runs ~31 git processes at any size (was 238); dead workflow agents leave an error note; ledger records starts of all agents and tells Claude Code's internal side calls apart; decision record (decided_by, chosen, because; owner reverses with `to`); close runner told closing is the cycle's rule; queue-time-estimates item closed (was landed, still open); relay metrics --since/--until/--by; the cycle refuses unknown arguments; lib modules exist once (plugins/*/lib are symlinks; two takes of master, the second mechanical).
+- Landing now (30 Oct): the-front-reviews-code-itself-instead-of (rule in rules/delegation.md: any review request goes to a critic), first-relay-setup-on-a-new-machine-fails.
+
+### Owner decisions (verbatim or letter)
+- Help: "У нас уже была задача на исправление команды help, должен быть встроенный механизм автоматического включения команды в help ... также необходимо добавить проверку на соответствие в review" -> words on item every-new-relay-command-edits-bin-relay; front decision: listing checked by code, usage-matches-behaviour line goes to the judge base.
+- VPS: "можем ли мы начать утилизировать ai.amidman.com ... сделай замер" -> measured: git start 27 ms Mac vs 1.5 ms VPS; 3 git-heavy test files 158 s vs 34 s; hypothesis (process start-up, not CPU) holds. Then "a": the VPS decides build-time gates, the Mac runs only the landing gate (replaces the 29 Oct rule for build-time gates). Then "a": relay creates the relay-gate account on the VPS itself (3 root commands, each shown first) - at bring-up, change 5 of the design.
+- Laptop as gate host: "Хорошо, позже я займусь этим" (question stays open; recorded twice by mistake at 01:07:22Z and 01:07:29Z: answer both with `to`).
+- Front-reviews change: "a" land (bench: front started a critic 5 of 5 with the rule vs 7 of 12 without).
+- Critic on Fable: "a" -> cheap-set bench 2026-10-30T02-38-10Z; adopted profile judge-fable (only failed run was a grader artifact, fix item bench-graders-read-the-main-tree-after-a-worktre ip 87). Sync waits for the paid run. Compare review cost a week later (relay report --compare).
+- "удали": train-20 and train-22 worktrees removed (branches kept).
+
+### Front decisions (owner can reverse)
+- Lanes stay 6: Mac at load 25-49 on 12 cores; gate waiting 25% of gate time; gate agents cost $1.21/week (0.3%).
+- Held landings touching lib/ until one-copy lib landed (it conflicted twice).
+- Design vps-build-gates rev 2 (5 changes, ~4 h 50 min): remote logs never decide merges; after each landing one VPS gate on master, red -> one fix item; images only from master's recipe; lanes gate on the Mac while master is red on Linux. Design files backed up in ~/.relay/backup/scratch-6c217ef4-20261030/.
+
+### In progress
+- Paid run on master f05643e2 in .worktrees/paid-f05643e2, log scratchpad reports/paid-f05643e2.log (18 commits due). On green: relay sync (adopts the Fable critic); on red: one fix item at the top.
+- Lanes: one-stuck-queue-pick-hides-every-other-startable, the-quick-gate-is-red-again-in-a-clean-linux-ima, the-test-runner-leaves-test-tokens-outside-its-t, plus landings above.
+- New fix items: a-dropped-item-s-empty-worktree-still-holds-a-la (89), the-podman-machine-lost-the-size-the-owner-chose (90), the-quick-gate-is-red-again (91, taken), branch-names-cut-at-40-characters-mid-word-and-c (84), a-landed-worktree-git-calls-a-submodule-holder-s (80), a-test-leaves-relay-ledger-bound-to-a-patched-le (86), relay-metrics-has-no-time-window (landed), bench-graders-read-the-main-tree-after-a-worktre (87); feature build-time-gates-on-the-vps-landing-gate-on-the (90).
+
+### Next steps
+1. When the paid run ends: relay sync on green; remove .worktrees/paid-f05643e2.
+2. VPS build: change 2 of the design (remote log name and its readers, ~55 min) when a lane frees; change 5 (bring-up, account) after the clean-Linux fix is green.
+3. Next handover worktree: handover-48.
+
+## Addendum 36 (30 Oct, ~09:15 local; session 6c217ef4)
+
+### Landed since addendum 35
+- lib modules exist once (plugins/*/lib symlinks; landed on the third take, the front held other lib-touching landings meanwhile); front-reviews rule (any review request goes to a critic; bench: critic started 5 of 5 vs 7 of 12); first relay setup on a new machine; one-stuck-queue-pick (the reproduce result is a `reproduced` field on a fact note, latest wins; the lanes line names skipped items). Landing now: cycle refuses unknown arguments, ledger leak fix (cause of 5 red gates and the red paid run on 30 Oct), test-token leak fix (take conflict being resolved).
+
+### Owner decisions (verbatim or letter)
+- Land front-reviews: "a". Critic on Fable: "a" -> cheap-set bench; the only failed run was a grader artifact (fix item bench-graders-read-the-main-tree-after-a-worktre, building); profile judge-fable adopted, sync waits for a green paid run.
+- VPS account: "a" (relay creates relay-gate itself at bring-up, each root command shown first).
+- VPS build now: "a, разве мы не приняли решение 3 на 3 ?" -> the 29 Oct split (3 lanes features, 3 fixes) applies; the lane pick does not know it: fix item the-lane-pick-ignores-the-owner-s-3-and-3-lane-s (93). Until it lands the front keeps the split by hand.
+- Plans and reports: "Почему мы вообще кладем plan в md в docs ... или не хранить план в .relay/queue РЯДОМ с задачей в формате <slug>.plan.md" -> design revision 3 of reports-a-task-needs-are-kept-in-the-repository (running).
+- Docs: "Мой вектор это избавление от документации в репозитории, проведи анализ" -> feature documentation-leaves-the-repository (90), design running (Haiku answers test, budget $5). Then: README will hold only one install command under INSTALLATION; `relay --help` lists subcommands, `relay <command> --help` shows that command's options and flags. Measured: relay --help is a 90-line flat list of 35 forms; per-command help is a slice of the same hand-written text, flags inline; 20 commands in the dispatch table, metrics missing; `relay metrics --help` prints the top-level help; README 120 lines. Recorded on documentation-leaves-the-repository and every-new-relay-command-edits-bin-relay.
+
+### Front decisions (owner can reverse)
+- Paid run on f05643e2 red only from the ledger leak (all 31 evals passed, $18.15): no rerun; next paid run after the ledger fix lands; relay sync (Fable critic) waits for it.
+- The clean-image gate is kept green by one paid-run step (container gate ~21 min on this Mac), later replaced by the VPS Linux watch.
+- Next feature lanes: VPS build (with the container gate, one lane), the-change-cycle-script-lands-a-ready-change-its (96, design running), one-digest-per-wave-instead-of-status-messages (95); speed-up-the-quick-gate after the VPS work (same gate files).
+
+### In progress
+- VPS change 2 of 5 (remote log name and readers) on wt/build-time-gates-on-the-vps-landing-gate; plan copied to docs/plans/vps-build-gates.md (may move after the reports design).
+- Fix lanes: the-quick-gate-is-red-again (second round: paid-run step, lock-wait bound, a real podman run), bench graders, test-token take.
+- Designs: reports-in-repo rev 3, docs-leave-repo, change-cycle-lands.
+- Open owner question: laptop as comparison host (asked twice by mistake, 01:07:22Z and 01:07:29Z; owner said "позже").
+
+### Next steps
+1. When the ledger fix lands: paid run on master's head (front, background), then relay sync on green.
+2. Keep 3 fix / 3 feature lanes by hand; land ready changes; VPS changes 3-4 after change 2.
+3. Next handover worktree: handover-49.

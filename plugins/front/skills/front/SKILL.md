@@ -27,6 +27,12 @@ agents (load the `delegate` skill).
 - One screen at most. Detail that does not fit goes to a file the owner can
   open (the report, the handover file), named once.
 
+## A review request goes to a critic
+
+Asked to review code (a function, a file, a diff, a branch), start a
+`delegate:critic` with a brief; never read the code and judge it yourself,
+however short it is. You then pass on the critic's findings in plain words.
+
 ## Few requests, not many small commands
 
 Every request of this session re-reads the whole context, so the count of
@@ -189,10 +195,13 @@ it, or say in one short sentence why the lane stays free: facts only (what is fr
 what waits), never a reading of what the owner wants or said. Do not repeat your
 earlier answer. A branch that holds two items
 is one lane. Settings under `[front]` in the project's `.claude/kit.toml`:
-`lanes_line_items` (default 3, 1-8, items named in the line), `stop_nudge`
+`lanes_line_items` (default 3, 0-10, startable items named after the picks as "next:"; 0 names none), `stop_nudge`
 (default 1, 0-2, Stop refusals per lane state; 0 is the line only) and
 `lane_quiet_hours` (default 3, 1-24, how long a worktree with no item counts as
-a lane). Do not wait for the other lanes, and never start more than N.
+a lane). The reproduce step's result is recorded as data: `relay queue note` with a `fact` and
+`reproduced = "no"` (or `"yes"`). An item whose newest such note says "no" is not named as a pick
+and the line lists it as "skipped, not reproduced"; a later `reproduced = "yes"` brings it back.
+Do not wait for the other lanes, and never start more than N.
 
 While a paid run goes, lanes keep building. A change that touches the paid
 run's paths waits at the landing until the run ends; `bin/paid-cost touches

@@ -26,8 +26,16 @@
   ],
   "taken_at": "2026-10-30T03:10:15Z",
   "taken_by": "wt/one-stuck-queue-pick-hides-every-other-s",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T04:43:21Z",
+  "test": "tests/test_lanes_state.py::Lanes::test_not_reproduced_item_is_not_a_pick_and_the_next_items_are_named",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T03:59:42Z",
+      "fact": [
+        "Front decision (owner can reverse; principle 5, fact to code; owner's \"a a\" of 30 Oct: review questions a principle answers are decided without the owner): review F2 (the skip rests on the English phrase \"not reproduced\" in prose) is fixed by storing the reproduce step's result as data on the item (a structured field or event written by one command, latest one wins, so a later \"reproduced\" puts the item back), not by a longer word list. The branch's red gate (test_hook_ledger has_start) is the ledger leak, the 4th red gate from it on 30 Oct; master now carries the shield from first-relay-setup-on-a-new-machine-fails."
+      ]
+    }
+  ]
 }
