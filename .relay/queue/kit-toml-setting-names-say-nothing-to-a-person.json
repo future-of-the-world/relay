@@ -29,8 +29,8 @@
   ],
   "taken_at": "2026-10-30T21:35:52Z",
   "taken_by": "wt/kit-toml-setting-names-say-nothing-to-a-person",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T23:31:22Z",
+  "test": "tests/test_setup.py::Setup::test_setup_migrates_an_old_kit_toml_with_one_line_per_key",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
