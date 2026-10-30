@@ -1210,12 +1210,15 @@ def git_first_check(system: str | None = None) -> tuple[str, bool, str] | None:
     return ("git first on PATH is the real git", problem is None, problem or "")
 
 
+GATE_COPIES_LINE = "no gate copy of a killed gate left registered"
+
+
 def gate_copies_check(root: str) -> tuple[str, bool, str]:
     """The doctor line "no gate copy left registered": removes the copies of gates that were killed (a temporary worktree each,
-    registered in the repository) and names them."""
+    registered in the repository) and names them in the detail. A folder that is missing or no repository has none."""
     import relay_ci_copy
-    gone = relay_ci_copy.prune_dead_copies(root)
-    return ("no gate copy of a killed gate left registered", True, "removed: " + ", ".join(gone) if gone else "")
+    gone = relay_ci_copy.prune_dead_copies(root) if os.path.isdir(root) else []
+    return (GATE_COPIES_LINE, True, "removed: " + ", ".join(gone) if gone else "")
 
 
 def bin_relay_problem(root: str) -> str | None:

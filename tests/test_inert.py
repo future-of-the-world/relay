@@ -189,11 +189,18 @@ class GateCopyLeftovers(Repo):
         import relay_setup
         self.copy, self.setup = relay_ci_copy, relay_setup
 
-    def copy_of(self, pid):
+    def copy_of(self, pid, hold=False):
+        """A copy registered in the repo; hold=True keeps the record's lock as a running gate does."""
         tmpd = tempfile.mkdtemp(dir=self.tmp)
         self.git("worktree", "add", "-q", "--detach", os.path.join(tmpd, "wt"), "HEAD")
-        self.copy.write_shared_record(self.repo, tmpd, pid=pid)
+        self.copy.write_shared_record(self.repo, tmpd, pid=pid, hold=hold)
+        self.addCleanup(self.copy.drop_shared_record, self.repo, tmpd)
         return tmpd
+
+    def doctor(self, *args, cwd=None):
+        done = subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "doctor", *args], capture_output=True,
+                              text=True, env=ENV, cwd=cwd or self.tmp)
+        return done.stdout + done.stderr
 
     def dead_pid(self):
         child = subprocess.Popen([sys.executable, "-c", "pass"])
@@ -212,7 +219,7 @@ class GateCopyLeftovers(Repo):
         self.assertFalse(os.path.exists(tmpd))
 
     def test_a_copy_of_a_running_gate_is_left_alone(self):
-        tmpd = self.copy_of(os.getpid())                  # this test process is the running gate
+        tmpd = self.copy_of(os.getpid(), hold=True)       # this test process is the running gate: it holds the lock
         self.assertEqual(self.copy.prune_dead_copies(self.repo), [])
         self.assertEqual(len(self.registered()), 2)
         self.assertTrue(os.path.isdir(tmpd))
@@ -225,6 +232,77 @@ class GateCopyLeftovers(Repo):
         self.assertEqual(len(self.registered()), 1)
         name, good, detail = self.setup.gate_copies_check(self.repo)
         self.assertEqual(detail, "")                      # nothing to name the second time
+
+    def test_a_gate_in_another_pid_namespace_is_left_alone(self):
+        # F4 (a): the record's pid (37) names nothing in this namespace, but the gate holds the record's lock
+        tmpd = self.copy_of(2 ** 22 + 37, hold=True)
+        self.assertEqual(self.copy.prune_dead_copies(self.repo), [])
+        self.assertTrue(os.path.isdir(tmpd))
+
+    def test_a_killed_gate_whose_pid_was_reused_is_removed(self):
+        # F4 (b): nobody holds the lock, the pid is this live process (as after pid reuse): the copy is a leftover
+        tmpd = self.copy_of(os.getpid(), hold=False)
+        self.assertEqual(self.copy.prune_dead_copies(self.repo), [tmpd])
+        self.assertEqual(len(self.registered()), 1)
+
+    def test_a_gate_start_prunes_the_copy_of_another_lane_whose_gate_was_killed(self):
+        # F5: lanes A and B exist; A's gate was killed (record, no lock); B's gate starts
+        lanes = []
+        for name in ("a", "b"):
+            path = os.path.join(self.tmp, name)
+            self.git("worktree", "add", "-q", "--detach", path, "HEAD")
+            lanes.append(path)
+        tmpd = self.copy_of(self.dead_pid())
+        self.assertEqual(len(self.registered()), 4)       # repo, 2 lanes, the copy
+        self.copy.remove_leftover_copy(lanes[1])
+        self.assertEqual(len(self.registered()), 3)
+        self.assertFalse(os.path.exists(tmpd))
+
+    def test_doctor_prints_the_removed_copy_on_its_line(self):
+        # F1: the text the person sees names the copy
+        tmpd = self.copy_of(self.dead_pid())
+        out = self.doctor(self.repo)
+        line = [ln for ln in out.splitlines() if "gate copy" in ln]
+        self.assertEqual(len(line), 1, out)
+        self.assertTrue(line[0].startswith("ok  "), line)
+        self.assertIn(tmpd, line[0])
+        self.assertEqual(len(self.registered()), 1)
+
+    def test_doctor_line_without_a_leftover_names_nothing(self):
+        out = self.doctor(self.repo)
+        self.assertIn("ok   no gate copy of a killed gate left registered\n", out)
+
+    def test_doctor_leaves_the_copy_of_a_running_gate(self):
+        tmpd = self.copy_of(os.getpid(), hold=True)
+        out = self.doctor(self.repo)
+        self.assertNotIn(tmpd, out)
+        self.assertEqual(len(self.registered()), 2)
+
+    def test_doctor_without_a_folder_prunes_the_repository_of_the_current_folder(self):
+        # F2: README's form `relay doctor`, run inside the repository
+        tmpd = self.copy_of(self.dead_pid())
+        out = self.doctor(cwd=self.repo)
+        self.assertIn(tmpd, out)
+        self.assertEqual(len(self.registered()), 1)
+
+    def test_doctor_without_a_folder_outside_a_repository_has_no_error(self):
+        out = self.doctor(cwd=self.tmp)
+        self.assertNotIn("Errno", out)
+        self.assertNotIn("Traceback", out)
+        self.assertIn("# This machine", out)
+
+    def test_doctor_on_a_missing_folder_says_relay_setup(self):
+        # F3: master prints the project block with the kit.toml FIX line; no Errno
+        missing = os.path.join(self.tmp, "missing")
+        out = self.doctor(missing)
+        self.assertNotIn("Errno", out)
+        self.assertIn("relay setup " + missing, out)
+
+    def test_doctor_on_a_folder_that_is_no_repository_is_ok(self):
+        plain = os.path.join(self.tmp, "plain")
+        os.makedirs(plain)
+        out = self.doctor(plain)
+        self.assertIn("ok   no gate copy of a killed gate left registered\n", out)
 
 
 if __name__ == "__main__":
