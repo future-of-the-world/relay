@@ -1,0 +1,16 @@
+head 3ff4402e00ee8d467d02a894c70828f13e915ce9
+cmd bin/ci --quick
+wait 9.7
+ci: types and lint ok (1s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (442s, log: .ci/steps/library-tests.log)
+    FAIL: test_template_gate_and_orphan_waits_are_hang_bounds (test_hang_limits.HangLimits.test_template_gate_and_orphan_waits_are_hang_bounds)
+    AssertionError: Lists differ: [120] != []
+    FAILED (failures=1)
+ci: coverage 89.0% of lib, bin, plugins (15914 of 17885 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ran on a copy without queue, handover and check records; covers every commit with the same code
+ci: RED
+exit 1
