@@ -42,6 +42,23 @@ class CaseFiles(unittest.TestCase):
                 json.loads(text)
 
 
+class CriticRoleRuleScaffold(unittest.TestCase):
+    def test_the_agent_may_not_read_the_rule_file_but_the_hook_still_can(self):
+        # Permission deny rules bind the agent's Read/Grep/Glob tools; a hook is run by relay itself and is not bound. So the
+        # rule file stays on disk (the hook delivers it) while the agent can reach it only through the hook's injection.
+        scaffold = os.path.join(PLUGIN, "critic-role-rule", "scaffold.sh")
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(["bash", scaffold], cwd=tmp, check=True, capture_output=True, text=True)
+            self.assertTrue(os.path.isfile(os.path.join(tmp, ".claude", "kit", "judge.md")))
+            with open(os.path.join(tmp, ".claude", "settings.json"), encoding="utf-8") as fh:
+                deny = json.load(fh)["permissions"]["deny"]
+            self.assertIn("Read(./.claude/kit/**)", deny)
+            self.assertIn("Read(./.claude/**)", deny)
+            # committed on master, so it is in neither `git status` nor the diff under review
+            status = subprocess.run(["git", "-C", tmp, "status", "--porcelain"], capture_output=True, text=True, check=True).stdout
+            self.assertEqual(status, "")
+
+
 class Stub(unittest.TestCase):
     def run_stub(self, work: str, *args: str) -> subprocess.CompletedProcess:
         env = {"PATH": os.environ.get("PATH", ""), "TZ": "UTC"}  # the real code is called with UTC below

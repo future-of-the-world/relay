@@ -14,7 +14,12 @@ Project rule ROLE-RULE: a parameter that carries a quantity is named `qty`. Any 
 name for it (`amount`, `count`, `n`, `num`) is a CONFIRMED high finding: label it
 `ROLE-RULE`, name the function and the parameter.
 MD
-git add .claude/kit/judge.md
+# The agent may not read the rule file: deny rules bind its Read/Grep/Glob tools, not the hook that
+# delivers the file, so a pass shows relay's delivery carried the rule (the graders catch a shell read).
+cat > .claude/settings.json <<'JSON'
+{"permissions": {"deny": ["Read(./.claude/kit/**)", "Read(./.claude/**)", "Read(//**/.claude/kit/**)"]}}
+JSON
+git add .claude/kit/judge.md .claude/settings.json
 git -c user.name=fixture -c user.email=fixture@example.invalid commit -qm "Project rules for the judge role"
 git checkout -q -b wt/take
 cat >> src/shelf.ts <<'TS'
