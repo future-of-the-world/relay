@@ -293,53 +293,6 @@ def git(repo, *args):
     return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True, env=dict(os.environ, **GIT_ENV), check=True).stdout
 
 
-class LandedCap(unittest.TestCase):
-    """F2: `bin/paid-cost cap <USD>` lands one commit on the default branch; the checkout it runs in is not edited."""
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.repo = os.path.realpath(os.path.join(self.tmp.name, "repo"))
-        os.makedirs(os.path.join(self.repo, ".relay"))
-        git(self.repo, "init", "-q", "-b", "master")
-        for name, text in (("projects.toml", TOML), (".relay/keep", "")):
-            with open(os.path.join(self.repo, name), "w") as f:
-                f.write(text)
-        git(self.repo, "add", "-A"); git(self.repo, "commit", "-qm", "init")
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def cap(self, root, *args):
-        env = dict(os.environ, RELAY_ROOT=root, **GIT_ENV)
-        env.pop("RELAY_PROJECTS", None)
-        return subprocess.run([sys.executable, BIN, "cap", *args], capture_output=True, text=True, env=env)
-
-    def test_cap_from_the_main_checkout_commits_and_leaves_it_clean(self):
-        done = self.cap(self.repo, "300")
-        self.assertEqual((done.returncode, done.stdout.strip()), (0, "300"), done.stderr)
-        self.assertEqual(git(self.repo, "status", "--porcelain"), "")           # clean: the ff merge brought the file
-        landed = git(self.repo, "show", "master:projects.toml")
-        self.assertIn("paid_cap_usd_per_day = 300   # the owner cap", landed)    # comment kept (F5)
-        self.assertEqual(git(self.repo, "rev-list", "--count", "master"), "2\n")
-        # pass case 2: a detached worktree of the default branch's head prints 300
-        wt = os.path.join(self.tmp.name, "paid-wt")
-        git(self.repo, "worktree", "add", "-q", "--detach", wt, "master")
-        self.assertEqual(self.cap(wt).stdout.strip(), "300")
-
-    def test_cap_from_a_task_worktree_changes_the_default_branch_not_the_worktree(self):
-        wt = os.path.join(self.tmp.name, "task")
-        git(self.repo, "worktree", "add", "-q", "-b", "wt/task", wt)
-        done = self.cap(wt, "250")
-        self.assertEqual(done.stdout.strip(), "250", done.stderr)
-        self.assertIn("= 250", git(self.repo, "show", "master:projects.toml"))
-        self.assertEqual(git(wt, "status", "--porcelain"), "")
-        self.assertEqual(git(self.repo, "status", "--porcelain"), "")
-
-    def test_cap_without_a_value_prints_and_changes_nothing(self):
-        self.assertEqual(self.cap(self.repo).stdout.strip(), "200")
-        self.assertEqual(git(self.repo, "rev-list", "--count", "master"), "1\n")
-
-
 class CapText(unittest.TestCase):
     """F5: the value is replaced, the comment kept, no %g rounding."""
 

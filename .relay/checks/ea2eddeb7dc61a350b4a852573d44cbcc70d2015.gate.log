@@ -1,0 +1,21 @@
+head ea2eddeb7dc61a350b4a852573d44cbcc70d2015
+cmd bin/ci --quick
+wait 399.4
+ci: types and lint ok (2s)
+ci: plugin lib links ok (1s)
+ci: library tests FAILED (813s, log: .ci/steps/library-tests.log)
+    FAIL: test_a_license_fixed_during_the_wait_clears_the_failure (test_gate_slots.Slots.test_a_license_fixed_during_the_wait_clears_the_failure)
+    AssertionError: 1 != 0
+    FAIL: test_f1_paid_prints_estimate_and_spend_before_the_gate_runs (test_gate_quick.Quick.test_f1_paid_prints_estimate_and_spend_before_the_gate_runs)
+    AssertionError: Lists differ: ['estimate', 'today'] != ['estimate', 'today', 'gate']
+    FAIL: test_f2_a_plain_gate_adds_no_argument_when_kit_names_no_quick_mode (test_gate_quick.Quick.test_f2_a_plain_gate_adds_no_argument_when_kit_names_no_quick_mode)
+    AssertionError: 'cmd ../../.ci/gate.sh' != 'cmd /private/var/folders/p8/dhcggy314838c8vh4[128 chars]e.sh'
+    ERROR: test_f2_a_plain_gate_runs_the_ci_quick_binding (test_gate_quick.Quick.test_f2_a_plain_gate_runs_the_ci_quick_binding)
+    FileNotFoundError: [Errno 2] No such file or directory: '/private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/relay-run-_3z0nf0h/relay-home-test_f2_a_plain_gate_runs_the_ci_quick_b-e171y4ip/relay-gate-aiboj5ed/args'
+ci: coverage 89.9% of lib, bin, plugins (14837 of 16496 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (5s)
+ci: plugin validate ok (6s)
+ci: inert ok (0s)
+ci: RED
+exit 1

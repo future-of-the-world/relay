@@ -177,6 +177,12 @@
         "a. keep it, as today, keeping the person's own lines (recommended: the guard stays on for any relay session; the owner's working rules follow them)",
         "b. shell block only: folders outside relay are exactly as before relay; an IDE session in a relay project has no guard and no relay rules"
       ]
+    },
+    {
+      "at": "2026-10-30T12:50:00Z",
+      "fact": [
+        "30 Oct ~12:55Z: the front released this item's lane (no commits on its branch) so the top fixes (red paid run, ip 97; Python aborts, ip 96) could start while the owner's three design questions wait (principle 1: fix before features). Design revision 4 is kept as this item's plan; the scenarios page is https://claude.ai/artifact/QpgowYU9Y54yo54u3Saeq3. The build restarts with relay queue start after the owner answers."
+      ]
     }
   ]
 }

@@ -4,15 +4,14 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))   # unittest from the repo root has only the root on sys.path
-from relay_testbase import ROOT  # noqa: E402
+from relay_testbase import ROOT, shipped_specs  # noqa: E402
 
 
 class TestPrinciplesRule(unittest.TestCase):
     """The principles rule is carried by the targets that load it (relay, any opting-in project) and not by the global file."""
 
     def _targets(self):
-        import relay_config
-        return relay_config.read_toml(os.path.join(ROOT, "projects.toml"))
+        return shipped_specs()
 
     def test_rule_has_the_shape(self):
         import relay_rules
@@ -49,9 +48,8 @@ class TestPrinciplesRule(unittest.TestCase):
         self.assertIn("My native language: Russian.\n", with_key)
         without = relay_rules.render_target("global", {"load": []}, rules, {})
         self.assertNotIn("native language", without)
-        # a project target never carries it, and relay's own projects.toml sets it for the real global target
+        # a project target never carries it
         self.assertNotIn("native language", relay_rules.render_target("demo", {"load": [], "native_language": "Russian"}, rules, {}))
-        self.assertEqual(self._targets()["global"]["native_language"], "Russian")
 
     def test_relay_loads_it_and_the_global_profile_does_not(self):
         # relay opts in by load; the global profile loads none of it (other projects opt in the same way)

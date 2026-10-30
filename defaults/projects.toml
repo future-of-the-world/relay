@@ -1,21 +1,15 @@
-# Who loads what. `relay setup <dir>` adds a project here; `relay sync` writes
-# the files. The global target loads the rules the active profile names.
+# relay's shipped defaults for the owner's settings. relay never writes this file: when
+# $RELAY_HOME/projects.toml is missing, relay copies it there, and from then on the copy is the owner's.
+# The list of projects on the machine is added below it by `relay setup <dir>`; a project's own settings
+# (lanes, the rules it loads) live in that project's .claude/kit.toml under [rules].
 
 [global]
 paid_cap_usd_per_day = 200   # the owner's cap for paid runs per UTC day; change it with `bin/paid-cost cap <USD>`
 file = "~/.claude/CLAUDE.md"
 title = "Defaults for all projects"
-native_language = "Russian"   # the owner's native language; sync writes one line, the "Working with me" rule uses the term
 intro = """A project's own CLAUDE.md, skills, and hooks override anything here. These
 rules come from the relay repository (`rules/`, one file per rule); each project
 adds the ones it needs through its `CLAUDE.local.md`. Change a rule there and
 run `relay sync`."""
 load = []
 skip = ["principles", "python", "openspec"]   # a rule projects opt into by load stays out of the global "read when they apply" list
-
-[relay]
-file = "~/relay/CLAUDE.local.md"
-title = "Principles this project loads"
-lanes = 6   # changes built at once (1-8, default 4); the owner chose 6 on 27 Oct
-load = ["principles", "python"]
-read = []
