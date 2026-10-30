@@ -33,8 +33,8 @@
   ],
   "taken_at": "2026-10-30T04:02:13Z",
   "taken_by": "wt/a-test-leaves-relay-ledger-bound-to-a-pa",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T05:07:17Z",
+  "test": "tests/test_metrics.py::Records::test_a_fresh_import_of_relay_ledger_inside_a_records_test_binds_the_real_ledger_dir",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
