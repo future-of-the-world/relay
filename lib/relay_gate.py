@@ -26,7 +26,7 @@ import subprocess
 import sys
 import time
 import re
-from typing import IO, Any, Callable, Mapping, Optional, Sequence
+from typing import IO, Callable, Mapping, Optional, Sequence
 
 import relay_config
 import relay_git
@@ -39,6 +39,7 @@ import relay_tokens
 from relay_gate_logs import (FAILED_LINES, Remote, RemoteResult, RemoteUnavailable, LIMIT_EXIT, MAC_SUFFIX, REMOTE_SUFFIX, STOPPED, STOPPED_LINE, TOOLCHAIN, _exit_code, _last_mac_red,  # noqa: F401
                             _log_lines, _toolchain_changed, deciding_host, finished_red, first_failure, log_sha_host, reusable)
 import relay_procs
+from relay_gate_stops import hold_stops, signal_line  # noqa: F401
 from relay_temp import prefixed_folders, temp_roots, under
 import relay_toml
 
@@ -361,33 +362,6 @@ def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
     print("gate: the code is unchanged since the red gate of %s: reported, not run (relay gate --again runs it)" % sha,
           file=sys.stderr, flush=True)
     return red
-
-
-def signal_line(number: int, command_pid: int = 0, since: float = 0.0) -> str:
-    """The gate log's line for a command ended by a signal: relay's record of the stop (to its pid or group, from `since`), else that no relay sender that logs its signals sent it (never "not sent by relay": some senders do not log)."""
-    name = {int(s): s.name for s in signal.Signals}.get(number, "signal %d" % number)
-    try: record = relay_procs.sent_by_relay(command_pid, since) if command_pid else None
-    except OSError as exc: return "gate command ended by %s, cannot tell whether relay sent it (the signal log %s could not be read: %s)" % (name, relay_procs.signal_log(), exc)
-    return "gate command ended by %s, sent by relay: %s" % (name, record) if record else "gate command ended by %s, no relay sender that logs its signals sent it (those are the gate, its reclaim and leftover sweep, and bin/ci; other senders of relay do not log yet; no record of it in %s)" % (name, relay_procs.signal_log())
-
-
-def hold_stops() -> tuple[list[int], Callable[[], None]]:
-    """Hold SIGINT, SIGTERM and SIGHUP: arrivals are appended to the returned list instead of acting. The function returned
-    puts the earlier handlers back. Not the main thread: nothing is held (the caller owns its signals)."""
-    held: list[int] = []
-    saved: dict[int, Any] = {}
-    try:
-        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
-            if signal.getsignal(sig) == signal.SIG_IGN:      # an ignored stop needs no hold, and the command must inherit the ignore
-                continue
-            saved[sig] = signal.signal(sig, lambda signum, frame: held.append(signum))
-    except ValueError:
-        pass
-
-    def release() -> None:
-        for sig, old in saved.items():
-            signal.signal(sig, old)
-    return held, release
 
 
 def sweep_leftovers(worktree: str, env: Mapping[str, str]) -> list[str]:
