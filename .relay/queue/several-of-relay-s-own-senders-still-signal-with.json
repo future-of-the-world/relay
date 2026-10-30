@@ -34,5 +34,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T22:35:34Z",
+      "fact": [
+        "30 Oct 2026: this item builds on the signal log that wt/a-sigterm-in-a-gate-does-not-name-its-sender adds (not on master yet); start it after that change lands. Its empty worktree and branch from a premature start stay until relay tidy clears them (no commits)."
+      ]
+    }
+  ]
 }
