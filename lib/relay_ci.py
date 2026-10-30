@@ -6,7 +6,7 @@ failing step's first findings; the full log in .ci/ci.log. Exit 0 only when gree
 
 Steps: library tests (python), types and lint (mypy + ruff pyflakes rules through uv; needs uv and, the first time, the
 network), hook tests (the live session test; bun/jq must be on PATH or the step
-FAILS naming the tool; only hooks-live, which makes a paid claude call, is left for the full run), lib copies identical,
+FAILS naming the tool; only hooks-live, which makes a paid claude call, is left for the full run), plugin lib links,
 plugin evals' grader tests, `claude plugin validate` (skipped loudly without claude), the inert step, plugin evals (full
 mode only; compared with evals/plugin/baseline), then the record step (bin/eval-record: files .ci/evals.json under
 $RELAY_HOME/evals, prints failed meaning graders, split votes and rule-file reads; it fails the gate when the copy fails,
@@ -25,7 +25,6 @@ from __future__ import annotations
 
 import contextlib
 import difflib
-import filecmp
 import glob
 import os
 import re
@@ -41,6 +40,7 @@ from typing import Any, Callable, NoReturn, TextIO
 
 from relay_ci_probe import remove_leftover_probe, write_shared_record, drop_shared_record
 from relay_ci_lines import _read_lines, _read_lines_keep, outcome  # noqa: F401  (outcome is called by other programs through relay_ci)
+import relay_precheck
 from relay_ci_python import python_problem  # noqa: F401  (re-exported: tests call relay_ci.python_problem)
 
 StepFn = Callable[[TextIO], int]
@@ -319,20 +319,12 @@ class Ci:
             return 1
         return 0
 
-    def lib_copies(self, log: TextIO) -> int:
-        rc = 0
-        for plugin in ("observe", "delegate", "front", "relay", "openspec"):
-            for f in sorted(glob.glob(self.path("plugins", plugin, "lib", "relay_*.py"))):
-                lib = self.path("lib", os.path.basename(f))
-                if not (os.path.exists(lib) and filecmp.cmp(f, lib, shallow=False)):
-                    log.write("FAIL %s differs from lib/ (run bin/sync-lib-copies)\n" % os.path.relpath(f, self.root))
-                    rc = 1
-            prices = self.path("plugins", plugin, "lib", "prices.toml")
-            if os.path.exists(prices) and not (os.path.exists(self.path("prices.toml"))
-                                               and filecmp.cmp(prices, self.path("prices.toml"), shallow=False)):
-                log.write("FAIL plugins/%s/lib/prices.toml differs\n" % plugin)
-                rc = 1
-        return rc
+    def lib_links(self, log: TextIO) -> int:
+        """Each lib module exists once: the precheck's allow-list over the committed tree (see relay_precheck.check_lib_links)."""
+        found = relay_precheck.check_lib_links(self.root)
+        for line in found:
+            log.write(line + "\n")
+        return 0 if all(line.startswith("skipped") for line in found) else 1
 
     def grader_tests(self, log: TextIO) -> int:
         return self.run(["python3", "-I", "evals/plugin/graders.py"], log).returncode
@@ -507,7 +499,7 @@ class Ci:
                 self.probe.start()   # beside the outer steps, not after them: it is waited for at the `inert` step
             # the seconds-long steps first: a red one ends the gate at once (the probe runs this same order and stops with it)
             self.step("types and lint", self.types_lint)
-            self.step("lib copies identical", self.lib_copies)
+            self.step("plugin lib links", self.lib_links)
             if self.status != 0:
                 self.say("ci: RED (a fast step failed: the slow steps were not started)")
                 return self.status

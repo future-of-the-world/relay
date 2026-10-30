@@ -1,0 +1,34 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.3558,
+   "id": "a67440c80e56f6e12",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 8,
+   "session": "986d3b98-4e86-48f3-9147-0d2df64ff63f",
+   "stage": "other",
+   "start": "2026-10-30T02:12:06.347Z",
+   "stop": "2026-10-30T02:13:13.530Z"
+  },
+  {
+   "cost_usd": 0.4965,
+   "id": "aa1718d3886e92669",
+   "model": "claude-opus-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "94fab02e-9db0-446d-acfe-de14347cde53",
+   "stage": "other",
+   "start": "2026-10-30T02:14:10.203Z",
+   "stop": "2026-10-30T02:15:39.055Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "other",
+ "land": [],
+ "schema": 1,
+ "unit": "paging-review"
+}

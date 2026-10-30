@@ -24,8 +24,8 @@
     "plugins/front/hooks/lanes.py",
     "lib/relay_lanes.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T03:10:15Z",
+  "taken_by": "wt/one-stuck-queue-pick-hides-every-other-s",
   "closed_at": null,
   "test": null,
   "dropped_at": null,

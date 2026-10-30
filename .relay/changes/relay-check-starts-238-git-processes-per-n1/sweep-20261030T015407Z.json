@@ -1,0 +1,56 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.0968,
+   "id": "a29681f38f94df2f5",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "fix",
+   "start": "2026-10-30T00:16:23.416Z",
+   "stop": "2026-10-30T00:19:04.359Z"
+  },
+  {
+   "cost_usd": 0.0045,
+   "id": "a71ea262c0ac6fc82",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 7,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "gate",
+   "start": "2026-10-30T00:19:06.553Z",
+   "stop": "2026-10-30T00:35:50.123Z"
+  },
+  {
+   "cost_usd": 0.1661,
+   "id": "a4909d345e766963c",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 9,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check",
+   "start": "2026-10-30T00:35:52.395Z",
+   "stop": "2026-10-30T00:39:16.057Z"
+  },
+  {
+   "cost_usd": 0.002,
+   "id": "a080c7c7e0b197aad",
+   "model": "claude-haiku-5-5",
+   "n": 1,
+   "requests": 1,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "check show",
+   "start": "2026-10-30T00:39:18.800Z",
+   "stop": "2026-10-30T00:39:35.150Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "change",
+ "land": [],
+ "schema": 1,
+ "unit": "relay-check-starts-238-git-processes-per-n1"
+}

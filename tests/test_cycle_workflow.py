@@ -86,6 +86,21 @@ class Cycle(unittest.TestCase):
         self.assertIn("relay queue done the-item -C", out["prompts"]["close queue item: the-item"])
         self.assertIn("--test tests/a.py::A::b", out["prompts"]["close queue item: the-item"])
 
+    def test_close_prompt_says_closing_is_the_cycles_rule_not_the_agents_call(self):
+        """A run started in the turn of an owner question: the close runner must be told closing is the cycle's rule
+        (the prompt carries it), so it cannot refuse on principle. Disabled (rule sentence removed): fails."""
+        out = self.run_cycle(self.args([self.unit(item="the-item")]), **GREEN)
+        p = out["prompts"]["close queue item: the-item"]
+        self.assertIn("is the cycle's rule", p)
+        self.assertIn("whatever message started this run", p)
+
+    def test_gate_and_show_runners_carry_the_run_rule(self):
+        """Every single-command runner is told the run's steps are the cycle's rules, whatever message started the run.
+        Disabled (RUN_RULE removed): fails."""
+        out = self.run_cycle(self.args([self.unit(item="the-item")]), **GREEN)
+        for label in ("gate 1: the-item", "check show: the-item"):
+            self.assertIn("steps of this run are the cycle's rules", out["prompts"][label])
+
     def test_no_item_no_close_and_project_mode_has_no_queue_or_show(self):
         """Without an item: no close stage. Project mode (relay false): neither close nor check show."""
         out = self.run_cycle(self.args([self.unit()]))

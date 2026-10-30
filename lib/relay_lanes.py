@@ -177,7 +177,7 @@ def _activity(main: str, branch: str, worktree: Optional[str]) -> float:
 
 
 def canonical(path: str) -> str:
-    """A file's name with a plugin's copy mapped to its source, as bin/sync-lib-copies copies them: plugins/<p>/lib/relay_*.py and
+    """A file's name with a plugin's copy mapped to its source, as the links under plugins/<p>/lib point (a link never shows in a diff, so this maps a name written by hand): plugins/<p>/lib/relay_*.py and
     prices.toml come from lib/ (prices.toml from the root); plugins/<p>/bin/relay is bin/relay. Two names of one file compare equal."""
     found = re.fullmatch(r"plugins/[^/]+/(lib/relay_[^/]*\.py|lib/prices\.toml|bin/relay)", path)
     if not found:

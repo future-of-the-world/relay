@@ -1,0 +1,48 @@
+{
+  "kind": "fix",
+  "ip": 86,
+  "time": 30,
+  "found_at": "2026-10-30T02:53:30Z",
+  "found_in": "finding F3 of review-first-relay-setup-on-a-new-machine-fails.json",
+  "title": "A test leaves relay_ledger bound to a patched ledger_dir…",
+  "what": [
+    "tests/test_metrics.py:138: MEDIUM: F3 a test leaves relay_ledger bound to a patched ledger_dir; this change only shields one victim test, the leak stays for every other relay_ledger test"
+  ],
+  "why": [
+    "An order-dependent red gate (30 Oct, branch of first-relay-setup-on-a-new-machine-fails): a test patch of relay_config.ledger_dir stays bound inside relay_ledger for the rest of the process; the branch shielded one victim test, the cause stays. A flaky test is a bug (quality-gate rule)."
+  ],
+  "failing_case": [
+    "Gate of 47efc720 (this branch): library tests FAILED in",
+    "test_hook_ledger.Ledger.test_has_start_scans_each_day_file_once_and_finds_either_day, and inert went red because the",
+    "probe run passed it: an order-dependent failure. relay_ledger does `from relay_config import claude_json, ledger_dir`",
+    "(lib/relay_ledger.py:24), so if relay_ledger is first imported while a test has relay_config.ledger_dir patched",
+    "(tests/test_metrics.py:138 is the only such patch), the module keeps that mock for the rest of the process. cfbde7a6",
+    "patches mod.relay_ledger.ledger_dir in the one failing test; any other test reading relay_ledger after it (for example",
+    "tests/test_transcripts_analysis.py:221 rl.ledger_dir()) still sees the stale folder.",
+    "Expected: no test leaves relay_ledger bound to another test's folder; the order of tests does not change a result."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. Run test_metrics then test_hook_ledger in one process (parallel_unittest with one worker, or unittest with both",
+    "   modules): test_has_start... passes without the victim-side patch.",
+    "2. Same with test_metrics then test_transcripts_analysis: rl.ledger_dir() is under that test's RELAY_HOME.",
+    "3. relay_ledger.ledger_dir() in a fresh process still follows RELAY_HOME (the hook writes to $RELAY_HOME/ledger)."
+  ],
+  "where": [
+    "tests/test_metrics.py:138"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T03:28:11Z",
+      "fact": [
+        "30 Oct: the same leak turned the landing gate of wt/the-front-reviews-code-itself-instead-of red (test_hook_ledger test_has_start_scans_each_day_file_once_and_finds_either_day failed, inert went red), on a branch that does not touch the ledger. Second red gate from this cause in one day."
+      ]
+    }
+  ]
+}

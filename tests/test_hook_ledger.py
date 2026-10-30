@@ -5,6 +5,7 @@ import os
 import re
 import tempfile
 import unittest
+from unittest import mock
 from typing import Dict, Optional
 
 from hook_helpers import ROOT, run_hook, SoftCases
@@ -110,6 +111,11 @@ class Ledger(SoftCases):
         os.environ["RELAY_HOME"] = self.home
         self.addCleanup(lambda: os.environ.pop("RELAY_HOME") if old is None else os.environ.__setitem__("RELAY_HOME", old))
         spec.loader.exec_module(mod)
+        # relay_ledger is shared in the process and binds ledger_dir at its first import (another test may have
+        # imported it under a patched ledger_dir): point it at this test's folder so the test owns its state.
+        patcher = mock.patch.object(mod.relay_ledger, "ledger_dir", lambda: os.path.join(self.home, "ledger"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
         opened = []
         real = open
         mod.open = lambda p, *a, **k: (opened.append(p), real(p, *a, **k))[1]

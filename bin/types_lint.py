@@ -11,7 +11,7 @@ import sys
 
 MYPY = "1.18.2"
 RUFF = "0.13.3"
-# bin/relay has no .py suffix; plugin lib copies are identical to lib/, so only lib/ is checked; kit_* are the plugin-only modules
+# bin/relay has no .py suffix; plugin lib files are links to lib/, so only lib/ is checked; kit_* are the plugin-only modules
 PATTERNS = ["lib/**/*.py", "bin/relay", "plugins/*/hooks/*.py", "plugins/*/lib/kit_*.py"]
 
 
