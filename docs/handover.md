@@ -1905,3 +1905,35 @@ Each branch waits for its answer; then a fix unit with the review's other findin
 1. When the paid run ends: green -> relay sync (applies the Fable critic profile); red -> one fix item.
 2. Ask the owner what to change in the digest; then a fix unit on wt/one-digest-per-wave-instead-of-status-me and `relay land --release`.
 3. Next handover worktree: handover-50.
+
+## Addendum 38 (30 Oct, ~13:45 UTC; session 6c217ef4)
+
+### Landed since addendum 37
+- Reports a task needs kept in the repository (plan beside its item as .relay/queue/<slug>.plan.md).
+- relay land --keep-open: an intermediate landing of a multi-change feature releases the item instead of closing it (front decision on review F4, owner can reverse).
+- Registry split (owner "a"): owner settings and the machine's project list in $RELAY_HOME; a project's lanes and rules in its own .claude/kit.toml; projects.toml left relay's repository.
+- Tests build each git repo once per key and copy it (guard tests 1191 -> 484 git starts; gate tests 1610 -> 1472).
+
+### Owner decisions (30 Oct, verbatim where short)
+- Linux comparison: "Сравнивать данные с удаленной машиной ai.amidman.com" — read as: compare the VPS build gate with the Mac landing gate, no extra run.
+- Grilling: "a" (a project that wants it keeps its own copy in .claude/skills); relay must not ignore a project's .claude/skills.
+- Conflicts between relay's rules and a project's: one soft rule line, no checks: "если нашел противоречие между правилами relay и правилами проекта - спроси пользователя, рекомендуй использовать настройки проекта, ты в гостях, уважай место где ты находишься". Front's one critique recorded: relay's code guards (secrets, guard workarounds, merge hook) stay in force.
+- "relay не отказывается от настроек которые пользователь уже имеет в репозитории, он должен их уважать, при этом добавляя свои правила и принципы".
+- Registry: "a" (split, above).
+- Quick gate: "a" — the single test run happens on a copy without queue, handover and check files (29 Oct pick replaced: its price was wrong, measured 77% of landing gates see such commits, ~165 extra gates a day).
+- Digest: "a, b" (grammar and one language; front decisions in full); then "Когда я вижу Жду вашего ответа, мне приходится листать вверх..." and "Не только вопрос но и пояснение к нему, как будто ты задаешь его в первый раз" -> waiting questions printed in full, and a question note keeps its intro.
+- Crash dialogs: "a" — macOS crash dialogs turned off (defaults write com.apple.CrashReporter DialogType none) until the Python abort fix lands; then `defaults delete com.apple.CrashReporter DialogType`.
+- "Я устал и отвечу позже ... можешь заняться чем нибудь другим и не ждать ответа на эти вопросы".
+
+### Waiting for the owner
+- Three questions of session design revision 4 (page https://claude.ai/artifact/QpgowYU9Y54yo54u3Saeq3, section 7; plan kept beside item a-change-runs-with-relay-s-settings-from-the-pro): launcher via a shell block (a, the owner's "2. Да" read as a, to confirm); memory in the project's git (a, the owner's 24 Oct pick); relay stays in the user folder (a). The item's lane was released (front, principle 1); restart with relay queue start after the answers.
+- The digest branch wt/one-digest-per-wave-instead-of-status-me is on hold until the owner sees the new preview (waiting questions in full with their intro).
+- VPS: whether agents keep root ssh access to ai.amidman.com.
+
+### In progress
+- Quick gate build (wt/speed-up-the-quick-gate), VPS changes 3-4 build (wt/gates-on-the-vps-hosts-transport-watch-b, land with --keep-open by hand; it must also switch watch_stdin in lib/relay_gate_remote.py to os.read(0, 4096) with a test — that is the cause of the Python 3.14 SIGABRT crash windows, item python-aborts-at-exit-in-gates-macos-shows-crash, ip 96), red paid run fix (wt/paid-run-red-plan-one-line-spec-check-fa: plugin lib symlinks not found by kit in the eval, ModuleNotFoundError relay_toml), digest intro re-gate, a-just-started-branch fix.
+- Paid run on 9aa7248a was RED (plan-one-line 0 of 3); relay sync waits for a green run.
+
+### Next steps
+1. When the VPS change lands: confirm no new Python-*.ips crash reports, close the python-aborts item, turn the crash dialog back on.
+2. Next handover worktree: handover-51.

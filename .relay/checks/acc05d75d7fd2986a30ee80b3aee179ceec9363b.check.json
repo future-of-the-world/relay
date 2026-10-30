@@ -1,0 +1,130 @@
+{
+  "branch": "wt/paid-run-red-plan-one-line-spec-check-fa",
+  "findings": [
+    {
+      "details": [
+        "The paid run on master 9aa7248a (30 Oct) is red, so relay sync cannot apply the waiting profile and agent-text changes; plan-one-line passed in its last 5 records.",
+        "Also: evals/plugin/graders.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "The paid run log of 30 Oct (master 9aa7248a, started about 11:01Z): \"FAIL plan-one-line run 1|2|3 spec-check: code grader failed\"; traces in $RELAY_HOME/eval-traces/relay/2026-10-30T11-01-24Z-master/plan-one-line-with-run1..3/trace.jsonl; \"ci: eval record: NOT A PASS: ... 3 code grader(s) failed ... in plan-one-line\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "plan-one-line passes its majority (2 of 3) in a paid run on the fixed head",
+        "the cause is named in the report with the trace line that shows it"
+      ],
+      "path": "evals/plugin/plan-one-line/case.yaml",
+      "rank": "high",
+      "reason": [
+        "tests/test_plugin_links.py:89 test_the_eval_step_runs_with_real_files passes; at the base commit the module does not exist, so the test file cannot import (fails)."
+      ],
+      "severity": "HIGH",
+      "since": "d763016ecab122c7945a193691950b9a99d927dd",
+      "source": "queue",
+      "summary": "Paid run red: plan-one-line spec-check fails 0 of 3",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: git grep shows relay_plugin_links / real_files used in tests only by tests/test_plugin_links.py, which calls",
+        "real_files itself; the PaidPart tests run plugin_evals on a temp root with no plugins/ folder, so the swap is a no-op there and",
+        "nothing asserts it happened. The brief asks for a test that fails before the fix \"when the plugin folder is used the way the eval",
+        "uses it\"; the module test covers the swap, not that the eval step uses it. The Recorder pattern of",
+        "test_the_old_results_file_is_removed_before_the_eval_step already observes the tree at the moment claude starts, so the test is",
+        "cheap. Principle 2 (waste): a paid run that goes red for a cause a free test could catch repeats per wave. Size: 15 minutes."
+      ],
+      "evidence": [
+        "git grep -n \"relay_plugin_links\\|real_files\" -- tests lib bin",
+        "  lib/relay_ci.py:430/431 (the wiring), tests/test_plugin_links.py:14,42,57,65 (direct calls only)",
+        "tests/test_ci_python.py:106-116 PaidPart.ci(): root is a bare temp folder, lib_links stubbed, no plugins/ folder"
+      ],
+      "failing_case": [
+        "Remove `with relay_plugin_links.real_files(self.root):` from Ci.plugin_evals (lib/relay_ci.py:431), leaving the bare",
+        "self.run(argv, ...). Today: tests/test_plugin_links.py and tests/test_ci_python.py all pass (the only callers of real_files in",
+        "tests call it directly; no test runs plugin_evals over a tree with plugin lib links). The regression shows up only as a red",
+        "paid run (dollars and about an hour), the very failure this change fixes. Should: a free test fails."
+      ],
+      "fix_hint": [
+        "Add a PaidPart test in tests/test_ci_python.py: write lib/relay_x.py and a relative link plugins/p/lib/relay_x.py into self.root,",
+        "record os.path.islink of the link inside the Recorder answer for argv[0] == \"claude\", assert False there and True after."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 106,
+      "pass_cases": [
+        "1. A PaidPart test whose root holds lib/relay_x.py and plugins/p/lib/relay_x.py -> ../../../lib/relay_x.py: while the stub",
+        "   `claude` call runs (the Recorder answer for argv[0] == \"claude\"), plugins/p/lib/relay_x.py is a regular file with the content",
+        "   of lib/relay_x.py. Fails when the real_files block is removed from plugin_evals.",
+        "2. Same root: after plugin_evals returns, plugins/p/lib/relay_x.py is a link again with its old link text.",
+        "3. The existing PaidPart tests (root with no plugins/ folder) keep passing unchanged."
+      ],
+      "path": "tests/test_ci_python.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_plugin_links.py:89 asserts a real file during the claude call and link back after."
+      ],
+      "severity": "MEDIUM",
+      "since": "04235f6fb6d4ab5ae98bfca799409a52fa3bde91",
+      "source": "review-paid-run-red-plan-one-line-spec-check-fa.json",
+      "source_id": "F1",
+      "summary": "no test checks that the eval step runs with real files: dropping the real_files block in relay_ci keeps every test green and only a paid run shows it",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading lines 33-45: done.append happens after copyfile, so a failure between os.remove and the append is never",
+        "undone. SIGTERM/SIGHUP are safe (main() raises on them, the finally runs); SIGKILL is not. Today all links are .py modules, so",
+        "(c) is only fragility. Correct today in ordinary use, hence LOW. Size: 5 minutes for (a) and (c) (append before the copy;",
+        "shutil.copy2 or copymode)."
+      ],
+      "evidence": [
+        "lib/relay_plugin_links.py:36-40: source = realpath; os.remove(path); shutil.copyfile(source, path); done.append((path, text))",
+        "lib/relay_ci.py:588-589: SIGTERM and SIGHUP -> _raise_exit"
+      ],
+      "failing_case": [
+        "a) shutil.copyfile raises after os.remove(path) (disk full, permission): `done` has no entry for path, so the finally block does not",
+        "   recreate the link; the worktree has lost a tracked file (git status: D plugins/relay/lib/relay_toml.py).",
+        "b) bin/ci is killed with SIGKILL during the eval (about an hour): no finally runs; every plugin lib link stays a real copy",
+        "   (git status: T for 35 files), a later gate in that worktree refuses it as not clean, `git worktree remove` needs --force.",
+        "c) copyfile drops the mode bits: a future link to an executable (a plugin bin linked to bin/) would become non-executable.",
+        "Should: (a) the link comes back whatever step failed; (b)/(c) are noted risks of the in-place design."
+      ],
+      "fix_hint": [
+        "Append (path, text) to done before os.remove; use shutil.copy2 (or copyfile + copymode)."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 36,
+      "pass_cases": [
+        "1. real_files over a root where copyfile fails on the second link: on exit every link exists with its old text.",
+        "2. The current tests of tests/test_plugin_links.py keep passing (links back after a normal exit and after an exception).",
+        "3. A link to an executable target is, inside the block, a file with the target's mode."
+      ],
+      "path": "lib/relay_plugin_links.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_plugin_links.py:112 and :121 pass (failed copy restores link, mode kept). SIGKILL risk remains, noted by fixer."
+      ],
+      "severity": "LOW",
+      "since": "04235f6fb6d4ab5ae98bfca799409a52fa3bde91",
+      "source": "review-paid-run-red-plan-one-line-spec-check-fa.json",
+      "source_id": "F2",
+      "summary": "the swap edits the gated worktree for the whole eval and is fragile on the way back: a link removed before a failed copy is never restored, and a SIGKILL leaves every link a real file",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "369f6f23b26572274761a8514f9732a644c2adb6.gate.log",
+  "head": "acc05d75d7fd2986a30ee80b3aee179ceec9363b",
+  "item": "paid-run-red-plan-one-line-spec-check-fails-0-of",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range d763016ecab1..HEAD. Changed own files: lib/relay_ci.py, lib/relay_plugin_links.py, tests/test_plugin_links.py. Ran tests.test_plugin_links (7 OK). Gate log head equals the 369f6f23 code; only a gate log commit after it. Precheck not rerun; fixer reports green and gate exit 0."
+  ],
+  "type": "check"
+}

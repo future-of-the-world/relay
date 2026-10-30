@@ -23,8 +23,8 @@
   "where": [
     "lib/relay_precheck.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T14:27:38Z",
+  "taken_by": "wt/precheck-s-60-s-timeout-names-no-cause-o",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
