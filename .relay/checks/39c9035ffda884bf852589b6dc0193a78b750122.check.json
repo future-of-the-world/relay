@@ -1,0 +1,120 @@
+{
+  "branch": "wt/relay-status-still-counts-dead-agents-as-running",
+  "findings": [
+    {
+      "details": [
+        "relay status (lib/relay_analyze.py) still counts finished and killed agents as running; the route guard was fixed on 30 Oct with a 10-minute idle limit, relay status was not."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Live ledger now, session 6c217ef4 (the front): `relay status` shows running = 11 (runners from 07:27, 10:45, 12:58,",
+        "13:58, 14:18, a thinker from 11:12, workers from 08:05, 12:03 ...), while 3 agents are running (all with ledger events",
+        "in the last 3 minutes). It should show 3, the same count the routing guard now uses."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 637,
+      "pass_cases": [
+        "1. Ledger: session s with 7 agent_start an hour ago, last event 50 min ago, no stop, plus 1 start 3 min ago: status row for s shows running 1.",
+        "2. Ledger: session s with 2 starts 8 min and 1 min ago, no stops: running 2.",
+        "3. Ledger: 7 starts and 7 matching stops plus 1 live start: running 1 (works today).",
+        "4. Agent names column lists only the counted agents' types."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_transcripts_analysis.py:376 test_old_silent_starts_are_not_running passes; fails on base 2e1290a8f783 (TypeError, new now argument). Behaviour: 7 starts 60 min old are dropped, live one counts."
+      ],
+      "severity": "HIGH",
+      "since": "2e1290a8f783f7b68f8eb0f1904cef36e4202e99",
+      "source": "queue",
+      "summary": "Relay status still counts dead agents as running: it\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the diff. Same rating as the earlier check of the route-guard change (its F2, LOW, Python rule",
+        "types on changed functions). Correct today; cheap to fix. Size: 5."
+      ],
+      "evidence": [
+        "git diff master...HEAD -- lib: `+def status(events, claude_dir, now: dt.datetime | None = None):`"
+      ],
+      "failing_case": [
+        "lib/relay_analyze.py:635 `def status(events, claude_dir, now: dt.datetime | None = None):` - changed in this commit,",
+        "only the new parameter is typed. tests/test_transcripts_analysis.py `_ev(kind, minutes_ago, aid, atype=...)` and",
+        "`_running(self, events)` are new and untyped. The project rule (CLAUDE.local.md, Python) says every new or changed",
+        "function has types; expected e.g. `def status(events: list[relay_ledger.Event], claude_dir: str, now: dt.datetime | None = None) -> str:`."
+      ],
+      "fix_hint": [
+        "Annotate status() (events: list[relay_ledger.Event], claude_dir: str, -> str) and the two test helpers."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 635,
+      "pass_cases": [
+        "1. status() carries annotations for every parameter and its return; bin/ci --quick types-and-lint step stays green.",
+        "2. tests/test_transcripts_analysis.py Status: 3 of 3 still pass.",
+        "3. bin/relay status (cmd_status, no `now`) still prints the table."
+      ],
+      "path": "lib/relay_analyze.py",
+      "rank": "low",
+      "reason": [
+        "lib/relay_analyze.py:635 status() and test helpers typed."
+      ],
+      "severity": "LOW",
+      "since": "ce215f6889b1896d58aaf21cda3816b0634a07d0",
+      "source": "review-relay-status-still-counts-dead-agents-as-running.json",
+      "source_id": "F1",
+      "summary": "Python rule (types on changed functions): status() was changed but events, claude_dir and the return are unannotated; new test helpers have no types",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. Text only; Size: 5."
+      ],
+      "evidence": [
+        "sed -n 104,105p docs/observability.md"
+      ],
+      "failing_case": [
+        "docs/observability.md:104-105: \"`relay status` reads the last 12 hours: each session's last activity, context size,",
+        "and the agents started but not stopped.\" After this change an agent started 60 min ago with no stop and no later",
+        "event is not listed. A reader comparing the doc with the table sees fewer agents than the doc promises."
+      ],
+      "fix_hint": [
+        "Reword the sentence: \"... and the agents started, not stopped, and active in the last 10 minutes (an agent silent",
+        "longer has ended, as the routing guard counts it).\""
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 104,
+      "pass_cases": [
+        "1. docs/observability.md says relay status counts an agent as running when it started, has not stopped, and had a",
+        "   ledger event in the last 10 minutes (the route guard's idle limit).",
+        "2. The line still names the 12-hour window, last activity and context size."
+      ],
+      "path": "docs/observability.md",
+      "rank": "low",
+      "reason": [
+        "docs/observability.md:104-106 now states the 10 minute idle limit."
+      ],
+      "severity": "LOW",
+      "since": "ce215f6889b1896d58aaf21cda3816b0634a07d0",
+      "source": "review-relay-status-still-counts-dead-agents-as-running.json",
+      "source_id": "F2",
+      "summary": "docs say relay status lists agents started but not stopped; it now also drops agents silent for 10 minutes",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "8053a36d94a287403f85edfab2ad94cdd42b434f.gate.log",
+  "head": "39c9035ffda884bf852589b6dc0193a78b750122",
+  "item": "relay-status-still-counts-dead-agents-as-running",
+  "notes": [
+    "Base run: tests fail on the base with TypeError (status() has no now argument), so they fail without the fix, though by signature, not behaviour."
+  ],
+  "schema": 2,
+  "scope": [
+    "Range 2e1290a8f783..HEAD; files: lib/relay_analyze.py, docs/observability.md, tests/test_transcripts_analysis.py. Ran Status tests (3 OK). Gate log is for 8053a36 with exit 0; only the gate-log commit follows. Caller bin/relay:203 uses the default now. Check command not rerun: gate ran bin/ci --quick green on the same code."
+  ],
+  "type": "check"
+}

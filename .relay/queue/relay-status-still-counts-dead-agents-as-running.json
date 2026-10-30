@@ -28,8 +28,8 @@
   ],
   "taken_at": "2026-10-30T19:47:27Z",
   "taken_by": "wt/relay-status-still-counts-dead-agents-as-running",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T20:33:14Z",
+  "test": "tests/test_transcripts_analysis.py::test_old_silent_starts_are_not_running",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
