@@ -123,6 +123,12 @@
       "reading": [
         "a: the revision is stopped; a landing waits only for what the owner sees (screens and reply rules, list a of revision 2); direction is steered before the build through design questions and through the digest of reversible front decisions (item one-digest-per-wave-instead-of-status-messages)."
       ]
+    },
+    {
+      "at": "2026-10-30T06:07:02Z",
+      "said": [
+        "Ты путал меня текстами и экранами, мне это показалось странным, на деле ты просто перекладываешь то что делается из главной сессии в сам workflow изменения, при этом функционально ничего не меняется"
+      ]
     }
   ]
 }
