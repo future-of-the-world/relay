@@ -79,6 +79,12 @@
         "",
         "Как relay диктует claude управлять временными файлами, черновиками, те файлы что не попадают в git и могут быть утеряны при перезагрузке"
       ]
+    },
+    {
+      "at": "2026-10-30T09:06:29Z",
+      "fact": [
+        "Front decision (owner can reverse; principles 2 and 3), 30 Oct: the front's hand-made copy of this session's temporary files under $RELAY_HOME/backup (2053 files, 17 MB; one full copy at 03:10, 8 designs picked by the front later, refreshed in full at the owner's question) is not made a standing mechanism: nothing reads it, it has no restore path (a new session gets a new temporary folder, so briefs naming the old absolute paths break), and what the owner chose to keep (the plan) lands beside its item in git with this feature. It is kept until this feature lands, then deleted."
+      ]
     }
   ]
 }
