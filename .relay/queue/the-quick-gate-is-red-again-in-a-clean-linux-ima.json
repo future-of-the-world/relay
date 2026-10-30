@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 91,
+  "time": 60,
+  "found_at": "2026-10-30T01:07:20Z",
+  "found_in": "relay queue add",
+  "title": "The quick gate is red again in a clean Linux image",
+  "what": [
+    "Make `bin/ci --quick` green in the clean image built from the Containerfile on current master, and keep it green (the gate or a paid step runs it)."
+  ],
+  "why": [
+    "Found by the remote-gate-host design (30 Oct) while measuring whether a Linux machine would speed up gates. The item the-quick-gate-is-red-in-a-clean-linux-container was closed green on 29 Oct; on master b55c82b9 the Containerfile recipe is red again, so no Linux gate, deciding or comparing, means anything until it is green."
+  ],
+  "failing_case": [
+    "30 Oct, master b55c82b9, podman image built 15 h earlier, `podman run ... bin/ci --quick` from a `--no-hardlinks` clone: 12 failing test batches. Seen: test_paid_batch (\"paid-cost: the default branch cannot be told\": the clone has no default branch), test_rules_gate_isolation (a ResourceWarning turns into a failure), test_gate_slots test_t4_a_gate_already_waiting_reclaims_* hung 10 min (the image has no lsof: not verified). The run was stopped at 1,272 s."
+  ],
+  "failing_kind": "run",
+  "pass_cases": [
+    "The same recipe on the fixed head: exit 0, no test hangs.",
+    "lsof present in the image or the slot reclaim not needing it on Linux."
+  ],
+  "where": [
+    "Containerfile",
+    "deps.toml",
+    "tests/test_paid_batch.py",
+    "tests/test_rules_gate_isolation.py",
+    "tests/test_gate_slots.py"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
