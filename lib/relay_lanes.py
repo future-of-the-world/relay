@@ -477,9 +477,7 @@ def stop_refusal(state: State, stamp: str, nudge: int, session: str) -> Optional
 # ---------------------------------------------------------------- relay queue start
 
 def _short(slug: str) -> str:
-    """The name of an item's branch and worktree: the whole slug. Slugs are unique, so the names are; the old 40-character cut
-    had no limit behind it (a branch name and a path of 48 characters are far below any path or socket limit) and gave two
-    items one name."""
+    # the whole slug: slugs are unique, so the names are; the old 40-character cut had no limit behind it
     return slug
 
 
