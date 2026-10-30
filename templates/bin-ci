@@ -4,9 +4,14 @@ set -uo pipefail
 root="$(git rev-parse --show-toplevel)"; cd "$root"
 mkdir -p .ci; : > .ci/ci.log
 status=0
-step() { local name="$1"; shift; local start=$(date +%s)
-  if "$@" >> .ci/ci.log 2>&1; then echo "ci: $name ok ($(( $(date +%s) - start ))s)"
-  else echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: .ci/ci.log)"; grep -nE 'FAIL|error|Error' .ci/ci.log | tail -8 | sed 's/^/    /'; status=1; fi; }
+step() { local name="$1"; shift; local start=$(date +%s) out; out="$(mktemp)"
+  if "$@" > "$out" 2>&1; then cat "$out" >> .ci/ci.log; echo "ci: $name ok ($(( $(date +%s) - start ))s)"
+  else cat "$out" >> .ci/ci.log; echo "ci: $name FAILED ($(( $(date +%s) - start ))s, log: .ci/ci.log)"
+    # the lines that look like a failure, then the step's last line whatever its wording (e.g. "No module named pytest")
+    grep -nE 'FAIL|error|Error' "$out" | tail -8 | sed 's/^/    /'
+    last="$(grep -v '^[[:space:]]*$' "$out" | tail -1)"
+    [ -n "$last" ] && ! grep -qxF -- "$last" <(grep -E 'FAIL|error|Error' "$out") && echo "    $last"
+    status=1; fi; rm -f "$out"; }
 # TODO ({{stack}}, {{tool}}): the steps. Examples:
 #   step "format" bun run format --check
 #   step "types"  bun run typecheck

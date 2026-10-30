@@ -671,6 +671,17 @@ def ensure_gitignore(root: str, d: dict) -> list[str]:
     return missing
 
 
+def test_tool_missing(stack: str) -> str:
+    """The reason the stack's test step cannot run on this machine, or "" (only python is looked at: `python3 -m pytest`)."""
+    if stack != "python":
+        return ""
+    try:
+        rc = subprocess.run(["python3", "-c", "import pytest"], capture_output=True, timeout=60).returncode
+    except (OSError, subprocess.TimeoutExpired):
+        return "python3 could not be run"
+    return "" if rc == 0 else "python3 has no pytest"
+
+
 def template_steps(stack: str) -> dict[str, str]:
     """The lines for the {{check_steps}} and {{ci_steps}} marks of bin-check and bin-ci."""
     check, ci = STACK_STEPS.get(stack, PLACEHOLDER_STEPS)
@@ -919,6 +930,9 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
                     todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO")
                 elif d["stack"] in STACK_STEPS:
                     todo.append(f"bin/{script}: check the {d['stack']} steps it was given (the contract is in plugins/relay/README.md)")
+                    why = test_tool_missing(d["stack"]) if script == "ci" else ""
+                    if why:
+                        todo.append(f'bin/ci: {why}, so the gate stays red at step "tests" until you install it or edit bin/ci')
                 else:
                     todo.append(f"bin/{script}: it fails with NOT CONFIGURED until you replace the placeholder step with the {d['stack']} commands (the contract is in plugins/relay/README.md)")
         elif not os.path.isfile(os.path.join(root, gate.get(script, f"bin/{script}"))):

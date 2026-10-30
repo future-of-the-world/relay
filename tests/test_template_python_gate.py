@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from relay_testbase import Base  # noqa: E402
@@ -155,6 +156,50 @@ class PythonGate(Base):
         self.assertEqual(self.run_script(dest, ()).returncode, 1)
         os.environ["TEST_FILES"] = "test_a.py"
         self.assertEqual(self.run_script(dest, ()).returncode, 0)
+
+    def fake_python_without_pytest(self):
+        # a python3 on PATH that has no pytest: what `python3 -m pytest` prints then (wording of CPython)
+        shim = os.path.join(self.proj, ".nopytest")
+        os.makedirs(shim, exist_ok=True)
+        fake = os.path.join(shim, "python3")
+        with open(fake, "w") as handle:
+            handle.write("#!/bin/sh\necho \"$0: No module named pytest\" >&2\nexit 1\n")
+        os.chmod(fake, 0o755)
+        return shim
+
+    def test_ci_summary_carries_the_cause_when_the_test_tool_is_missing(self):
+        # the line 'No module named pytest' matches neither FAIL nor error, so the old summary showed no cause
+        shim = self.fake_python_without_pytest()
+        dest = os.path.join(self.proj, "bin", "ci")
+        self.rs.copy_template("bin-ci", dest, mode_exec=True, replacements={"tool": "python", "stack": "python", "branch": "main", **self.rs.template_steps("python")})
+        r = subprocess.run([dest], cwd=self.proj, env={**os.environ, "PATH": shim + os.pathsep + os.environ["PATH"]}, capture_output=True, text=True, timeout=120)
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertIn("ci: tests FAILED", r.stdout)
+        self.assertIn("No module named pytest", r.stdout)
+
+    def test_ci_summary_does_not_repeat_a_cause_the_filter_already_showed(self):
+        self.write("test_tally.py", "def test_x():\n    assert 1 == 2\n")
+        r = self.render("ci", "python", "python")
+        self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+        self.assertEqual(r.stdout.count("1 failed"), 1, r.stdout)
+
+    def test_setup_todo_names_the_red_step_when_the_test_tool_is_missing(self):
+        shim = self.fake_python_without_pytest()
+        with mock.patch.dict(os.environ, {"PATH": shim + os.pathsep + os.environ["PATH"]}):
+            todo = self.setup_proj({"tally.py": "", "test_tally.py": ""})
+        red = [t for t in todo if "pytest" in t and "bin/ci" in t]
+        self.assertEqual(len(red), 1, todo)
+        self.assertIn("red", red[0])
+        self.assertIn('"tests"', red[0])
+
+    def test_setup_todo_has_no_red_warning_when_the_test_tool_is_installed(self):
+        todo = self.setup_proj({"tally.py": "", "test_tally.py": ""}) if self.python_has_pytest() else None
+        if todo is None:
+            self.skipTest("python3 on this machine has no pytest")
+        self.assertEqual([t for t in todo if "stays red" in t], [])
+
+    def python_has_pytest(self):
+        return subprocess.run(["python3", "-c", "import pytest"], capture_output=True).returncode == 0
 
 
 if __name__ == "__main__":
