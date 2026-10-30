@@ -16,6 +16,16 @@ class MacosDoc(unittest.TestCase):
         self.assertIn('ln -sf "$(xcrun --find git)"', DOC)
         self.assertRegex(DOC, r"python3.{0,10}3\.9")
 
+    def test_the_recipe_lays_all_three_links_and_gives_the_measured_numbers(self) -> None:
+        # a bare symlink makes git look for its helpers next to the link (29 Oct): bin, libexec/git-core and share/git-core
+        for link in ("$HOME/.local/bin/git", "$HOME/.local/libexec/git-core", "$HOME/.local/share/git-core"):
+            self.assertIn(link, DOC)
+        self.assertNotIn("git-bin", DOC)   # the old recipe's folder, which broke git
+        self.assertIn("20.9 ms per start", DOC)
+        self.assertIn("6.6 ms", DOC)
+        self.assertIn("1225 s", DOC)
+        self.assertIn("720 s", DOC)
+
     def test_homebrew_alternative_and_decision_stay(self) -> None:
         self.assertIn("Homebrew", DOC)
         self.assertIn("relay does not change `PATH`", DOC)

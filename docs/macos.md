@@ -15,7 +15,8 @@ Measured 29 Oct: 20.9 ms per start through the launcher against 6.6 ms for the r
 Fix on a Mac: put the real git first on `PATH`. The simplest way is Homebrew: `brew install git` (its folder comes before `/usr/bin` on a Homebrew machine). Or link the developer tools' git, with all three links, because git started through a bare link looks for its helpers and its built-in settings next to the link: without them `git init` makes `master` instead of `main`, no hook templates are copied, and submodules and the keychain credential helper fail. Once:
 
 ```sh
-DEV="$(dirname "$(xcrun --find git)")/.."
+XGIT="$(xcrun --find git)"
+DEV="$(dirname "$XGIT")/.."
 mkdir -p "$HOME/.local/bin" "$HOME/.local/libexec" "$HOME/.local/share"
 ln -sf "$(xcrun --find git)" "$HOME/.local/bin/git"
 ln -sfn "$DEV/libexec/git-core" "$HOME/.local/libexec/git-core"
