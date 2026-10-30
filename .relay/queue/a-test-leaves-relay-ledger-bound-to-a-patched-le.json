@@ -36,5 +36,13 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T03:28:11Z",
+      "fact": [
+        "30 Oct: the same leak turned the landing gate of wt/the-front-reviews-code-itself-instead-of red (test_hook_ledger test_has_start_scans_each_day_file_once_and_finds_either_day failed, inert went red), on a branch that does not touch the ledger. Second red gate from this cause in one day."
+      ]
+    }
+  ]
 }
