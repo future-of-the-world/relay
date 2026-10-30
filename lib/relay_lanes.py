@@ -14,6 +14,8 @@ worktree): that item waits, and the line says which file and branch. Used by the
 and by `relay queue start`. Settings, in the project's .claude/kit.toml under [front]:
   lanes_line_items  default 3, bound 0-10   startable items named after the picks ("next: ...") so a stuck pick hides nothing; 0 is the line
                                             without "next:" (at 10 about 250 tokens per message). Out of bounds: the default, and the line says so
+  feature_lanes     default 0, bound 0..lanes  lanes kept for features (relay: 3): while fewer feature lanes run, a free lane goes to the top startable
+                                            feature before any fix; the line shows "N of M fix lanes, K of J feature lanes"; 0 is no split
   stop_nudge        default 1, bound 0-2    Stop refusals per observed lane state and session (0: the line only; 2: a hold costs two extra turns)
   lane_quiet_hours  default 3, bound 1-24   a worktree with no item counts as a lane while changed within this (at 1 a long gate drops it
                                             from the count; at 24 a parked branch holds a lane for a day)
@@ -32,6 +34,7 @@ import relay_config
 import relay_git
 import relay_inert
 import relay_queue
+from relay_lane_features import feature_lanes_read, feature_lanes_setting  # noqa: F401  (the setting is re-exported for callers and tests)
 
 LANES_DEFAULT, LANES_MAX = 4, 8
 SETTINGS = {"lanes_line_items": (3, 0, 10), "stop_nudge": (1, 0, 2), "lane_quiet_hours": (3, 1, 24)}   # default, lowest, highest
@@ -77,6 +80,10 @@ class State(NamedTuple):
     quiet: list[str]           # no-item worktrees not counted (quiet or already landed)
     upcoming: list[Pick] = []  # the startable items after the picks (at most SETTINGS["lanes_line_items"] high), named so one stuck pick hides nothing
     skipped: list[str] = []    # open items left out of the picks because their newest reproduce result is "no" (`relay queue note` with reproduced = "no")
+    feature_split: int = 0     # lanes kept for features (front.feature_lanes); 0 = no split
+    feature_running: int = 0   # running lanes (a train counts its riders) that took a feature
+    itemless: int = 0          # running lanes that took no queue item (a design worktree): neither fix nor feature lanes
+    feature_note: Optional[str] = None   # why front.feature_lanes was not used as written (out of bounds, not a whole number)
 
 
 def setting(cfg: Any, key: str) -> int:
@@ -288,9 +295,10 @@ def _lane_files(main: str, default: str, lane: Lane, trees: dict[str, str]) -> l
     return sorted(names)
 
 
-def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], now: Optional[float] = None, limit: Optional[int] = None) -> State:
+def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], now: Optional[float] = None, limit: Optional[int] = None,
+                features: Optional[int] = None) -> State:
     """The lanes of the project that `repo` belongs to. `now` is epoch seconds (a value the tests pass); `limit` is the lanes setting
-    (read from the instruction file when None). Raises relay_queue.Refused outside a project with a queue."""
+    (read from the instruction file when None); `features` the lanes kept for features (read from kit.toml when None). Raises relay_queue.Refused outside a project with a queue."""
     main, default = relay_queue._context_with_relay(repo)
     when = time.time() if now is None else now
     capacity = lanes_setting(main) if limit is None else limit
@@ -327,6 +335,14 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
             quiet.append(f"{branch} (quiet)")
     running = _one_lane_per_train(main, running, trees, when, quiet_hours)
     free = max(0, capacity - len(running))
+    split, split_note = feature_lanes_read(main, capacity) if features is None else (max(0, min(capacity, features)), None)
+    taken_kinds: dict[str, set[str]] = {}          # a lane is a branch: the kinds of the items it took (a train: those of its riders too)
+    for i in open_items:
+        if i["state"] == "taken" and i.get("taken_by"):
+            taken_kinds.setdefault(i["taken_by"], set()).add(i["kind"])
+    lane_kinds = [set().union(*(taken_kinds.get(b, set()) for b in (lane.branch,) + tuple(lane.riders))) for lane in running]
+    feature_running = sum(1 for k in lane_kinds if "feature" in k)
+    itemless = sum(1 for k in lane_kinds if not k)
     picks: list[Pick] = []
     upcoming: list[Pick] = []
     skipped: list[str] = []
@@ -337,23 +353,38 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
             chosen.append((item["slug"], _paths(item.get("where") or [])))
     if free:
         changed = {lane.branch: _lane_files(main, default, lane, trees) for lane in running}
-        for item in relay_queue.ordered(open_items):
-            if item["state"] != "open" or _waiting_question(item):
-                continue
-            if _not_reproduced(item):
-                skipped.append(item["slug"])
-                continue
+
+        def blocked(item: dict, held: list[tuple[str, list[str]]]) -> Optional[Wait]:
+            """The wait that keeps an item from starting now (a running branch changed its file, or an earlier pick holds it); None when it can start."""
             where = item.get("where") or []
-            full = len(picks) == free          # past the picks: the same checks, but nothing is recorded as a wait and nothing is chosen
             hit = next(((f, b) for b, files in sorted(changed.items()) for f in [_overlap(where, files)] if f), None)
             if hit:
+                return Wait(item["slug"], hit[0], hit[1])
+            twin = next(((slug, shared) for slug, paths in held for shared in [_shared(where, paths)] if shared), None)
+            return Wait(item["slug"], twin[1], "", twin[0]) if twin else None
+
+        def candidates() -> list[dict]:
+            return [i for i in relay_queue.ordered(open_items) if i["state"] == "open" and not _waiting_question(i) and not _not_reproduced(i)]
+
+        first: list[str] = []                         # the split: the top startable features take the lanes kept for features, before any fix
+        trial = list(chosen)
+        for item in candidates() if split > feature_running else []:
+            if len(first) == min(free, split - feature_running):
+                break
+            if item["kind"] == "feature" and blocked(item, trial) is None:
+                first.append(item["slug"])
+                trial.append((item["slug"], _paths(item.get("where") or [])))
+        for item in relay_queue.ordered(open_items):
+            if item["state"] == "open" and not _waiting_question(item) and _not_reproduced(item):
+                skipped.append(item["slug"])
+        pool = candidates()
+        for item in [i for i in pool if i["slug"] in first] + [i for i in pool if i["slug"] not in first]:
+            where = item.get("where") or []
+            full = len(picks) == free          # past the picks: the same checks, but nothing is recorded as a wait and nothing is chosen
+            wait = blocked(item, chosen)
+            if wait:
                 if not full:
-                    waits.append(Wait(item["slug"], hit[0], hit[1]))
-                continue
-            twin = next(((slug, shared) for slug, paths in chosen for shared in [_shared(where, paths)] if shared), None)
-            if twin:
-                if not full:
-                    waits.append(Wait(item["slug"], twin[1], "", twin[0]))
+                    waits.append(wait)
                 continue
             pick = Pick(item["slug"], item["kind"], item["ip"], mode_of(item))
             if full:
@@ -363,7 +394,7 @@ def lanes_state(repo: str, quiet_hours: int = SETTINGS["lane_quiet_hours"][0], n
                 continue
             chosen.append((item["slug"], _paths(where)))
             picks.append(pick)
-    return State(capacity, running, free, picks, waits, landed_open, quiet, upcoming, skipped)
+    return State(capacity, running, free, picks, waits, landed_open, quiet, upcoming, skipped, split, feature_running, itemless, split_note)
 
 
 def wait_text(w: Wait) -> str:
@@ -377,6 +408,11 @@ def line(state: State, items: int = SETTINGS["lanes_line_items"][0], note: Optio
     if not (state.picks or state.waits or state.landed_open):
         return None
     parts = [f"Lanes: {len(state.running)} of {state.setting} running"]
+    if state.feature_split:
+        fixes = len(state.running) - state.feature_running - state.itemless
+        parts[0] += (f" ({fixes} of {state.setting - state.feature_split} fix lanes, "
+                     f"{state.feature_running} of {state.feature_split} feature lanes"
+                     + (f", {state.itemless} without an item" if state.itemless else "") + ")")
     if state.picks:
         parts.append(", ".join(f"{p.mode}: {p.slug} ({p.kind}, ip {p.ip})" for p in state.picks))
     if items and state.upcoming:
@@ -389,8 +425,9 @@ def line(state: State, items: int = SETTINGS["lanes_line_items"][0], note: Optio
         parts.append("skipped, not reproduced: " + ", ".join(state.skipped[:LIST_ITEMS]))
     if state.quiet:
         parts.append("no lane, not counted: " + ", ".join(state.quiet[:LIST_ITEMS]))
-    if note:
-        parts.append(note)
+    for text in (note, state.feature_note):
+        if text:
+            parts.append(text)
     return "; ".join(parts)
 
 

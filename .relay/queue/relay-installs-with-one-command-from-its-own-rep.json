@@ -22,5 +22,21 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T09:15:22Z",
+      "said": [
+        "Я когда-то создавал задачу на то что мы делаем релиз в .relay/src, что-то вроде RELAY_HOME и RELAY_ROOT, как оно поживает",
+        "",
+        "что значат RELAY_HOME и RELAY_ROOT"
+      ]
+    },
+    {
+      "at": "2026-10-30T09:15:22Z",
+      "fact": [
+        "30 Oct: still open and not started. Related finding of the same day: relay setup writes the absolute path of this Mac's checkout (/Users/amidman/relay) into a project's committed .claude/settings.json as the plugin marketplace (item setup-commits-an-absolute-relay-path-into-settin); with relay's code at a fixed place under $RELAY_HOME the path would be the same on every machine."
+      ]
+    }
+  ]
 }

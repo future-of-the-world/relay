@@ -27,8 +27,8 @@
   ],
   "taken_at": "2026-10-30T07:34:25Z",
   "taken_by": "wt/the-lane-pick-ignores-the-owner-s-3-and",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T09:04:12Z",
+  "test": "tests/test_lanes_state.py::FeatureSplit::test_free_lane_goes_to_the_top_feature_not_a_fix",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
