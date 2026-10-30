@@ -691,3 +691,63 @@ class Review(LaneBase):
         self.assertIsNone(lanes_hook.LANDING.search("git merge-base --is-ancestor wt/x master"))
         self.assertIsNotNone(lanes_hook.LANDING.search("git merge --ff-only wt/feat"))
         self.assertIsNone(lanes_hook.LANDING.search("ls wt/feat"))
+
+
+class FeatureSplit(LaneBase):
+    """The owner's 3 and 3 split (29 Oct): `features` lanes are kept for features; a free lane goes to the top startable feature while fewer run."""
+
+    def three_fixes_running(self, extra):
+        files = {Q + f"r{n}.json": item(f"r{n}", where=(f"lib/run{n}.py",), **taken(f"wt/r{n}")) for n in (1, 2, 3)}
+        files.update(extra)
+        self.seed(files)
+        for n in (1, 2, 3):
+            self.worktree(f"r{n}")
+
+    def test_free_lane_goes_to_the_top_feature_not_a_fix(self):
+        # 6 lanes, 3 fixes running, 3 free. Startable: fix fa (ip 99), features ft1 (ip 90), ft2 (ip 80). Split 3: the feature quota is 3 - 0 running = 3,
+        # but only two features can start, so they take two lanes first and the fix gets the third (a free lane is never idle).
+        self.three_fixes_running({Q + "fa.json": item("fa", ip=99, where=("lib/a.py",)),
+                                  Q + "ft1.json": item("ft1", "feature", ip=90, where=("lib/b.py",)),
+                                  Q + "ft2.json": item("ft2", "feature", ip=80, where=("lib/c.py",))})
+        s = self.state(limit=6, features=3)
+        self.assertEqual([p.slug for p in s.picks], ["ft1", "ft2", "fa"])
+
+    def test_quota_leaves_the_rest_to_the_fixes(self):
+        # split 1, nothing of a feature running: the one feature lane goes to ft1 even though fa and fb rank higher; ft2 waits behind the fixes
+        self.three_fixes_running({Q + "fa.json": item("fa", ip=99, where=("lib/a.py",)), Q + "fb.json": item("fb", ip=95, where=("lib/d.py",)),
+                                  Q + "ft1.json": item("ft1", "feature", ip=90, where=("lib/b.py",)),
+                                  Q + "ft2.json": item("ft2", "feature", ip=80, where=("lib/c.py",))})
+        s = self.state(limit=6, features=1)
+        self.assertEqual([p.slug for p in s.picks], ["ft1", "fa", "fb"])
+        self.assertEqual([p.slug for p in s.upcoming], ["ft2"])
+
+    def test_setting_zero_is_as_today(self):
+        self.three_fixes_running({Q + "fa.json": item("fa", ip=99, where=("lib/a.py",)), Q + "ft1.json": item("ft1", "feature", ip=90, where=("lib/b.py",))})
+        s = self.state(limit=6, features=0)
+        self.assertEqual([p.slug for p in s.picks], ["fa", "ft1"])
+        self.assertNotIn("fix lanes", rl.line(s))
+
+    def test_running_feature_counts_against_the_quota(self):
+        # one feature lane runs already (wt/rf); split 1: the quota is full, so the fix fa (ip 99) comes before the feature ft1 (ip 90) as usual
+        self.seed({Q + "rf.json": item("rf", "feature", where=("lib/rf.py",), **taken("wt/rf")), Q + "fa.json": item("fa", ip=99, where=("lib/a.py",)),
+                   Q + "ft1.json": item("ft1", "feature", ip=90, where=("lib/b.py",))})
+        self.worktree("rf")
+        s = self.state(limit=3, features=1)
+        self.assertEqual([p.slug for p in s.picks], ["fa", "ft1"])
+        self.assertEqual(s.feature_running, 1)
+
+    def test_line_shows_both_counts(self):
+        # limit 6, split 3: fix lanes = 6 - 3 = 3, three fixes run; feature lanes 0 of 3
+        self.three_fixes_running({Q + "ft1.json": item("ft1", "feature", ip=90, where=("lib/b.py",))})
+        text = rl.line(self.state(limit=6, features=3))
+        self.assertEqual(text, "Lanes: 3 of 6 running (3 of 3 fix lanes, 0 of 3 feature lanes); design: ft1 (feature, ip 90)")
+
+    def test_setting_is_read_from_kit_toml_and_clamped_to_the_lanes(self):
+        self.seed({".claude/kit.toml": "[front]\nfeature_lanes = 9\n"})
+        self.assertEqual(rl.feature_lanes_setting(self.main, 4), 4)       # above the lanes: clamped to them
+        self.assertEqual(rl.feature_lanes_setting(self.main, 8), 8)
+        self.seed({".claude/kit.toml": "[front]\nfeature_lanes = 3\n"})
+        self.assertEqual(rl.feature_lanes_setting(self.main, 6), 3)
+        self.seed({".claude/kit.toml": "[front]\nfeature_lanes = \"x\"\n"})
+        self.assertEqual(rl.feature_lanes_setting(self.main, 6), 0)       # not a whole number: the default
+        self.assertEqual(rl.lanes_state(self.main, now=NOW, limit=6).feature_split, 0)
