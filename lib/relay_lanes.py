@@ -34,6 +34,7 @@ import relay_config
 import relay_git
 import relay_inert
 import relay_queue
+from relay_lane_features import feature_lanes_read, feature_lanes_setting  # noqa: F401  (the setting is re-exported for callers and tests)
 
 LANES_DEFAULT, LANES_MAX = 4, 8
 SETTINGS = {"lanes_line_items": (3, 0, 10), "stop_nudge": (1, 0, 2), "lane_quiet_hours": (3, 1, 24)}   # default, lowest, highest
@@ -107,27 +108,6 @@ def setting_note(cfg: Any, key: str) -> Optional[str]:
     if low <= value <= high:
         return None
     return f"{key} {value} is out of bounds {low}-{high}: {default} is used"
-
-
-def feature_lanes_read(main: str, capacity: int) -> tuple[int, Optional[str]]:
-    """`front.feature_lanes` of the project's kit.toml: lanes kept for features (the owner's 3 and 3 split, 29 Oct). Default 0 (no split),
-    bound 0..capacity; out of bounds or not a whole number: the default, and the note that says so (clamping would turn a 3 and 3 into all features)."""
-    try:
-        value = relay_config.get(relay_config.load_bindings(main), "front.feature_lanes", None)
-    except (OSError, ValueError):
-        return 0, None
-    if value is None:
-        return 0, None
-    if isinstance(value, bool) or not isinstance(value, int):
-        return 0, f"feature_lanes {value} is not a whole number: 0 is used"
-    if 0 <= value <= capacity:
-        return value, None
-    return 0, f"feature_lanes {value} is out of bounds 0-{capacity}: 0 is used"
-
-
-def feature_lanes_setting(main: str, capacity: int) -> int:
-    """The value of `feature_lanes_read`, without its note."""
-    return feature_lanes_read(main, capacity)[0]
 
 
 def lanes_setting(main: str) -> int:
