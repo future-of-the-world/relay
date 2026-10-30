@@ -81,9 +81,11 @@ def _branch_kit(worktree: str) -> Any:
     if spec is None or spec.loader is None:
         raise GateRefused("cannot load %s" % path)
     module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module      # the module's dataclasses look their module up by name while the class bodies run
     try:
         spec.loader.exec_module(module)
-    except Exception as exc:  # the branch's code is under test: a module that does not even load is a refusal, not a crash
+    except Exception as exc:
+        sys.modules.pop(spec.name, None)  # the branch's code is under test: a module that does not even load is a refusal, not a crash
         raise GateRefused("the branch's lib/relay_kit.py cannot be loaded: %s" % exc)
     return module
 
