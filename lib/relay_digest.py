@@ -319,6 +319,7 @@ def decision_lines(decisions: "list[Decision]", room: int) -> "tuple[list[str], 
             last = d.slug
         n = d.note
         lines += ["    " + x.strip() for x in n.text if x.strip()]
+        lines += ["    " + x.strip() for x in n.intro if x.strip()]
         lines += ["      " + x.strip() for x in n.options]
         lines.append("      chosen %s by %s, because %s" % (n.chosen, n.decided_by, " ".join(x.strip() for x in n.because)))
         shown += 1
@@ -342,6 +343,7 @@ def waiting_lines(waiting: "list[tuple[str, str, Any]]") -> "list[str]":
     for at, item_title, n in waiting:
         lines.append("  %s" % item_title)
         lines += ["    " + x.strip() for x in n.text if x.strip()]
+        lines += ["    " + x.strip() for x in n.intro if x.strip()]
         lines += ["      " + x.strip() for x in n.options]
         lines.append("      asked %s" % show_time(epoch_of(at)))
     return lines

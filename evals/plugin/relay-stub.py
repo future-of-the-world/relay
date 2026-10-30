@@ -61,7 +61,7 @@ def notes_text(item: dict) -> list[str]:
             out.append(f"  {local(n['asked_at'])} decided by the {decided} (an agent; owner can reverse) '{question_title(n)}', at {n['asked_at']}:")
         else:
             out.append(f"  {local(n['asked_at'])} question '{question_title(n)}', asked {n['asked_at']}:")
-        out += ["    " + x for x in n["question"]] + ["    - " + x for x in n["options"]]
+        out += ["    " + x for x in n["question"]] + ["    " + x for x in n.get("intro", [])] + ["    - " + x for x in n["options"]]
         if decided:
             because = n["because"]
             out += [f"    chosen: {n['chosen']}", "    because: " + because[0]] + ["    " + x for x in because[1:]]

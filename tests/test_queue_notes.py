@@ -19,6 +19,7 @@ FOUND = "2026-10-01T00:00:00Z"        # found_at of every helper item
 T1, T2, T3 = "2026-10-05T10:00:00Z", "2026-10-05T11:00:00Z", "2026-10-06T09:00:00Z"
 NOW = "2026-10-10T00:00:00Z"
 OPTIONS = ["a. Keep it.", "b. Remove it."]
+INTRO = ["Why it matters: the item keeps a cache.", "Example: 3 of 5 runs reuse it."]
 
 
 def raw(**changes):
@@ -110,6 +111,8 @@ class NoteCommand(tq.Base):
 
     def note(self, slug="job", now=NOW, **fields):
         fields.setdefault("kind", next(k for k in ("said", "fact", "question", "answer") if k in fields))
+        if "question" in fields:
+            fields.setdefault("intro", INTRO)
         return rq.note(self.main, slug, fields, now=now, **tq.QUIET)
 
     def notes(self, slug="job"):
@@ -144,7 +147,7 @@ class NoteCommand(tq.Base):
     def test_question_prints_the_block_and_the_answer_fills_it(self):
         out = self.note(question=["**Keep it?**", "Intro."], options=OPTIONS, at=T1)
         # the printed block is the question lines then the options, as the owner will see them; its asked time is named
-        self.assertTrue(out.endswith("**Keep it?**\nIntro.\na. Keep it.\nb. Remove it."), out)
+        self.assertTrue(out.endswith("**Keep it?**\nIntro.\n" + "\n".join(INTRO) + "\na. Keep it.\nb. Remove it."), out)
         self.assertIn(f"Asked at {T1}", out)
         self.assertEqual([(n.kind, n.answered_at) for n in self.notes()], [("decision", None)])
         self.note(answer=["1. a", "keep, it is cheap"], reading=["Front: keep"], at=T2)
@@ -240,14 +243,14 @@ class NoteInput(tq.Base):
 
     @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
     def test_the_input_forms(self):
-        got = self.read("question = '''**Q?**\nintro'''\noptions = ['a. x', 'b. y']\nat = '2026-10-05T10:00:00Z'\n")
-        self.assertEqual((got["kind"], got["question"]), ("question", ["**Q?**", "intro"]))
+        got = self.read("question = '''**Q?**\nintro'''\nintro = 'ctx'\noptions = ['a. x', 'b. y']\nat = '2026-10-05T10:00:00Z'\n")
+        self.assertEqual((got["kind"], got["question"], got["intro"]), ("question", ["**Q?**", "intro"], ["ctx"]))
         self.assertEqual(self.read("answer = 'a'\nto = ['2026-10-05T10:00:00Z', '2026-10-05T11:00:00Z']\nreading = 'r'\n")["to"],
                          ["2026-10-05T10:00:00Z", "2026-10-05T11:00:00Z"])
 
     @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
     def test_a_number_key_and_a_number_in_to_are_refused(self):
-        for text, want in (("question = 'Q?'\nnumber = 1\noptions = ['a. x', 'b. y']\n", "unknown key `number`"),
+        for text, want in (("question = 'Q?'\nintro = 'i'\nnumber = 1\noptions = ['a. x', 'b. y']\n", "unknown key `number`"),
                            ("answer = 'a'\nto = [1]\n", "`to` must be a list of the asked times")):
             with self.assertRaises(rq.Refused) as ctx:
                 self.read(text)
@@ -268,13 +271,13 @@ class NoteInput(tq.Base):
         # the front skill used to show `a (recommended) x`; each form is refused before anything lands, naming the form and the bad line
         for bad in ("a (recommended) x", "a) x"):
             with self.assertRaises(rq.Refused) as ctx:
-                self.read(f"question = 'Q?'\noptions = ['{bad}', 'b. y']\n")
+                self.read(f"question = 'Q?'\nintro = 'i'\noptions = ['{bad}', 'b. y']\n")
             text = str(ctx.exception)
             self.assertTrue(text.startswith("nothing noted:"), text)
             self.assertIn("`options`", text)
             self.assertIn("a. ", text)
             self.assertIn(bad, text)
-        self.assertEqual(self.read("question = 'Q?'\noptions = ['a. x (recommended)', 'b. y']\n")["options"], ["a. x (recommended)", "b. y"])
+        self.assertEqual(self.read("question = 'Q?'\nintro = 'i'\noptions = ['a. x (recommended)', 'b. y']\n")["options"], ["a. x (recommended)", "b. y"])
 
     @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
     def test_f1_the_front_skill_shows_the_stored_option_form(self):
@@ -357,6 +360,49 @@ class SessionFiles(tq.Base):
         old = tq.with_fields(tq.feature_item("Job"), why=["see /private/tmp/claude-501/x/scratchpad/reports/a.md"])
         self.write_commit(self.main, {QUEUE + "job.json": old}, "an old item")
         self.assertEqual(rq.check_files(self.main), [])
+
+
+class QuestionIntro(tq.Base):
+    """A question note keeps its introduction; show prints it; a question without one is refused."""
+
+    def setUp(self):
+        super().setUp()
+        self.write_commit(self.main, {QUEUE + "job.json": tq.feature_item("Job metrics")}, "seed")
+
+    def test_intro_round_trips_note_to_show(self):
+        out = rq.note(self.main, "job", {"kind": "question", "question": ["**Keep it?**"], "intro": ["It is about the cache.", "Example: 3 of 5 runs."],
+                                         "options": OPTIONS, "at": T1}, now=NOW, **tq.QUIET)
+        self.assertIn("It is about the cache.", out)            # what note prints back is what the owner sees
+        item = next(i for i in rq.read_queue(self.main, closed=True) if i["slug"] == "job")
+        self.assertEqual(rq.notes_of(item)[0].intro, ["It is about the cache.", "Example: 3 of 5 runs."])
+        lines = rq.show_text(item, tz=dt.timezone.utc).split("\n")
+        # the intro sits between the question and its options
+        at = lines.index("    **Keep it?**")
+        self.assertEqual(lines[at + 1:at + 4], ["    It is about the cache.", "    Example: 3 of 5 runs.", "    - a. Keep it."])
+
+    def test_a_question_without_intro_is_refused_naming_intro(self):
+        for fields in ({"kind": "question", "question": ["**Q?**"], "options": OPTIONS}, {"kind": "question", "question": ["**Q?**"], "options": OPTIONS, "intro": [" "]}):
+            with self.assertRaises(rq.Refused) as ctx:
+                rq.note(self.main, "job", fields, now=NOW, **tq.QUIET)
+            self.assertIn("`intro`", str(ctx.exception))
+        self.assertEqual(rq.notes_of(next(i for i in rq.read_queue(self.main, closed=True) if i["slug"] == "job")), [])
+
+    @unittest.skipUnless(sys.version_info >= (3, 11), "tomllib")
+    def test_the_input_without_intro_is_refused_naming_intro(self):
+        path = os.path.join(self.tmp, "in.toml")
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write("question = 'Q?'\noptions = ['a. x', 'b. y']\n")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.read_note_input(path)
+        self.assertIn("`intro`", str(ctx.exception))
+
+    def test_an_old_question_note_without_intro_still_parses(self):
+        note, why = rq.parse_note({"asked_at": T1, "question": ["**Old?**"], "options": OPTIONS})
+        self.assertEqual((why, note.intro), ([], []))
+        self.assertNotIn("intro", rq.note_dict(note))           # written back unchanged
+
+    def test_a_blank_intro_in_a_stored_note_is_a_schema_problem(self):
+        self.assertTrue(any("intro" in p for p in rq.parse_note({"asked_at": T1, "question": ["**Q?**"], "intro": [], "options": OPTIONS})[1]))
 
 
 class ShowAndSearch(tq.Base):
@@ -519,6 +565,8 @@ class AgentDecisions(tq.Base):
 
     def note(self, now=NOW, **fields):
         fields.setdefault("kind", next(k for k in ("question", "answer") if k in fields))
+        if "question" in fields:
+            fields.setdefault("intro", INTRO)
         return rq.note(self.main, "job", fields, now=now, **tq.QUIET)
 
     def notes(self):
@@ -610,7 +658,7 @@ class AgentDecisions(tq.Base):
             with open(path, "w", encoding="utf-8") as handle:
                 handle.write(text)
             return rq.read_note_input(path)
-        got = read("question = 'Q'\noptions = ['a. x', 'b. y']\nchosen = 'a'\ndecided_by = 'front'\nbecause = 'why'\n")
+        got = read("question = 'Q'\nintro = 'i'\noptions = ['a. x', 'b. y']\nchosen = 'a'\ndecided_by = 'front'\nbecause = 'why'\n")
         self.assertEqual((got["chosen"], got["decided_by"], got["because"]), ("a", "front", ["why"]))
         self.assertEqual(read("answer = 'a'\nchosen = ['a']\n")["chosen"], ["a"])
         for text in ("said = 'a'\nchosen = 'a'\n", "answer = 'a'\ndecided_by = 'front'\n", "answer = 'a'\nbecause = 'x'\n"):

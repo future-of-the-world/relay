@@ -212,6 +212,19 @@ class Page(DigestBase):
         self.assertEqual(block[2 + len(OPTIONS)], "      asked 30 Oct 05:10 UTC")
         self.assertNotIn("chosen", "\n".join(block))                    # no answer line
 
+    def test_waiting_question_and_front_decision_print_their_intro_above_the_options(self):
+        intro = ["The comparison picks a runner.", "Example: 3 of 5 runs fit."]
+        ask = {"asked_at": "2026-10-30T05:10:00Z", "question": ["**Where does the comparison run?**"], "intro": intro, "options": OPTIONS}
+        self.sent()
+        self.commit(with_notes(make("First place"), [ask, decision("2026-10-30T05:20:00Z", "Which timer?", intro=["Timer context."])]))
+        text = "\n".join(self.page())
+        waiting = text[text.index("Waiting for you"):]
+        # the intro lines come after the question and before its first option
+        self.assertLess(waiting.index("Where does the comparison run?"), waiting.index("The comparison picks a runner."))
+        self.assertLess(waiting.index("Example: 3 of 5 runs fit."), waiting.index(OPTIONS[0].strip()))
+        self.assertLess(text.index("Which timer?"), text.index("Timer context."))
+        self.assertLess(text.index("Timer context."), text.index("chosen a by front"))
+
     def test_line_limits_and_all(self):
         self.sent()
         self.commit(*[closed("Change number %02d" % n) for n in range(5)])
@@ -418,7 +431,7 @@ class FrontDecisionFact(DigestBase):
             rq.note(self.main, "some-change", {"kind": "fact", "fact": [text]}, now=NOW, **tq.QUIET)
         self.assertIn("decision note", str(raised.exception))
         self.assertIn("decided_by", str(raised.exception))
-        rq.note(self.main, "some-change", {"kind": "question", "question": ["**" + text + "**"], "options": OPTIONS, "decided_by": "front",
+        rq.note(self.main, "some-change", {"kind": "question", "question": ["**" + text + "**"], "intro": ["Context."], "options": OPTIONS, "decided_by": "front",
                                           "chosen": "a", "because": ["principle 7"]}, now=NOW, **tq.QUIET)
         self.assertEqual(len(rq.notes_of(self.item("some-change"))), 1)
         rq.note(self.main, "some-change", {"kind": "fact", "fact": ["Measured 30 Oct: 3 files."]}, now=NOW, **tq.QUIET)    # other facts still go in

@@ -177,13 +177,14 @@ class Note(NamedTuple):
     because: list = []           # the agent's reason; set exactly when decided_by is
     answer_choice: str = ""      # the letter the owner's answer carries, "" when it carries none
     reproduced: str = ""         # a fact note: "yes" or "no", whether the front could reproduce the defect (data, not prose); "" for the others
+    intro: list = []             # a decision: the introduction the owner was given with the question (what it is about, the mechanism, a live example, what each answer changes); [] in notes recorded before 30 Oct
 
 
 REPRODUCED = ("yes", "no")     # the values of a fact note's `reproduced`: the reproduce step's result; the newest one on an item decides
 DECIDERS = ("front",)       # who may record a decision of their own; a reviewer's decisions live in the check record
 NOTE_ONE_OF = {"said", "fact", "question"}
 NOTE_KEYS = {"said": ("at", "said"), "fact": ("at", "fact", "edited", "reproduced"),
-             "question": ("asked_at", "number", "question", "options", "decided_by", "chosen", "because", "answered_at", "answer",
+             "question": ("asked_at", "number", "question", "intro", "options", "decided_by", "chosen", "because", "answered_at", "answer",
                           "answer_choice", "reading")}
 
 
@@ -202,7 +203,10 @@ def note_dict(note: Note) -> dict:
     out: dict = {"asked_at": note.at}
     if note.number:
         out["number"] = note.number         # only a question recorded with a number keeps it
-    out.update(question=list(note.text), options=list(note.options))
+    out.update(question=list(note.text))
+    if note.intro:
+        out["intro"] = list(note.intro)
+    out["options"] = list(note.options)
     if note.decided_by:
         out.update(decided_by=note.decided_by, chosen=note.chosen, because=list(note.because))
     if note.answered_at:
@@ -248,6 +252,8 @@ def parse_note(raw: object) -> tuple:
         return (None, problems) if problems else (Note(kind, raw["at"], list(raw[kind]), edited=raw.get("edited", ""), reproduced=raw.get("reproduced", "")), [])
     number: Any = raw.get("number", 0)
     options: Any = raw.get("options")
+    if "intro" in raw and not _nonblank(raw["intro"]):
+        problems.append("intro is not a non-empty list of lines")
     if "number" in raw and (not isinstance(number, int) or isinstance(number, bool) or number < 1):
         problems.append("number is not a whole number from 1")
     bad_options = option_problem(options)
@@ -282,7 +288,7 @@ def parse_note(raw: object) -> tuple:
         return None, problems
     return Note("decision", raw["asked_at"], list(raw["question"]), number, list(options), answered,
                 list(answer or []), list(reading or []), "", raw.get("decided_by", ""), raw.get("chosen", ""),
-                list(raw.get("because") or []), raw.get("answer_choice", "")), []
+                list(raw.get("because") or []), raw.get("answer_choice", ""), "", list(raw.get("intro") or [])), []
 
 
 def notes_problems(data: dict) -> list:
@@ -1709,6 +1715,10 @@ def refuse_session_paths(done: str, **fields: object) -> None:
 FRONT_DECISION_PREFIX = "Front decision"      # the wording the setup once taught for a prose decision; `note` refuses a fact that begins with it
 
 
+INTRO_MISSING = ("nothing noted: a question needs `intro`, the introduction the owner reads with it: what it is about, how the mechanism works, "
+                 "a live example from the current work, and what each answer changes; add `intro = '''...'''` to the input and note again")
+
+
 def decision_errors(fields: dict) -> list:
     """Why the decision keys of a question input (`chosen`, `decided_by`, `because`) are wrong, [] when they are right or absent. The one
     rule of the `note` input and of `note`."""
@@ -1731,7 +1741,7 @@ def read_note_input(path: str) -> dict:
         raw = relay_verdict.read_input(path, "noted")
     except relay_verdict.VerdictError as exc:
         raise Refused(str(exc))
-    allowed = ("said", "fact", "question", "options", "answer", "to", "reading", "at", "chosen", "decided_by", "because", "reproduced")
+    allowed = ("said", "fact", "question", "intro", "options", "answer", "to", "reading", "at", "chosen", "decided_by", "because", "reproduced")
     problems = relay_verdict.table_errors(raw, "in the input", allowed, ())
     if problems:
         raise Refused("nothing noted: " + "; ".join(problems))
@@ -1740,14 +1750,16 @@ def read_note_input(path: str) -> dict:
         raise Refused("nothing noted: the input has " + (f"both `{kinds[0]}` and `{kinds[1]}`" if kinds else "none of `said`, `fact`, `question`, `answer`") +
                       "; a note is one of said (the owner's words), fact (a measurement), question (with options) or answer")
     kind = kinds[0]
-    extra = {"question": ("options", "chosen", "decided_by", "because"), "answer": ("to", "reading", "chosen")}
+    extra = {"question": ("intro", "options", "chosen", "decided_by", "because"), "answer": ("to", "reading", "chosen")}
     if "reproduced" in raw and (kind != "fact" or raw["reproduced"] not in REPRODUCED):
         raise Refused("nothing noted: `reproduced` is \"yes\" or \"no\" and goes with a `fact` (the result of the reproduce step)")
-    for key in ("options", "to", "reading", "chosen", "decided_by", "because"):
+    for key in ("intro", "options", "to", "reading", "chosen", "decided_by", "because"):
         if key in raw and key not in extra.get(kind, ()):
             raise Refused(f"nothing noted: `{key}` does not go with `{kind}`" + ("; it belongs to a question" if key in extra["question"] else "; it belongs to an answer"))
     if kind == "question" and "options" not in raw:
         raise Refused("nothing noted: a question needs `options` (the lettered lines as you will show them)")
+    if kind == "question" and "intro" not in raw:
+        raise Refused(INTRO_MISSING)
     out: dict = {"kind": kind}
     errors: list = []
     if "reproduced" in raw:
@@ -1760,7 +1772,7 @@ def read_note_input(path: str) -> dict:
         if not (isinstance(letters, list) and letters and all(isinstance(x, str) and len(x) == 1 and x.isalpha() and x.islower() for x in letters)):
             errors.append("`chosen` is a list of letters, one per question answered, like [\"a\"]")
         out["chosen"] = letters
-    for key in ("said", "fact", "question", "options", "answer", "reading", "because"):
+    for key in ("said", "fact", "question", "intro", "options", "answer", "reading", "because"):
         if key in raw:
             out[key] = relay_verdict.as_lines(raw[key], key, "in the input", errors)
     if "to" in raw:
@@ -1790,8 +1802,8 @@ def question_title(note: Note) -> str:
 
 
 def question_block(note: Note) -> str:
-    """The question as the owner sees it: the block, then the lettered options (what `note` prints back and `show` prints)."""
-    return "\n".join(list(note.text) + list(note.options))
+    """The question as the owner sees it: the block, its introduction, then the lettered options (what `note` prints back and `show` prints)."""
+    return "\n".join(list(note.text) + list(note.intro) + list(note.options))
 
 
 def owner_waiting(notes: list) -> list:
@@ -1810,12 +1822,14 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
     """Append a note to item `slug` (any state), or fill the waiting question(s) with the owner's answer. `fields` is `read_note_input`'s
     result. Never edits an earlier note. Returns the landing line, and for a question the block to paste into the reply."""
     kind = fields["kind"]
+    if kind == "question" and not _nonblank(fields.get("intro")):
+        raise Refused(INTRO_MISSING)
     if kind == "question" and decision_errors(fields):
         raise Refused("nothing noted: " + "; ".join(decision_errors(fields)))
     if kind == "fact" and next((x for x in fields["fact"] if x.strip()), "").lstrip().startswith(FRONT_DECISION_PREFIX):
         raise Refused("nothing noted: a decision you took yourself is a decision note, not a fact: a `question` with `options`, `chosen` (the letter), "
                       "`decided_by = \"front\"` and `because`; the owner reverses it by answering with another letter, and the digest lists it")
-    refuse_session_paths("noted", **{k: fields[k] for k in ("fact", "question", "options", "reading", "because") if k in fields})
+    refuse_session_paths("noted", **{k: fields[k] for k in ("fact", "question", "intro", "options", "reading", "because") if k in fields})
     stamp = now or utcnow()
     reversed_merged: list = []      # decisions this answer reverses (another letter) whose change is already merged
 
@@ -1840,7 +1854,7 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
                 raise Refused(f"nothing noted: {slug} already has a question asked at {when} waiting for an answer, and an answer names its "
                               "question by that time; add `at` one second later")
             if "decided_by" in fields:
-                asked = Note("decision", when, list(fields["question"]), 0, list(fields["options"]))
+                asked = Note("decision", when, list(fields["question"]), 0, list(fields["options"]), intro=list(fields["intro"]))
                 if fields["chosen"] not in [chr(97 + n) for n in range(len(asked.options))]:
                     raise Refused(f"nothing noted: chosen '{fields['chosen']}' is not one of the options")
                 same = next((w for w in owner_waiting(notes) if question_title(w) == question_title(asked)), None)
@@ -1849,7 +1863,7 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
                                   "an agent does not decide a question the owner was asked")
                 new = asked._replace(decided_by=fields["decided_by"], chosen=fields["chosen"], because=list(fields["because"]))
             else:
-                new = Note("decision", when, list(fields["question"]), 0, list(fields["options"]))
+                new = Note("decision", when, list(fields["question"]), 0, list(fields["options"]), intro=list(fields["intro"]))
         else:
             waiting = answerable(notes)
             targets = fields.get("to")
@@ -1893,7 +1907,7 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
         text += (f"\nThis reverses {' and '.join(repr(t) for t in reversed_merged)}, whose change is already merged: add the rework item, "
                  "`relay queue add --kind fix ...` with the owner's words as `said`.")
     elif kind == "question":
-        text += f"\nAsked at {fields.get('at') or stamp}; an answer to it names that time in `to`.\nShow the owner exactly this:\n" + question_block(Note("decision", "", fields["question"], 0, fields["options"]))
+        text += f"\nAsked at {fields.get('at') or stamp}; an answer to it names that time in `to`.\nShow the owner exactly this:\n" + question_block(Note("decision", "", fields["question"], 0, fields["options"], intro=fields["intro"]))
     return text
 
 
@@ -2119,7 +2133,7 @@ def history(repo: str, slug: str) -> str:
 def _haystack(item: dict) -> str:
     parts = [item["title"]] + item["what"] + item["why"]
     for n in notes_of(item):
-        parts += n.text + n.options + n.because + n.answer + n.reading
+        parts += n.text + n.intro + n.options + n.because + n.answer + n.reading
     return "\n".join(parts).lower()
 
 
@@ -2176,7 +2190,7 @@ def notes_text(item: dict, tz: Optional[dt.tzinfo] = None) -> list:
             out.append(f"  {when} decided by the {n.decided_by} (an agent; owner can reverse) '{question_title(n)}', at {n.at}:")
         else:
             out.append(f"  {when} question '{question_title(n)}', asked {n.at}:")
-        out += ["    " + x for x in n.text] + ["    - " + x for x in n.options]
+        out += ["    " + x for x in n.text] + ["    " + x for x in n.intro] + ["    - " + x for x in n.options]
         if n.decided_by:
             out += [f"    chosen: {n.chosen}", "    because: " + n.because[0]] + ["    " + x for x in n.because[1:]]
         if n.answered_at is None:
@@ -2227,7 +2241,8 @@ def waiting_lines(cwd: str, days: int, limit: int, now: Optional[str] = None) ->
             hours = int(age.total_seconds() // 3600)
             ago = f"{hours // 24}d" if hours >= 48 else f"{hours}h" if hours else f"{int(age.total_seconds() // 60)}m"
             lines.append(f"Waiting for the owner: {slug} question '{question_title(n)}', asked {n.at} ({ago} ago); if this message answers it, "
-                         f"record the owner's whole message with `relay queue note {slug} --input <file.toml>` (answer = the message, to = [\"{n.at}\"])")
+                         f"record the owner's whole message with `relay queue note {slug} --input <file.toml>` (answer = the message, to = [\"{n.at}\"]); "
+                         "a question shown again is shown with its intro, as if asked the first time (`relay queue show {slug}` prints it); a new question is recorded with its `intro`")
         return lines
     except Exception:
         return []
