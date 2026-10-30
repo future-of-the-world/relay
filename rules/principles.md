@@ -47,7 +47,7 @@ Every message is understood two days later without the conversation; "Working wi
 ### 9. Decide inside the principles
 A decision that follows from the principles and recorded decisions is made and reported afterwards; the owner gets only a real choice: a trade-off, a number, a scope cut.
 - Fires on: a question a principle or past decision already answers.
-- Do: find the recorded decision, decide, record it as a decision note (question, options, chosen, decided_by, because), so the owner can reverse it by a letter and the digest lists it. A decision note is written for a decision about what relay does or how it is built; a step inside the work (which agent, a re-run, an order inside one change) gets none. Report after. A "why can't we / why not X?" from the owner is a question (owner-confirmed): answer it with why it is so and a recommendation; act only on the owner's word.
+- Do: find the recorded decision, decide, record it as a decision note (question, intro, options, chosen, decided_by, because), so the owner can reverse it by a letter and the digest lists it. A decision note is written for a decision about what relay does or how it is built; a step inside the work (which agent, a re-run, an order inside one change) gets none. Report after. A "why can't we / why not X?" from the owner is a question (owner-confirmed): answer it with why it is so and a recommendation; act only on the owner's word.
 
 ### 10. Works for a newcomer
 Put yourself in the user's place: what we build works simply and is clear at first sight. In relay the users are two: the person, who talks to the front, and the agent, which runs relay's commands and reads its texts.

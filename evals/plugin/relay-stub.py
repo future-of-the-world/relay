@@ -134,6 +134,9 @@ def note(args: list[str]) -> int:
     if len(kinds) != 1:
         print("relay queue: the input holds exactly one of said, fact, question, answer", file=sys.stderr)
         return 1
+    if kinds[0] == "question" and not "".join(data.get("intro") or []).strip():
+        print("nothing noted: a question needs `intro` (the introduction: what it is about, a live example, what each answer changes)", file=sys.stderr)
+        return 1
     print("noted %s: %s: %s" % (args[0], kinds[0], json.dumps(data[kinds[0]], ensure_ascii=False)))
     return 0
 

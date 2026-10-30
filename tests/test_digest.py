@@ -437,6 +437,63 @@ class FrontDecisionFact(DigestBase):
         rq.note(self.main, "some-change", {"kind": "fact", "fact": ["Measured 30 Oct: 3 files."]}, now=NOW, **tq.QUIET)    # other facts still go in
 
 
+class IntroReview(DigestBase):
+    """Findings F1-F4 of the review of the question intro."""
+
+    def read(self, rel):
+        with open(os.path.join(tq.ROOT, rel), encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_hook_line_fills_the_slug_into_the_show_sentence(self):
+        # F1: the third literal of the hook line lacked its f prefix, so `{slug}` was printed as text
+        waiting = {"asked_at": "2026-10-30T10:00:00Z", "question": ["**Keep it?**"], "intro": ["Context."], "options": OPTIONS}
+        self.commit(with_notes(make("Job"), [waiting]))
+        lines = rq.waiting_lines(self.main, 7, 5, now=NOW)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("`relay queue show job`", lines[0])
+        self.assertNotIn("{slug}", lines[0])
+        self.assertIn("with its intro", lines[0])
+        self.assertIn("`intro`", lines[0])
+
+    def test_skill_gives_title_to_question_and_the_rest_to_intro(self):
+        # F2: question = the title only, so the printed block shows the intro once
+        text = " ".join(self.read("plugins/front/skills/front/SKILL.md").split())
+        self.assertIn("`question` (the bold title line only)", text)
+        self.assertIn("nothing in `intro` repeats `question`", text)
+
+    def test_texts_that_teach_the_note_fields_name_intro(self):
+        # F3: queue rule, principle 9 and the decision-fact refusal list `intro`
+        self.assertIn("(`question`, `intro`, `options`)", " ".join(self.read("rules/queue.md").split()))
+        self.assertIn("(question, intro, options, chosen, decided_by, because)", self.read("rules/principles.md"))
+        self.commit(make("Some change"))
+        with self.assertRaises(rq.Refused) as raised:
+            rq.note(self.main, "some-change", {"kind": "fact", "fact": ["Front decision (owner can reverse): x."]}, now=NOW, **tq.QUIET)
+        self.assertIn("`intro`", str(raised.exception))
+
+    def test_eval_stub_refuses_a_question_without_intro(self):
+        # F4: the stub of `relay queue note` refuses like the real command
+        stub = os.path.join(tq.ROOT, "evals", "plugin", "relay-stub.py")
+        work = os.path.join(self.tmp, "stubwork")
+        os.makedirs(os.path.join(work, ".relay", "queue"))
+        with open(os.path.join(work, ".relay", "queue", "job.json"), "w") as handle:
+            handle.write("{}")
+
+        def run(body):
+            path = os.path.join(work, "in.toml")
+            with open(path, "w") as handle:
+                handle.write(body)
+            return subprocess.run([sys.executable, stub, "queue", "note", "job", "--input", path], cwd=work, capture_output=True, text=True, timeout=60)
+
+        bare = run('question = ["**Keep it?**"]\noptions = ["a. yes"]\n')
+        self.assertEqual(bare.returncode, 1)
+        self.assertIn("intro", bare.stderr)
+        full = run('question = ["**Keep it?**"]\nintro = ["Context."]\noptions = ["a. yes"]\n')
+        self.assertEqual(full.returncode, 0, full.stderr)
+        self.assertTrue(full.stdout.startswith("noted job: question:"))
+        said = run('said = ["hello"]\n')
+        self.assertEqual(said.returncode, 0, said.stderr)
+
+
 class Texts(unittest.TestCase):
     def read(self, rel):
         with open(os.path.join(tq.ROOT, rel), encoding="utf-8") as handle:

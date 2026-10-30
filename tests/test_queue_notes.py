@@ -145,14 +145,14 @@ class NoteCommand(tq.Base):
         self.assertEqual(len(after["notes"]), 2)
 
     def test_question_prints_the_block_and_the_answer_fills_it(self):
-        out = self.note(question=["**Keep it?**", "Intro."], options=OPTIONS, at=T1)
+        out = self.note(question=["**Keep it?**"], options=OPTIONS, at=T1)
         # the printed block is the question lines then the options, as the owner will see them; its asked time is named
-        self.assertTrue(out.endswith("**Keep it?**\nIntro.\n" + "\n".join(INTRO) + "\na. Keep it.\nb. Remove it."), out)
+        self.assertTrue(out.endswith("**Keep it?**\n" + "\n".join(INTRO) + "\na. Keep it.\nb. Remove it."), out)
         self.assertIn(f"Asked at {T1}", out)
         self.assertEqual([(n.kind, n.answered_at) for n in self.notes()], [("decision", None)])
         self.note(answer=["1. a", "keep, it is cheap"], reading=["Front: keep"], at=T2)
         n = self.notes()[0]
-        self.assertEqual((n.answered_at, n.answer, n.reading, n.text), (T2, ["1. a", "keep, it is cheap"], ["Front: keep"], ["**Keep it?**", "Intro."]))
+        self.assertEqual((n.answered_at, n.answer, n.reading, n.text), (T2, ["1. a", "keep, it is cheap"], ["Front: keep"], ["**Keep it?**"]))
 
     def test_one_reply_answers_two_questions(self):
         self.note(question=["**First?**"], options=OPTIONS, at=T1)

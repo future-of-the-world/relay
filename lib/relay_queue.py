@@ -1827,7 +1827,7 @@ def note(repo: str, slug: str, fields: dict, now: Optional[str] = None, **engine
     if kind == "question" and decision_errors(fields):
         raise Refused("nothing noted: " + "; ".join(decision_errors(fields)))
     if kind == "fact" and next((x for x in fields["fact"] if x.strip()), "").lstrip().startswith(FRONT_DECISION_PREFIX):
-        raise Refused("nothing noted: a decision you took yourself is a decision note, not a fact: a `question` with `options`, `chosen` (the letter), "
+        raise Refused("nothing noted: a decision you took yourself is a decision note, not a fact: a `question` with `intro`, `options`, `chosen` (the letter), "
                       "`decided_by = \"front\"` and `because`; the owner reverses it by answering with another letter, and the digest lists it")
     refuse_session_paths("noted", **{k: fields[k] for k in ("fact", "question", "intro", "options", "reading", "because") if k in fields})
     stamp = now or utcnow()
@@ -2242,7 +2242,7 @@ def waiting_lines(cwd: str, days: int, limit: int, now: Optional[str] = None) ->
             ago = f"{hours // 24}d" if hours >= 48 else f"{hours}h" if hours else f"{int(age.total_seconds() // 60)}m"
             lines.append(f"Waiting for the owner: {slug} question '{question_title(n)}', asked {n.at} ({ago} ago); if this message answers it, "
                          f"record the owner's whole message with `relay queue note {slug} --input <file.toml>` (answer = the message, to = [\"{n.at}\"]); "
-                         "a question shown again is shown with its intro, as if asked the first time (`relay queue show {slug}` prints it); a new question is recorded with its `intro`")
+                         f"a question shown again is shown with its intro, as if asked the first time (`relay queue show {slug}` prints it); a new question is recorded with its `intro`")
         return lines
     except Exception:
         return []
