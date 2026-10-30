@@ -119,7 +119,10 @@ class WrapperLookup(SoftCases):
         return path
 
     def settings(self, path: str) -> None:
-        data = {"extraKnownMarketplaces": {"amidman": {"source": {"source": "directory", "path": path}}}}
+        # the key setup writes: the marketplace's own name, so a rename that misses the wrapper turns these tests red
+        with open(os.path.join(ROOT, ".claude-plugin", "marketplace.json")) as handle:
+            name = json.load(handle)["name"]
+        data = {"extraKnownMarketplaces": {name: {"source": {"source": "directory", "path": path}}}}
         with open(os.path.join(self.home, ".claude", "settings.json"), "w") as handle:
             json.dump(data, handle)
 
