@@ -24,8 +24,8 @@
   ],
   "taken_at": "2026-10-30T08:05:01Z",
   "taken_by": "wt/setup-silently-turns-off-a-project-s-age",
-  "closed_at": null,
-  "test": null,
+  "closed_at": "2026-10-30T08:58:59Z",
+  "test": "tests/test_setup.py::test_setup_skeleton_imports_agents_md",
   "dropped_at": null,
   "dropped_why": null,
   "notes": [
