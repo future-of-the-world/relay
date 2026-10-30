@@ -75,19 +75,34 @@ def read(since: dt.datetime | None = None, until: dt.datetime | None = None) -> 
     return events
 
 
-def running_agents(events: list[Event]) -> dict[Any, list[Event]]:
-    """Agents started and not yet stopped, per session: {session_id: [event, ...]}."""
+AGENT_IDLE = dt.timedelta(minutes=10)   # every blocking call is capped at 240 s, so an open agent silent this long has ended
+
+
+def running_agents(events: list[Event], now: dt.datetime | None = None, idle: dt.timedelta | None = None) -> dict[Any, list[Event]]:
+    """Agents started and not yet stopped, per session: {session_id: [event, ...]}.
+    With `now` and `idle`, an agent whose last event (any event carrying its agent_id) is older than `idle` is dropped:
+    it died or ended without an agent_stop."""
     open_by_session: dict[Any, dict[Any, Event]] = {}
+    last_seen: dict[tuple[Any, Any], dt.datetime] = {}
     for event in events:
         kind = event.get("event")
         sid = event.get("session_id")
+        when = parse_ts(event.get("ts"))
+        if when and event.get("agent_id") is not None:
+            last_seen[(sid, event.get("agent_id"))] = when
         if kind == "agent_start":
             open_by_session.setdefault(sid, {})[event.get("agent_id")] = event
         elif kind == "agent_stop":
             open_by_session.get(sid, {}).pop(event.get("agent_id"), None)
         elif kind == "session_end":
             open_by_session.pop(sid, None)
-    return {sid: list(agents.values()) for sid, agents in open_by_session.items() if agents}
+    out: dict[Any, list[Event]] = {}
+    for sid, agents in open_by_session.items():
+        alive = [e for aid, e in agents.items()
+                 if now is None or idle is None or (sid, aid) not in last_seen or now - last_seen[(sid, aid)] <= idle]
+        if alive:
+            out[sid] = alive
+    return out
 
 
 def tool_durations(events: list[Event]) -> list[tuple[Any, str, float]]:
