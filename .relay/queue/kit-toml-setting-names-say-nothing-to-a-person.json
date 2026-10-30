@@ -46,6 +46,21 @@
         "",
         "Отчасти я думаю что такое переименование бессмысленно - ведь читает его агент, а ему наверное всё равно, но думаю ты понял на какой дефект я хочу указать, ты можешь перефразировать эти названия полей по своему"
       ]
+    },
+    {
+      "asked_at": "2026-10-30T23:15:32Z",
+      "question": [
+        "The renamed key max_agents_per_change names a per-change cap, but the route guard counts the agents running in the whole session (review F6). Which name?"
+      ],
+      "options": [
+        "a. max_agents_at_once, with the comment: agents running at the same time in one session (the name says what the guard counts)",
+        "b. keep max_agents_per_change and change the guard to count per change (a new mechanism, not a rename)"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "principle 10 and the owner's words of 30 Oct (ты можешь перефразировать эти названия полей по своему): a name must say what the setting does; b would change behaviour inside a rename. Owner can reverse."
+      ]
     }
   ]
 }
