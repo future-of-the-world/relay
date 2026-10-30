@@ -23,11 +23,40 @@ def shared_dir(root: str) -> str:
     return os.path.join(os.path.realpath(os.path.join(root, common)), "relay-gate-copies")
 
 
-def write_shared_record(root: str, tmpd: str) -> None:
+def write_shared_record(root: str, tmpd: str, pid: int | None = None) -> None:
+    """The record: the owner's root, the temporary folder, and the pid of the gate that made the copy."""
     folder = shared_dir(root)
     os.makedirs(folder, exist_ok=True)
     with open(os.path.join(folder, os.path.basename(tmpd)), "w", encoding="utf-8") as handle:
-        handle.write(root + "\n" + tmpd + "\n")
+        handle.write(f"{root}\n{tmpd}\n{os.getpid() if pid is None else pid}\n")
+
+
+def _running(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True      # another user's process: it exists
+    return True
+
+
+def prune_dead_copies(root: str) -> list[str]:
+    """Remove every copy whose gate process is gone (killed before it could clean up) and return the folders removed. A record
+    without a pid (written by an older gate) is left to `remove_leftover_copy`'s owner-folder rule."""
+    folder = shared_dir(root)
+    gone: list[str] = []
+    for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+        lines = _read_lines(os.path.join(folder, name))
+        if len(lines) < 3 or not lines[2].strip().isdigit() or _running(int(lines[2])):
+            continue
+        try:
+            os.remove(os.path.join(folder, name))   # claim the record: only the run that removed it cleans the copy
+        except FileNotFoundError:
+            continue
+        _remove_copy(root, lines[1].strip())
+        gone.append(lines[1].strip())
+    return gone
 
 
 def drop_shared_record(root: str, tmpd: str) -> None:
@@ -54,10 +83,11 @@ def remove_leftover_copy(root: str) -> None:
         drop_shared_record(root, lines[0].strip())
     if os.path.exists(record):
         os.remove(record)
+    prune_dead_copies(root)
     folder = shared_dir(root)
     for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
         owner = _read_lines(os.path.join(folder, name))
-        if len(owner) == 2 and not os.path.isdir(owner[0]):
+        if len(owner) >= 2 and not os.path.isdir(owner[0]):
             try:
                 os.remove(os.path.join(folder, name))   # claim the record: only the gate that removed it cleans the copy
             except FileNotFoundError:

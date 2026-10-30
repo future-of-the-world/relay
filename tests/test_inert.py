@@ -179,5 +179,53 @@ class MergeHookAfterTake(Repo):
         self.assertIn("x.py", str(caught.exception))
 
 
+class GateCopyLeftovers(Repo):
+    """A gate copy is a temporary worktree registered in the repository; a gate killed mid-run leaves it registered.
+    The shared record names the gate's pid, so a copy whose gate is gone is a leftover that relay doctor removes."""
+
+    def setUp(self):
+        super().setUp()
+        import relay_ci_copy
+        import relay_setup
+        self.copy, self.setup = relay_ci_copy, relay_setup
+
+    def copy_of(self, pid):
+        tmpd = tempfile.mkdtemp(dir=self.tmp)
+        self.git("worktree", "add", "-q", "--detach", os.path.join(tmpd, "wt"), "HEAD")
+        self.copy.write_shared_record(self.repo, tmpd, pid=pid)
+        return tmpd
+
+    def dead_pid(self):
+        child = subprocess.Popen([sys.executable, "-c", "pass"])
+        child.wait()      # collected: the pid names no running process
+        return child.pid
+
+    def registered(self):
+        return [ln for ln in self.git("worktree", "list", "--porcelain").splitlines() if ln.startswith("worktree ")]
+
+    def test_a_copy_whose_gate_was_killed_is_unregistered_and_named(self):
+        tmpd = self.copy_of(self.dead_pid())
+        self.assertEqual(len(self.registered()), 2)       # the repo and the copy
+        gone = self.copy.prune_dead_copies(self.repo)
+        self.assertEqual(gone, [tmpd])
+        self.assertEqual(len(self.registered()), 1)       # only the repo is left
+        self.assertFalse(os.path.exists(tmpd))
+
+    def test_a_copy_of_a_running_gate_is_left_alone(self):
+        tmpd = self.copy_of(os.getpid())                  # this test process is the running gate
+        self.assertEqual(self.copy.prune_dead_copies(self.repo), [])
+        self.assertEqual(len(self.registered()), 2)
+        self.assertTrue(os.path.isdir(tmpd))
+
+    def test_doctor_line_removes_leftovers_and_names_them(self):
+        tmpd = self.copy_of(self.dead_pid())
+        name, good, detail = self.setup.gate_copies_check(self.repo)
+        self.assertTrue(good)                             # pruned, so nothing is left registered
+        self.assertIn(tmpd, detail)
+        self.assertEqual(len(self.registered()), 1)
+        name, good, detail = self.setup.gate_copies_check(self.repo)
+        self.assertEqual(detail, "")                      # nothing to name the second time
+
+
 if __name__ == "__main__":
     unittest.main()
