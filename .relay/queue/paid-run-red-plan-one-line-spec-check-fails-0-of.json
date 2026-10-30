@@ -23,8 +23,8 @@
     "evals/plugin/plan-one-line/case.yaml",
     "evals/plugin/graders.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-30T12:49:45Z",
+  "taken_by": "wt/paid-run-red-plan-one-line-spec-check-fa",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
