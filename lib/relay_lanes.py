@@ -36,7 +36,9 @@ import relay_queue
 LANES_DEFAULT, LANES_MAX = 4, 8
 SETTINGS = {"lanes_line_items": (3, 0, 10), "stop_nudge": (1, 0, 2), "lane_quiet_hours": (3, 1, 24)}   # default, lowest, highest
 LIST_ITEMS = 3             # waits, landed and uncounted worktrees named in the line
-NOT_REPRODUCED = "not reproduced"     # a fact note with these words: the front could not reproduce the defect, so the item is no pick
+# A fact note that starts (after an optional "29 Oct," date) with "not reproduced" or "reproduced": the newest one decides whether the
+# front could reproduce the defect; if not, the item is no pick. A quoted review line that only mentions it does not count.
+REPRODUCTION = re.compile(r"^(?:\d{1,2} [a-z]{3,9},?\s+)?(not reproduced|reproduced)\b")
 LOG_DEPTH = 500            # newest merges of the default branch searched for the landing of a branch whose ref is gone
 SHA_COMMITS = 40           # newest commits of a landed branch looked at for the one that names the change
 
@@ -94,7 +96,11 @@ def setting_note(cfg: Any, key: str) -> Optional[str]:
     """Why `front.<key>` was not used as written (set, but out of bounds or not a whole number); None when it is unset or used."""
     default, low, high = SETTINGS[key]
     value = relay_config.get(cfg, "front." + key)
-    if value is None or (isinstance(value, int) and not isinstance(value, bool) and low <= value <= high):
+    if value is None or key != "lanes_line_items":     # only this key falls back to the default when out of bounds; the others are clamped
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        return f"{key} {value} is not a whole number: {default} is used"
+    if low <= value <= high:
         return None
     return f"{key} {value} is out of bounds {low}-{high}: {default} is used"
 
@@ -243,7 +249,12 @@ def _waiting_question(item: dict) -> bool:
 
 def _not_reproduced(item: dict) -> bool:
     """True when a fact note of the item says the defect was not reproduced: the item is no pick (it would hide every item behind it)."""
-    return any(n.kind == "fact" and NOT_REPRODUCED in " ".join(n.text).lower() for n in relay_queue.notes_of(item))
+    verdict = ""
+    for n in relay_queue.notes_of(item):
+        found = REPRODUCTION.match(" ".join(n.text).strip().lower()) if n.kind == "fact" else None
+        if found:
+            verdict = found.group(1)
+    return verdict == "not reproduced"
 
 
 def _one_lane_per_train(main: str, running: list[Lane], trees: dict[str, str], when: float, quiet_hours: int) -> list[Lane]:

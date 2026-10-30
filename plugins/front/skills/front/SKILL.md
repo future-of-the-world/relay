@@ -189,10 +189,12 @@ it, or say in one short sentence why the lane stays free: facts only (what is fr
 what waits), never a reading of what the owner wants or said. Do not repeat your
 earlier answer. A branch that holds two items
 is one lane. Settings under `[front]` in the project's `.claude/kit.toml`:
-`lanes_line_items` (default 3, 1-8, items named in the line), `stop_nudge`
+`lanes_line_items` (default 3, 0-10, startable items named after the picks as "next:"; 0 names none), `stop_nudge`
 (default 1, 0-2, Stop refusals per lane state; 0 is the line only) and
 `lane_quiet_hours` (default 3, 1-24, how long a worktree with no item counts as
-a lane). Do not wait for the other lanes, and never start more than N.
+a lane). An item whose newest reproduction fact note starts "not reproduced" (write it as
+"<day Mon>, not reproduced (front): ...") is not named as a pick; a later note starting "reproduced" brings it back.
+Do not wait for the other lanes, and never start more than N.
 
 While a paid run goes, lanes keep building. A change that touches the paid
 run's paths waits at the landing until the run ends; `bin/paid-cost touches

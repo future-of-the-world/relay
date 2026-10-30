@@ -320,6 +320,31 @@ class Lanes(LaneBase):
     def test_line_items_zero_is_the_line_without_next(self):
         self.assertEqual(rl.line(self.stuck_queue(), 0), "Lanes: 0 of 1 running; start: y (fix, ip 90)")
 
+    def two_items(self, notes):
+        self.seed({Q + "x.json": item("x", ip=99, where=("lib/x.py",), notes=notes), Q + "y.json": item("y", ip=90, where=("lib/y.py",))})
+        return self.state(limit=1)
+
+    def test_f1_the_newest_reproduction_fact_decides(self):
+        no = {"at": "2026-10-29T10:00:00Z", "fact": ["29 Oct, not reproduced (front): no longer fails."]}
+        yes = {"at": "2026-10-29T12:00:00Z", "fact": ["Reproduced 29 Oct: bin/wt line 5 creates .worktree/."]}
+        s = self.two_items([no, yes])        # the later positive note wins: X is the pick again
+        self.assertEqual(([p.slug for p in s.picks], [p.slug for p in s.upcoming]), (["x"], ["y"]))
+        self.assertEqual([p.slug for p in self.two_items([no]).picks], ["y"])      # only the negative note: skipped
+        self.assertEqual([p.slug for p in self.two_items([yes]).picks], ["x"])     # only the positive note: a pick
+        self.assertEqual([p.slug for p in self.two_items([yes, no]).picks], ["y"])    # the negative note is the newest
+        self.assertEqual(rl.line(self.two_items([no]), 0), "Lanes: 0 of 1 running; start: y (fix, ip 90)")
+
+    def test_f1_a_quoted_review_line_is_no_reproduction_fact(self):
+        quoted = {"at": "2026-10-29T10:00:00Z", "fact": ["Review F2: PLAUSIBLE (traced, not reproduced); a test is needed."]}
+        self.assertEqual([p.slug for p in self.two_items([quoted]).picks], ["x"])
+
+    def test_f4_setting_note_names_the_cause_and_only_the_key_whose_rule_it_states(self):
+        self.assertEqual(rl.setting_note({"front": {"lanes_line_items": "5"}}, "lanes_line_items"),
+                         "lanes_line_items 5 is not a whole number: 3 is used")
+        self.assertEqual(rl.setting_note({"front": {"lanes_line_items": 11}}, "lanes_line_items"),
+                         "lanes_line_items 11 is out of bounds 0-10: 3 is used")
+        self.assertIsNone(rl.setting_note({"front": {"stop_nudge": 5}}, "stop_nudge"))     # clamped to 2, not replaced by the default
+
     def test_next_skips_items_that_wait_or_ask_and_is_empty_when_lanes_are_full(self):
         asked = {"asked_at": "2026-10-09T22:00:00Z", "question": ["**Keep it?**"], "options": ["a. Yes.", "b. No."]}
         self.seed({Q + "run.json": item("run", where=("lib/r.py",), **taken("wt/run")), Q + "a.json": item("a", ip=95, where=("lib/a.py",)),
