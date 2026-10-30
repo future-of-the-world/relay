@@ -29,6 +29,50 @@ class Setup(Base):
         text = self._wt_project('#!/bin/sh\ngit worktree add ".worktree/$1" -b "wt/$1"\n')
         self.assertIn('worktrees = ".worktree"\n', text)
 
+    def _gitignore_after(self, wt_script, pre_ignore=""):
+        import relay_setup
+        proj = os.path.join(self.tmp, "giproj")
+        os.makedirs(os.path.join(proj, "bin"))
+        subprocess.run(["git", "init", "-q", proj], check=True, capture_output=True)
+        if wt_script is not None:
+            with open(os.path.join(proj, "bin", "wt"), "w") as handle:
+                handle.write(wt_script)
+        with open(os.path.join(proj, ".gitignore"), "w") as handle:
+            handle.write(pre_ignore)
+        relay_setup.ensure_gitignore(proj, relay_setup.detect(proj))   # first setup: no kit.toml, d["bindings"] is empty
+        return open(os.path.join(proj, ".gitignore")).read().splitlines()
+
+    def test_first_setup_ignores_the_folder_bin_wt_makes(self):
+        lines = self._gitignore_after('#!/bin/sh\ngit worktree add ".worktree/$1"\n')
+        self.assertIn(".worktree/", lines)
+        self.assertNotIn(".worktrees/", lines)
+
+    def test_first_setup_adds_no_worktrees_line_when_already_ignored(self):
+        lines = self._gitignore_after('#!/bin/sh\ngit worktree add ".worktree/$1"\n', "/.worktree/\n")
+        self.assertEqual([x for x in lines if "worktree" in x], ["/.worktree/"])
+
+    def test_first_setup_ignores_default_folder_without_bin_wt(self):
+        self.assertIn(".worktrees/", self._gitignore_after(None))
+
+    def _registered(self, name, folder):
+        main = os.path.join(self.tmp, name)
+        os.makedirs(main)
+        g = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run(g + ["init", "-q", main], check=True, capture_output=True)
+        subprocess.run(g + ["-C", main, "commit", "-q", "--allow-empty", "-m", "i"], check=True, capture_output=True)
+        subprocess.run(g + ["-C", main, "worktree", "add", "-q", folder + "/x", "-b", "wt/x"], check=True, capture_output=True)
+        return main
+
+    def test_worktrees_folder_sees_registered_worktree_without_bin_wt(self):
+        import relay_setup
+        main = self._registered("regproj", ".worktree")
+        self.assertEqual(relay_setup.worktrees_folder(main), ".worktree")
+        self.assertEqual(relay_setup.worktrees_folder(os.path.join(main, ".worktree", "x")), ".worktree")
+
+    def test_worktrees_folder_registered_in_dot_worktrees(self):
+        import relay_setup
+        self.assertEqual(relay_setup.worktrees_folder(self._registered("regproj2", ".worktrees")), ".worktrees")
+
     def test_setup_default_worktrees_folder_without_bin_wt(self):
         text = self._wt_project(None)
         self.assertIn('worktrees = ".worktrees"\n', text)

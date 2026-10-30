@@ -682,7 +682,7 @@ def gitignore_lines(d: dict) -> list[str]:
     outside the project), the stack's caches."""
     project = d["bindings"].get("project")
     folder = project.get("worktrees") if isinstance(project, dict) else None
-    folder = folder if isinstance(folder, str) and folder.strip("/") else ".worktrees"
+    folder = folder if isinstance(folder, str) and folder.strip("/") else d.get("worktrees") or ".worktrees"   # first setup: kit.toml is not read yet
     norm = posixpath.normpath(folder)
     lines = [".ci/"]
     if not (os.path.isabs(folder) or norm == ".." or norm.startswith("../")):
