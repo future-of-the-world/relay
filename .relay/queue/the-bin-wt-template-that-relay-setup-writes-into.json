@@ -1,0 +1,35 @@
+{
+  "kind": "fix",
+  "ip": 50,
+  "time": 20,
+  "found_at": "2026-10-30T23:07:34Z",
+  "found_in": "finding F1 of review-bin-wt-new-queue-x-still-makes-wt-queue-x-which.json",
+  "title": "The bin/wt template that relay setup writes into every…",
+  "what": [
+    "templates/bin-wt:10: LOW: F1 the bin/wt template that relay setup writes into every project still makes wt/queue-<x>; only relay's own copy was fixed"
+  ],
+  "why": [
+    "The bin/wt template that relay setup copies into every new project still makes wt/queue-<x> branches for a queue- name; relay's own bin/wt was fixed on 30 Oct, so every project set up from now on keeps the bug."
+  ],
+  "failing_case": [
+    "A project set up by relay (bin/wt written from templates/bin-wt). The front, told by guard_main to use bin/wt new <name>, runs",
+    "bin/wt new queue-docs main there: it makes .worktrees/queue-docs on wt/queue-docs, which relay doctor lists as a leftover queue",
+    "branch and tidy and the merge hook skip as a landing branch. Expected: refused as in relay's own bin/wt."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. templates/bin-wt rendered (branch=main), run in a temp repo: new queue-docs main -> exit non-zero, stderr names \"queue-\",",
+    "   no .worktrees/queue-docs, no wt/* branch.",
+    "2. Same rendered template: new docs main -> .worktrees/docs on wt/docs, exit 0, prints the path.",
+    "3. relay's own bin/wt keeps both behaviours of tests/test_bin_wt.py."
+  ],
+  "where": [
+    "templates/bin-wt:10"
+  ],
+  "taken_at": null,
+  "taken_by": null,
+  "closed_at": null,
+  "test": null,
+  "dropped_at": null,
+  "dropped_why": null
+}
