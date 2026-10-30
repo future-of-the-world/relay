@@ -247,7 +247,8 @@ class AfterLanding(Land):
         started.assert_called_once_with(self.main)
         self.assertIn("WATCH STARTED", result.lines)
 
-    def test_a_landing_that_does_not_land_starts_nothing(self):
+    def test_a_landing_that_does_not_land_starts_no_watch(self):
+        """A landing red at its gate starts the twin (tests/test_gate_compare.py), never the watch."""
         self.start(gate="exit 1\n")
         with mock.patch.object(relay_land, "_start_watch", return_value=["WATCH STARTED"]) as started:
             result = relay_land.land(self.main, "wt/x", lambda text: None)

@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Optional, Sequence
 
 import relay_config
@@ -19,8 +19,9 @@ KEY = os.path.join("keys", "gate-host")
 SETTINGS: dict[str, tuple[int, int, int]] = {
     "slots": (2, 1, 3), "cpus": (4, 2, 8), "memory_gib": (4, 2, 12), "cpu_shares": (256, 2, 1024), "connect_timeout_s": (3, 1, 15),
     "keepalive_s": (10, 5, 20), "keepalive_count": (3, 2, 6), "remote_wait_s": (900, 0, 3600), "images_kept": (3, 1, 10),
-    "build_limit_s": (900, 300, 3600), "stop_after": (3, 1, 10),
+    "build_limit_s": (900, 300, 3600), "stop_after": (3, 1, 10), "rerun_disagreement": (1, 0, 3),
 }
+ON_OFF = ("watch_default", "twin_red_landings")      # the two settings that are on or off
 DEFAULT_USER = "relay-gate"
 
 
@@ -30,6 +31,7 @@ class Host:
     user: str
     values: dict[str, int]
     watch_default: bool = True
+    twin_red_landings: bool = True
 
     def get(self, setting: str) -> int:
         return self.values.get(setting, SETTINGS[setting][0])
@@ -48,7 +50,7 @@ def _host(name: str, raw: Any) -> Host:
         raise ValueError("%s: the host %s needs a `user` that is not root" % (RECORD, name))
     values: dict[str, int] = {}
     for key, value in (raw.get("settings") or {}).items():
-        if key == "watch_default":
+        if key in ON_OFF:
             continue
         if key not in SETTINGS or isinstance(value, bool) or not isinstance(value, int) or not SETTINGS[key][1] <= value <= SETTINGS[key][2]:
             raise ValueError("%s: the setting %s of %s is not understood or is outside its bound" % (RECORD, key, name))
@@ -56,7 +58,10 @@ def _host(name: str, raw: Any) -> Host:
     watch = (raw.get("settings") or {}).get("watch_default", True)
     if not isinstance(watch, bool):
         raise ValueError("%s: watch_default of %s is on or off" % (RECORD, name))
-    return Host(name, raw["user"], values, watch)
+    twin = (raw.get("settings") or {}).get("twin_red_landings", True)
+    if not isinstance(twin, bool):
+        raise ValueError("%s: twin_red_landings of %s is on or off" % (RECORD, name))
+    return Host(name, raw["user"], values, watch, twin)
 
 
 def load(home: Optional[str] = None) -> dict[str, Host]:
@@ -77,7 +82,7 @@ def load(home: Optional[str] = None) -> dict[str, Host]:
 def save(hosts: dict[str, Host], home: Optional[str] = None) -> None:
     path = record_path(home)
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    data = {"hosts": {h.name: {"user": h.user, "settings": {**h.values, "watch_default": h.watch_default}} for h in hosts.values()}}
+    data = {"hosts": {h.name: {"user": h.user, "settings": {**h.values, "watch_default": h.watch_default, "twin_red_landings": h.twin_red_landings}} for h in hosts.values()}}
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=1, sort_keys=True)
@@ -96,17 +101,17 @@ def set_value(name: str, setting: str, value: str, home: Optional[str] = None) -
     if name not in hosts:
         raise ValueError("there is no host %s in the record; add it first: relay hosts add %s" % (name, name))
     host = hosts[name]
-    if setting == "watch_default":
+    if setting in ON_OFF:
         if value not in ("on", "off"):
-            raise ValueError("watch_default is on or off")
-        host = Host(host.name, host.user, host.values, value == "on")
+            raise ValueError("%s is on or off" % setting)
+        host = replace(host, watch_default=value == "on") if setting == "watch_default" else replace(host, twin_red_landings=value == "on")
     elif setting in SETTINGS:
         low, high = SETTINGS[setting][1:]
         if not value.isdigit() or not low <= int(value) <= high:
             raise ValueError("%s is a whole number from %d to %d" % (setting, low, high))
-        host = Host(host.name, host.user, {**host.values, setting: int(value)}, host.watch_default)
+        host = replace(host, values={**host.values, setting: int(value)})
     else:
-        raise ValueError("unknown setting %s; the settings are %s, watch_default" % (setting, ", ".join(SETTINGS)))
+        raise ValueError("unknown setting %s; the settings are %s, %s" % (setting, ", ".join(SETTINGS), ", ".join(ON_OFF)))
     save({**hosts, name: host}, home)
     return host
 
@@ -146,7 +151,7 @@ def add(name: str, user: str, repo: str, home: Optional[str] = None) -> list[str
         raise ValueError(refused_text(name, user, public))
     hosts = load(home)
     old = hosts.get(name)
-    save({**hosts, name: Host(name, user, old.values if old else {}, old.watch_default if old else True)}, home)
+    save({**hosts, name: replace(old, user=user) if old else Host(name, user, {})}, home)
     return lines + ["recorded %s as %s" % (name, user)]
 
 
@@ -174,7 +179,7 @@ def remove(name: str, home: Optional[str] = None) -> list[str]:
 
 
 def main(args: Sequence[str]) -> list[str]:
-    usage = "relay hosts add <host> [--user <account>] [-C <repo>] | set <host> <setting> <value> | remove <host> | status"
+    usage = "relay hosts add <host> [--user <account>] [-C <repo>] | set <host> <setting> <value> | remove <host> | status | compare [--waves <1-20>] [-C <repo>]"
     args = list(args)
     repo, user = ".", DEFAULT_USER
     for flag in ("-C", "--user"):
@@ -195,8 +200,20 @@ def main(args: Sequence[str]) -> list[str]:
     if args[:1] == ["status"] and len(args) == 1:
         import relay_gate_watch
         return relay_gate_watch.status_lines(repo)
+    if args[:1] == ["compare"]:
+        import relay_gate_compare
+        waves = relay_gate_compare.DEFAULT_WAVES
+        rest = args[1:]
+        if rest[:1] == ["--waves"] and len(rest) == 2:
+            low, high = relay_gate_compare.WAVES_BOUNDS
+            if not rest[1].isdigit() or not low <= int(rest[1]) <= high:
+                raise ValueError("--waves is a whole number from %d to %d" % (low, high))
+            waves, rest = int(rest[1]), []
+        if rest:
+            raise ValueError(usage)
+        return relay_gate_compare.compare_lines(repo, waves)
     raise ValueError(usage)
 
 
 def settings_text(host: Host) -> str:
-    return " ".join("%s=%d" % (key, host.get(key)) for key in SETTINGS) + " watch_default=%s" % ("on" if host.watch_default else "off")
+    return " ".join("%s=%d" % (key, host.get(key)) for key in SETTINGS) + " watch_default=%s twin_red_landings=%s" % ("on" if host.watch_default else "off", "on" if host.twin_red_landings else "off")

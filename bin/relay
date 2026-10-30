@@ -57,14 +57,17 @@
                                      (.relay/checks/<sha>.gate.log); exits with the gate's status
                                      (a quick gate stopped at its time limit exits 124: run it again). With a gate host
                                      recorded (relay hosts), a quick gate may run there; the line `gate: ...` says why not
+  relay gate --twin <sha> [-C <repo>]
+                                     one Linux gate of the commit a red landing judged (relay land starts it); never files an item
   relay gate --watch-default [-C <repo>] [<sha>]
                                      gate a first-parent commit of the default branch (default: its tip) on the gate host and
                                      keep the result in the git folder, never committed; a red result files one fix item
-  relay hosts add <host> [--user <account>] [-C <repo>] | set <host> <setting> <value> | remove <host> | status
+  relay hosts add <host> [--user <account>] [-C <repo>] | set <host> <setting> <value> | remove <host> | status | compare [--waves <1-20>]
                                      the hosts quick gates may run on (the gate hosts record): add proves the login
                                      and records it (or prints the 3 root commands the owner must see first); set changes a
                                      setting within its bound; remove deletes the record and prints the one root command
-                                     that removes the account; status shows the newest Linux watch and the stop-sending rule
+                                     that removes the account; status shows the newest Linux watch and the stop-sending rule;
+                                     compare shows how often the Linux and Mac gates agreed on the same code, per wave
   relay land <branch> [--paid-fix] [--keep-open] [-C <repo>]
                                      take the default branch into the branch, gate the result, fast-forward on green; one
                                      landing at a time, no agent. Exit 0 landed, 1 red gate, 2 refused, 3 take conflict,
@@ -644,11 +647,24 @@ def _print_paid_cost(worktree):
 
 
 def cmd_gate(args):
-    usage = "relay gate [-C <worktree>] [--paid] [--again] [-- <args>] | relay gate --watch-default [-C <repo>] [<sha>]"
+    usage = "relay gate [-C <worktree>] [--paid] [--again] [-- <args>] | relay gate --watch-default [-C <repo>] [<sha>] | relay gate --twin <sha> [-C <repo>]"
     args, extra = list(args), []
     if "--" in args:
         i = args.index("--")
         args, extra = args[:i], args[i + 1:]
+    if "--twin" in args:      # started by relay land after a red landing gate: one Linux gate of the commit that gate judged
+        args.remove("--twin")
+        repo = "."
+        if "-C" in args:
+            i = args.index("-C")
+            if i + 1 >= len(args):
+                raise Usage(usage)
+            repo = args[i + 1]
+            del args[i:i + 2]
+        if extra or len(args) != 1 or args[0].startswith("-"):
+            raise Usage(usage)
+        print("\n".join(relay_gate_watch.twin(repo, args[0])))
+        return 0
     if "--watch-default" in args:
         args.remove("--watch-default")
         repo = "."

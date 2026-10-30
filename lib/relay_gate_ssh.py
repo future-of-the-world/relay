@@ -30,6 +30,7 @@ WATCH_BUILD_LIMIT_S = 3600      # a watch's image build bound: nobody waits on i
 EVENTS_READ, EVENTS_KEEP = 200, 1000
 COUNTED = ("result", "could-not-run")      # the outcomes that count toward the stop-sending rule (plan 5.5, last column)
 PINNED = "refs/relay-gate/"
+TWIN_PINNED = "refs/relay-twin/"      # a twin's own prefix: the watch clears refs/relay-gate/ and never sees these
 SUBUID_FILE = "/etc/subuid"      # the host's file of subordinate user ids (rootless podman needs a range for the account)
 
 
@@ -285,11 +286,12 @@ def _result(host: relay_hosts.Host, attempt: Attempt) -> Optional[RemoteResult]:
 
 
 def gate(host: relay_hosts.Host, home: Optional[str], worktree: str, head: str, command: Sequence[str], pinned: bool = False,
-         clock: Callable[[], float] = time.monotonic, notify: Callable[[str], None] = lambda text: print(text, file=sys.stderr, flush=True)) -> RemoteResult:
+         clock: Callable[[], float] = time.monotonic, notify: Callable[[str], None] = lambda text: print(text, file=sys.stderr, flush=True),
+         prefix: str = PINNED) -> RemoteResult:
     """Run the quick gate of `head` on `host`; RemoteResult, or raises Unavailable. `pinned`: a watch of a first-parent commit of the
     default branch (a temporary ref carries that exact commit); otherwise a lane gate of the worktree's branch. Records one event."""
     try:
-        result = _gate(host, home, worktree, head, command, pinned, clock, notify)
+        result = _gate(host, home, worktree, head, command, pinned, clock, notify, prefix)
     except Unavailable as exc:
         append_event(worktree, host.name, exc.outcome, "gate: %s" % exc)
         raise
@@ -298,7 +300,7 @@ def gate(host: relay_hosts.Host, home: Optional[str], worktree: str, head: str, 
 
 
 def _gate(host: relay_hosts.Host, home: Optional[str], worktree: str, head: str, command: Sequence[str], pinned: bool,
-          clock: Callable[[], float], notify: Callable[[str], None]) -> RemoteResult:
+          clock: Callable[[], float], notify: Callable[[str], None], prefix: str = PINNED) -> RemoteResult:
     if list(command) != QUICK_COMMAND:
         raise Unavailable("%s runs only `bin/ci --quick`" % host.name, "skipped")
     main, default = relay_git.main_checkout(worktree), relay_git.default_branch(worktree)
@@ -308,14 +310,14 @@ def _gate(host: relay_hosts.Host, home: Optional[str], worktree: str, head: str,
     source, version = program_source(worktree)
     limit = quick_limit(worktree, head)
     tree = relay_git.git(worktree, "rev-parse", head + "^{tree}")[1]
-    ref = PINNED + head if pinned else "refs/heads/%s" % branch
+    ref = prefix + head if pinned else "refs/heads/%s" % branch
     options = ["%s=%d" % (k, host.get(k)) for k in ("slots", "cpus", "memory_gib", "cpu_shares", "remote_wait_s", "images_kept")]
     options.append("build_limit_s=%d" % (WATCH_BUILD_LIMIT_S if pinned else host.get("build_limit_s")))
     if pinned:
         relay_git.git(worktree, "update-ref", ref, head)      # git refuses to bundle a bare commit id: the ref carries it
     try:
         try:
-            body = _git_bytes(worktree, "bundle", "create", "-", ref, *([] if pinned else ["refs/heads/" + default]))
+            body = _git_bytes(worktree, "bundle", "create", "-", ref, *([] if pinned and prefix == PINNED else ["refs/heads/" + default]))      # a twin's commit is judged against the default branch's recipe, so the bundle carries it
         except ValueError as exc:
             raise Unavailable("the bundle could not be made (%s)" % last_line(str(exc), "git failed"), "skipped")
     finally:

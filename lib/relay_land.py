@@ -53,6 +53,7 @@ class Event:
     outcome: str = ""               # done: landed | red | conflict | refused | handed_back | dirty
     before: Optional[str] = None    # done: the default branch's sha before the fast-forward
     sha: Optional[str] = None       # done: the landed head
+    judged: str = ""                # done, red at the gate (exit 1-126 but 124): the commit the gate judged (not `sha`: relay_metrics matches done events by sha)
     gates_run: int = 0
     gate_seconds: float = 0.0
     code_moves: int = 0
@@ -90,7 +91,7 @@ def parse_event(line: str) -> Optional[Event]:
             return None
         if key in ("before", "sha") and value is not None and not isinstance(value, str):
             return None
-        if key in ("kind", "ts", "branch", "outcome", "slug", "file", "holder", "words") and not isinstance(value, str):
+        if key in ("kind", "ts", "branch", "outcome", "slug", "file", "holder", "words", "judged") and not isinstance(value, str):
             return None
     if data["kind"] == "done" and data.get("outcome") not in OUTCOMES:
         return None
@@ -312,7 +313,18 @@ def land(repo: str, branch: str, notify: Callable[[str], None], paid_fix: bool =
     if result.outcome == LANDED:                  # after the done event and the lock: the landing stays LANDED whatever the record does
         result.lines.extend(_change_records(repo, main, result, stats))
         result.lines.extend(_start_watch(main))
+    elif result.outcome == RED and stats.judged:
+        result.lines.extend(_start_twin(main, stats.judged))
     return result
+
+
+def _start_twin(main: str, judged: str) -> list[str]:
+    """After a landing that ended red at its gate: start the Linux twin of the judged commit, detached (same import rule as _start_watch)."""
+    try:
+        import relay_gate_watch
+        return relay_gate_watch.start_twin_after_landing(main, judged)
+    except Exception as exc:        # the landing already ended: a twin that cannot start never changes its outcome
+        return [f"land: the Linux twin of the red gate did not start: {exc}"]
 
 
 def _start_watch(main: str) -> list[str]:
@@ -387,7 +399,8 @@ def _locked(main: str, default: str, branch: str, tree: str, stats: Event, tries
             how = f"stopped at the {m[1]}" + (f" (step {m[2]} was running)" if m[2] else "") if m else "stopped at its time limit"
             raise Stop(RED if (twice := relay_gate.earlier_stop(tree, head, True) is not None) else HANDED_BACK, [f"land: the gate of {branch} {how}" + (" twice on the same code: a hang, not load: a fix unit or the owner, not a rerun" if twice else f": relay land {branch} again")], code_moves=code_moves, inert_moves=inert_moves)
         if code != 0:
-            raise Stop(RED, [f"land: the gate of {branch} is red (exit {code}); log {log}", *red[:5]], code_moves=code_moves, inert_moves=inert_moves)
+            judged = head if 0 < code < 127 else ""      # a failed start (127) or a kill (>= 128) says nothing about the code: no twin can pair with it
+            raise Stop(RED, [f"land: the gate of {branch} is red (exit {code}); log {log}", *red[:5]], code_moves=code_moves, inert_moves=inert_moves, judged=judged)
         landed = False
         if _sha(main, ref) == base:         # (a moved default branch makes the judge say "behind": count the move and take again)
             judged = _sha(main, "refs/heads/" + branch)

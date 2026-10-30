@@ -16,12 +16,13 @@ import relay_git
 import relay_hosts
 import relay_inert
 import relay_gate_ssh
-from relay_gate_logs import LIMIT_EXIT, REMOTE_SUFFIX, Remote, RemoteResult, _exit_code, first_failure
+from relay_gate_compare import run_files, run_name
+from relay_gate_logs import LIMIT_EXIT, Remote, RemoteResult, _exit_code, first_failure
 
 FOUND_IN = "the Linux gate of the default branch"
 STOP_FOUND_IN = "the stop-sending rule of a gate host"
 MAX_ROUNDS = 3      # a watch gates again when the default branch moved by non-inert files; this many gates in one call at most
-LOCK, AGAIN = "watch.lock", "watch.again"
+LOCK, AGAIN, TWIN_LOCK = "watch.lock", "watch.again", "twin.lock"
 
 
 def _tip(main: str, default: str) -> str:
@@ -45,13 +46,15 @@ def newest_watch(worktree: str) -> Optional[tuple[str, Optional[int], str, int]]
         return None
     folder = relay_gate_ssh.linux_dir(worktree)
     for age, sha in enumerate(_first_parent(main, default)):
-        path = os.path.join(folder, sha + REMOTE_SUFFIX)
+        files = run_files(folder, sha)      # the newest run of a commit is its Linux state: a green re-run clears a red first run
+        if not files:
+            continue
         try:
-            with open(path, encoding="utf-8", errors="replace") as handle:
+            with open(files[-1], encoding="utf-8", errors="replace") as handle:
                 lines = handle.read().splitlines()
         except OSError:
             continue
-        return sha, _exit_code(lines), path, age
+        return sha, _exit_code(lines), files[-1], age
     return None
 
 
@@ -140,23 +143,40 @@ def log_text(head: str, result: RemoteResult) -> str:
                                                               out, "" if out.endswith("\n") or not out else "\n", result.code)
 
 
-def gate_commit(main: str, default: str, host: relay_hosts.Host, home: Optional[str], sha: str) -> list[str]:
-    """One watch gate of `sha`: the file is written when an end line arrives (and only then); a red result files its fix item."""
-    try:
-        result = relay_gate_ssh.gate(host, home, main, sha, relay_gate_ssh.QUICK_COMMAND, pinned=True)
-    except relay_gate_ssh.Unavailable as exc:
-        maybe_file_stop(main, host)
-        return ["gate: %s; no Linux result for %s" % (exc, sha[:12])]
-    folder = relay_gate_ssh.linux_dir(main)
+def gate_runs(main: str, host: relay_hosts.Host, home: Optional[str], sha: str, folder: str, prefix: str = relay_gate_ssh.PINNED,
+              header: str = "") -> tuple[list[str], Optional[RemoteResult], str, bool]:
+    """One gate of `sha` on the host and, while the newest run is red, up to `rerun_disagreement` more, each in a file of its own beside
+    the first (written when an end line arrives, and only then). Returns (lines, newest result, its file, whether the last run needed
+    was made): False when a re-run could not run, so a red first run stands but has not been confirmed."""
     os.makedirs(folder, exist_ok=True)
-    path = os.path.join(folder, sha + REMOTE_SUFFIX)
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write(log_text(sha, result))
-    lines = ["watch %s: exit %d (on %s)" % (sha[:12], result.code, host.name), path]
-    if is_red(result.code):
-        failing = "\n".join(first_failure(result.output)) + "\nlog: " + os.path.relpath(path, main)      # relative: the queue refuses absolute temporary paths
+    for stale in run_files(folder, sha):      # runs of an earlier gating of this commit
+        os.remove(stale)
+    lines: list[str] = []
+    last, path = None, ""
+    for k in range(host.get("rerun_disagreement") + 1):
+        try:
+            result = relay_gate_ssh.gate(host, home, main, sha, relay_gate_ssh.QUICK_COMMAND, pinned=True, prefix=prefix)
+        except relay_gate_ssh.Unavailable as exc:
+            maybe_file_stop(main, host)
+            lines.append("gate: %s; no Linux %s for %s" % (exc, "result" if k == 0 else "re-run result", sha[:12]))
+            return lines, last, path, False
+        path = os.path.join(folder, run_name(sha, k))
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(header + log_text(sha, result))
+        lines += ["watch %s: exit %d (on %s)" % (sha[:12], result.code, host.name) if k == 0 else "re-run %d of %s: exit %d" % (k, sha[:12], result.code), path]
+        last = result
+        if not is_red(result.code):
+            break
+    return lines, last, path, True
+
+
+def gate_commit(main: str, default: str, host: relay_hosts.Host, home: Optional[str], sha: str) -> list[str]:
+    """One watch gate of `sha` (with its re-runs); the fix item is filed only when the last run is red too."""
+    lines, last, path, complete = gate_runs(main, host, home, sha, relay_gate_ssh.linux_dir(main))
+    if complete and last is not None and is_red(last.code):
+        failing = "\n".join(first_failure(last.output)) + "\nlog: " + os.path.relpath(path, main)      # relative: the queue refuses absolute temporary paths
         lines.append(file_item(main, default, FOUND_IN, "The default branch fails the quick gate on Linux (%s)" % host.name,
-                               "The Linux watch of %s ended red (exit %d)." % (sha[:12], result.code),
+                               "The Linux watch of %s ended red (exit %d)." % (sha[:12], last.code),
                                "A red default branch on Linux sends every lane to the Mac until it is fixed.", failing,
                                "The Linux watch of the head that lands the fix is green."))
     return lines
@@ -208,6 +228,73 @@ def watch(repo: str, sha: Optional[str] = None, home: Optional[str] = None, gate
         handle.close()
 
 
+def _twin_reason(main: str, host: Optional[relay_hosts.Host], sha: str) -> str:
+    """"" when a twin of `sha` should run, else the reason it should not."""
+    import relay_gate_compare
+    if host is None:
+        return "there is no gate host in the record"
+    if not host.twin_red_landings:
+        return "twin_red_landings is off"
+    if not os.path.isfile(os.path.join(main, "container", "Containerfile")):
+        return "this project cannot go remote"
+    if relay_gate_ssh.stopped(relay_gate_ssh.read_events(main, host.name), host.get("stop_after")) is not None:
+        return "sending to %s is stopped" % host.name
+    if relay_gate_compare.linux_result(main, sha, ("refs/heads/" + (relay_git.default_branch(main) or ""),)) is not None:
+        return "the code of %s has a Linux result already" % sha[:12]
+    return ""
+
+
+def twin(repo: str, sha: str, home: Optional[str] = None, gate_run: Callable[..., tuple[list[str], Optional[RemoteResult], str, bool]] = gate_runs) -> list[str]:
+    """`relay gate --twin <sha>`: the Linux gate of a commit a red landing judged. Its own lock (twins run one at a time, in order), its own ref
+    prefix, its own folder; never writes `watch.again`, files no fix item and is never read by the default branch's rules."""
+    main = relay_git.main_checkout(repo)
+    host = relay_hosts.first(home)
+    if not main:
+        raise ValueError("%s is not in a git repository" % repo)
+    if host is None:
+        raise ValueError("there is no gate host in the record: relay hosts add <host>")
+    full = relay_git.git(main, "rev-parse", "--verify", sha + "^{commit}")[1]
+    if not full:
+        raise ValueError("%s is not a commit" % sha)
+    folder = relay_gate_ssh.linux_dir(main)
+    os.makedirs(folder, exist_ok=True)
+    handle = open(os.path.join(folder, TWIN_LOCK), "w")
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX)      # blocking: the next twin waits its turn
+        reason = _twin_reason(main, host, full)
+        if reason:
+            return ["no twin: " + reason]
+        _rc, refs = relay_git.git(main, "for-each-ref", "--format=%(refname)", relay_gate_ssh.TWIN_PINNED.rstrip("/"))      # leftovers of a killed twin
+        for ref in refs.split():
+            relay_git.git(main, "update-ref", "-d", ref)
+        import relay_land
+        branch = next((e.branch for e in reversed(relay_land.read_events(main)[0]) if e.kind == "done" and e.judged == full), "")
+        lines, _last, _path, _complete = gate_run(main, host, home, full, os.path.join(folder, "twin"), relay_gate_ssh.TWIN_PINNED, "branch %s\n" % branch)
+        return lines
+    finally:
+        handle.close()
+
+
+def start_twin_after_landing(main: str, sha: str, spawn: Callable[..., object] = subprocess.Popen, home: Optional[str] = None, skip_temp: bool = True) -> list[str]:
+    """After a landing that ended red at its gate: start `relay gate --twin <sha>` detached when it should run (a host is recorded, the
+    twin setting is on, sending is not stopped, no Linux result of that code exists yet). Returns lines to print; never changes the outcome."""
+    import relay_temp
+    try:
+        host = relay_hosts.first(home)
+        if skip_temp and relay_temp.under(main, relay_temp.temp_roots()):
+            return []
+        if _twin_reason(main, host, sha):
+            return []
+        relay = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "bin", "relay")
+        folder = relay_gate_ssh.linux_dir(main)
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, "twin.log"), "ab") as log:
+            spawn([sys.executable, relay, "gate", "--twin", sha, "-C", main], stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+        return []
+    except Exception as exc:
+        return ["land: the Linux twin of the red gate did not start: %s; next: relay gate --twin %s" % (exc, sha)]
+
+
 def start_after_landing(main: str, spawn: Callable[..., object] = subprocess.Popen, home: Optional[str] = None, skip_temp: bool = True) -> list[str]:
     """After a landing: start `relay gate --watch-default` detached when a host is recorded with the watch on; returns lines to print.
     A repository under a temporary folder (a test's) starts none. Never changes the landing's outcome."""
@@ -247,6 +334,8 @@ def status_lines(repo: str, home: Optional[str] = None, now: Optional[float] = N
             sha, code, _path, age = watch_state
             verdict = "green" if code == 0 else "stopped at its limit" if code == LIMIT_EXIT else "red" if is_red(code) else "ended %s" % code
             out.append("  default branch: last gated on %s at %s, %d landings ago, %s" % (name, sha[:12], age, verdict))
+        import relay_gate_compare
+        out += relay_gate_compare.compare_lines(repo, relay_gate_compare.DEFAULT_WAVES, home)
         trip = relay_gate_ssh.stopped(events, host.get("stop_after"))
         out.append("  stop-sending rule: %s" % ("holds since %s" % trip["at"] if trip else "does not hold"))
         day = [e for e in events if e["at"] >= since]
