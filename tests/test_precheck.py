@@ -169,6 +169,40 @@ class TestTypesStep(Base):
         self.assertIn("still running: ruff (ruff@0.13.3)", text)
         self.assertNotIn("not installed", text)
 
+    def test_a_running_mypy_is_named_and_the_uncached_ruff_is_not_blamed(self) -> None:
+        # F2: cold cache, mypy runs (its first run blocks), ruff not reached so its offline probe fails: the cause is mypy
+        lines = self.timed_out("exec python3 -c 'import time; time.sleep(30)' mypy==1.18.2\n", "ruff")
+        text = "\n".join(lines)
+        self.assertIn("still running: mypy (mypy==1.18.2)", text)
+        self.assertNotIn("ruff is not installed", text)
+
+    def test_a_timeout_does_not_wait_for_a_child_and_leaves_none_alive(self) -> None:
+        # F1: bash forks sleep and waits; the group is killed, so return is quick and the sleep (a unique 71 s) is gone
+        start = time.monotonic()
+        lines = self.timed_out("sleep 71; echo done\n", "")
+        self.assertIn("  FAIL types and lint took longer than 1 s", lines)
+        self.assertLess(time.monotonic() - start, 10)   # a loose hang guard (unfixed: 71 s), not a timing claim
+        deadline = time.monotonic() + 10    # the kernel reaps the killed group a moment later: wait for the condition
+        while time.monotonic() < deadline:
+            alive = subprocess.run(["ps", "-A", "-o", "command="], capture_output=True, text=True).stdout
+            if "sleep 71" not in alive:
+                break
+            time.sleep(0.05)
+        self.assertNotIn("sleep 71", alive)
+
+    def test_the_pins_come_from_the_constants_even_when_typed(self) -> None:
+        # F3: a typed constant still gives the pinned spec
+        self.write("bin/types_lint.py", 'MYPY: str = "9.9.9"\nRUFF: str = "8.8.8"\n')
+        self.assertEqual(relay_precheck._pinned(self.repo), {"mypy": "mypy==9.9.9", "ruff": "ruff@8.8.8"})
+        os.remove(os.path.join(self.repo, "bin", "types_lint.py"))
+        self.assertEqual(relay_precheck._pinned(self.repo), {"mypy": "mypy", "ruff": "ruff"})
+
+    def test_the_real_pins_match_deps_toml(self) -> None:
+        pins = relay_precheck._pinned(ROOT)
+        with open(os.path.join(ROOT, "deps.toml"), encoding="utf-8") as f:
+            text = f.read()
+        self.assertIn('uv_tool = "%s"' % pins["mypy"], text)
+
     def test_a_types_step_that_cannot_start_says_why(self) -> None:
         self.script("exit 0\n")
 
