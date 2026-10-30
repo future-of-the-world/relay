@@ -26,7 +26,8 @@ import subprocess
 import sys
 import time
 import re
-from typing import IO, Any, Callable, Mapping, Optional, Sequence
+from dataclasses import dataclass
+from typing import IO, Any, Callable, Mapping, NamedTuple, Optional, Sequence
 
 import relay_config
 import relay_git
@@ -50,8 +51,54 @@ LEFTOVER = STOPPED + " a leftover test process"      # the sweep's line: "<LEFTO
 KILLED = STOPPED + " the command of a gate that was killed"      # the reclaim's line: "<KILLED> (group <group>, <command>): <why>"
 
 
+MAC_SUFFIX = ".gate.log"
+REMOTE_SUFFIX = ".remote.gate.log"      # a gate that ran on the VPS (docs/plans/vps-build-gates.md 5.1): no merge-path reader opens this name
+TOOLCHAIN = ("container/Containerfile", "deps.toml", "install.sh")      # a branch that changes one gates on this Mac (design 5.4)
+
+
 class GateRefused(Exception):
     """The gate was not started; the text says why in one line."""
+
+
+class RemoteUnavailable(Exception):
+    """The remote host could not run the gate (unreachable, busy, no end line): the text is the line after `gate: `, without the
+    closing "this gate runs on this Mac" (this module adds it)."""
+
+
+class RemoteResult(NamedTuple):
+    """A remote gate that reached its end line: the gate's exit, its output, the log's `host ...` line, the wait for a slot there."""
+    code: int
+    output: str
+    host_line: str
+    wait: float
+
+
+@dataclass(frozen=True)
+class Remote:
+    """A host that may decide a build-time gate. `run(worktree, head, command)` returns a RemoteResult or raises RemoteUnavailable
+    (the transport lives elsewhere; a test passes its own). `default_red`: a sentence when the default branch's newest Linux gate is
+    red ("" when it is not); `holds_fix`: this branch holds the fix item for that (5.2)."""
+    host: str
+    run: Callable[[str, str, Sequence[str]], RemoteResult]
+    default_red: str = ""
+    holds_fix: bool = False
+
+
+def log_sha_host(log: str) -> tuple[str, Optional[str]]:
+    """(commit, host) of a gate log path: the host is read from the `host` line of a remote log, None for a Mac log."""
+    name = os.path.basename(log)
+    if not name.endswith(REMOTE_SUFFIX):
+        return name[:-len(MAC_SUFFIX)], None
+    host = None
+    try:
+        with open(log, encoding="utf-8", errors="replace") as handle:
+            for line in handle.read().splitlines()[:6]:
+                if line.startswith("host "):
+                    host = line.split()[1] if len(line.split()) > 1 else None
+                    break
+    except OSError:
+        pass
+    return name[:-len(REMOTE_SUFFIX)], host or "the remote host"
 
 
 def quick_binding(worktree):
@@ -351,31 +398,49 @@ def first_failure(output):
     return lines[-5:]
 
 
-def reusable(worktree, head, command):
+def _log_lines(worktree: str, commit: str, suffix: str) -> Optional[list[str]]:
+    try:
+        with open(os.path.join(worktree, relay_marks.FOLDER, commit + suffix), encoding="utf-8", errors="replace") as handle:
+            return handle.read().splitlines()
+    except OSError:
+        return None
+
+
+def _exit_code(lines: Sequence[str]) -> Optional[int]:
+    last = lines[-1].split() if lines else []
+    return int(last[1]) if len(last) == 2 and last[0] == "exit" and last[1].isdigit() else None
+
+
+def reusable(worktree: str, head: str, command: Sequence[str], host: str = "mac") -> Optional[str]:
     """The path of a green gate log for the same command on a commit at or before `head` with only inert changes since, else None.
 
     Walks back from `head` along the branch's own line (first parents: a take of the default branch has the branch first, so
     master's newer commits are not walked) and stops at the first commit after which a non-inert file changed. A log counts only when its
-    first line is `head <that commit>`, its `cmd` line is the command about to run and its last line is `exit 0`."""
+    first line is `head <that commit>`, its `cmd` line is the command about to run and its last line is `exit 0`.
+    `host` is the deciding host (design 5.2): "mac" reads Mac logs only; "vps" lets the newest remote log of the stretch decide
+    (a red one means None, whatever Mac logs lie in the stretch) and reads Mac logs only when the stretch holds no remote log."""
     wanted = "cmd %s" % " ".join(shlex.quote(c) for c in command)
     rc, listing = relay_git.git(worktree, "rev-list", "--first-parent", head)
     if rc != 0:
         return None
+    stretch = []
     for commit in listing.split():
         if relay_inert.changed(worktree, commit, head):
-            return None
-        log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % commit)
-        try:
-            with open(log, encoding="utf-8", errors="replace") as handle:
-                lines = handle.read().splitlines()
-        except OSError:
-            continue
-        if len(lines) >= 3 and lines[0] == "head %s" % commit and lines[1] == wanted and lines[-1] == "exit 0":
-            return log
+            break
+        stretch.append(commit)
+    for suffix in ((REMOTE_SUFFIX, MAC_SUFFIX) if host == "vps" else (MAC_SUFFIX,)):
+        for commit in stretch:
+            lines = _log_lines(worktree, commit, suffix)
+            if lines is None or len(lines) < 3 or lines[0] != "head %s" % commit or lines[1] != wanted or _exit_code(lines) is None:
+                continue
+            if lines[-1] == "exit 0":
+                return os.path.join(worktree, relay_marks.FOLDER, commit + suffix)
+            if suffix == REMOTE_SUFFIX:
+                return None      # the newest remote log is red (or stopped): it decides
     return None
 
 
-def finished_red(worktree: str, head: str, command: Sequence[str], stopped: bool = False) -> Optional[tuple[int, str, list[str]]]:
+def finished_red(worktree: str, head: str, command: Sequence[str], stopped: bool = False, host: str = "mac") -> Optional[tuple[int, str, list[str]]]:
     """(exit code, log path, failing lines) of a finished red gate log for the same command on a commit at or before
     `head`, when only relay's own record commits (files under .relay/checks/) lie between, else None.
 
@@ -383,29 +448,34 @@ def finished_red(worktree: str, head: str, command: Sequence[str], stopped: bool
     checks folder (inert or not) ends the walk. A log counts only when its first line is `head <that commit>`, its
     `cmd` line is the command about to run and its last line is `exit <n>` with n not 0.
     `stopped=True` asks the other way round: the log of an EARLIER commit (not `head` itself) that ends `exit 124`, the gate
-    stopped at its time limit on this same code."""
+    stopped at its time limit on this same code (Mac logs only).
+    `host="vps"`: the newest remote log of the stretch decides (a remote log that is not a reportable red means None), and Mac logs
+    are read only when the stretch holds no remote log."""
     wanted = "cmd %s" % " ".join(shlex.quote(c) for c in command)
     rc, listing = relay_git.git(worktree, "rev-list", head)
     if rc != 0:
         return None
+    stretch = []
     for commit in listing.split():
         rc, names = relay_git.git(worktree, "diff", "--name-only", "--no-renames", "%s..%s" % (commit, head))
         if rc != 0 or any(not name.startswith(relay_marks.FOLDER + "/") for name in names.splitlines()):
-            return None
-        log = os.path.join(worktree, relay_marks.FOLDER, "%s.gate.log" % commit)
-        if stopped and commit == head:
-            continue
-        try:
-            with open(log, encoding="utf-8", errors="replace") as handle:
-                text = handle.read()
-        except OSError:
-            continue
-        lines = text.splitlines()
-        if len(lines) < 3 or lines[0] != "head %s" % commit or lines[1] != wanted:
-            continue
-        last = lines[-1].split()
-        if len(last) == 2 and last[0] == "exit" and last[1].isdigit() and (int(last[1]) == LIMIT_EXIT if stopped else 0 < int(last[1]) < 127 and int(last[1]) != LIMIT_EXIT):      # 127 (could not start), >= 128 (killed) and 124 (stopped at the time limit) came from outside the commit: not reused, the next gate runs
-            return int(last[1]), log, first_failure("\n".join(l for l in lines[3:-1] if not l.startswith(STOPPED)))
+            break
+        stretch.append(commit)
+    for suffix in ((REMOTE_SUFFIX, MAC_SUFFIX) if host == "vps" and not stopped else (MAC_SUFFIX,)):
+        for commit in stretch:
+            if stopped and commit == head:
+                continue
+            lines = _log_lines(worktree, commit, suffix)
+            if lines is None or len(lines) < 3 or lines[0] != "head %s" % commit or lines[1] != wanted:
+                continue
+            code = _exit_code(lines)
+            if code is None:
+                continue
+            # 127 (could not start), >= 128 (killed) and 124 (stopped at the time limit) came from outside the commit: not reused, the next gate runs
+            if (code == LIMIT_EXIT) if stopped else (0 < code < 127 and code != LIMIT_EXIT):
+                return code, os.path.join(worktree, relay_marks.FOLDER, commit + suffix), first_failure("\n".join(l for l in lines[3:-1] if not l.startswith(STOPPED)))
+            if suffix == REMOTE_SUFFIX:
+                return None      # the newest remote log is not a reportable red: it decides
     return None
 
 
@@ -419,7 +489,7 @@ def earlier_stop(worktree: str, head: str, quick: bool) -> Optional[list[str]]:
 
 def reused_red(red: tuple[int, str, list[str]]) -> tuple[int, str, list[str]]:
     """Say on stderr that a red gate is reported, not run; hand the result back unchanged."""
-    sha = os.path.basename(red[1])[:-len(".gate.log")]
+    sha = log_sha_host(red[1])[0]
     print("gate: the code is unchanged since the red gate of %s: reported, not run (relay gate --again runs it)" % sha,
           file=sys.stderr, flush=True)
     return red
@@ -461,10 +531,92 @@ def sweep_leftovers(worktree: str, env: Mapping[str, str]) -> list[str]:
     return lines
 
 
+def _last_mac_red(worktree: str) -> bool:
+    """Whether the branch's newest Mac gate log on its own line since the default branch is red (design 5.2: the gate that failed
+    is the gate that confirms the fix)."""
+    main = relay_git.main_checkout(worktree)
+    base = relay_git.default_branch(main) if main else None
+    args = ["rev-list", "--first-parent", "HEAD"] + (["^" + base] if base else [])
+    rc, listing = relay_git.git(worktree, *args)
+    if rc != 0:
+        return False
+    for commit in listing.split():
+        lines = _log_lines(worktree, commit, MAC_SUFFIX)
+        code = _exit_code(lines) if lines and lines[0] == "head %s" % commit else None
+        if code is not None:
+            return code != 0
+    return False
+
+
+def _toolchain_changed(worktree: str) -> list[str]:
+    """The toolchain files whose content differs from the default branch's (design 5.4: no branch recipe runs with network on the VPS)."""
+    main = relay_git.main_checkout(worktree)
+    base = relay_git.default_branch(main) if main else None
+    if not base:
+        return []
+    rc, out = relay_git.git(worktree, "diff", "--name-only", "--no-renames", base, "HEAD", "--", *TOOLCHAIN)
+    return out.splitlines() if rc == 0 else []
+
+
+def deciding_host(worktree: str, remote: Optional[Remote], quick: bool) -> tuple[str, str]:
+    """("vps", "") or ("mac", line): the host whose result a build-time gate takes (design 5.2), in the table's order. `line` is the
+    sentence to print (without `gate: ` and the closing "this gate runs on this Mac") when the Mac decides for a reason the owner
+    should see; "" when the Mac decides silently. A landing passes no `remote`; a paid or argument gate is not `quick`."""
+    if remote is None or not quick:
+        return "mac", ""
+    if not os.path.isfile(os.path.join(worktree, "container", "Containerfile")):
+        return "mac", ""
+    if _last_mac_red(worktree):
+        return "mac", "the last gate of this branch on this Mac is red"
+    if remote.default_red and not remote.holds_fix:
+        return "mac", "the default branch is red on %s %s" % (remote.host, remote.default_red)
+    changed = _toolchain_changed(worktree)
+    if changed:
+        return "mac", "this branch changes relay's toolchain (%s); its gates run on this Mac until it lands" % ", ".join(changed)
+    return "vps", ""
+
+
+def _remote_gate(worktree: str, head: str, command: Sequence[str], remote: Remote, license_lines: Sequence[str], swept: list[str],
+                 notify: Callable[[str], None]) -> Optional[tuple[int, str, list[str]]]:
+    """Run the gate on `remote` and commit `<head>.remote.gate.log`; the result, or None when the Mac must run it (the line says why,
+    and is added to `swept` so it is the first output line of the Mac log). A red remote log in the stretch stands when the host cannot be reached."""
+    try:
+        result = remote.run(worktree, head, command)
+    except RemoteUnavailable as exc:
+        red = finished_red(worktree, head, command, host="vps")
+        if red is not None and red[1].endswith(REMOTE_SUFFIX):
+            notify("gate: the red result of %s for %s stands; %s cannot be reached, so it cannot be run again now (relay gate --again once it is back)" % (
+                remote.host, log_sha_host(red[1])[0][:12], remote.host))
+            return red
+        line = "gate: %s; this gate runs on this Mac" % exc
+        notify(line)
+        swept.append(line)
+        return None
+    why = tree_moved(worktree, head)
+    if why is not None:
+        raise GateRefused("the worktree changed while the gate ran (%s): commit, then run it again" % why)
+    output, code = result.output, result.code
+    if license_lines:
+        output += ("" if output.endswith("\n") or not output else "\n") + "license check FAILED\n" + "".join("  %s\n" % line for line in license_lines)
+        code = code or 1
+    text = "head %s\ncmd %s\nwait %.1f\n%s\n%s%sexit %d\n" % (head, " ".join(shlex.quote(c) for c in command), result.wait, result.host_line,
+                                                                 output, "" if output.endswith("\n") or not output else "\n", code)
+    log = os.path.join(worktree, relay_marks.FOLDER, head + REMOTE_SUFFIX)
+    os.makedirs(os.path.dirname(log), exist_ok=True)
+    with open(log, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    try:
+        relay_marks.commit_file(worktree, log, "relay: remote gate of %s" % head)
+    except relay_marks.MarkError as exc:
+        raise GateRefused("the gate exited %d but its log was not committed: %s" % (code, exc))
+    return code, log, first_failure(output) if code != 0 else []
+
+
 def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, str]] = None,
-        quick: bool = False, again: bool = False) -> tuple[int, str, list[str]]:
+        quick: bool = False, again: bool = False, remote: Optional[Remote] = None) -> tuple[int, str, list[str]]:
     """Run the gate; write and commit its log; return (exit code, log path, output lines to show when red).
-    `again` skips both reuses (a green and a finished red gate of the same code): the command runs."""
+    `again` skips both reuses (a green and a finished red gate of the same code): the command runs.
+    `remote`: a host that may decide a quick build-time gate (`deciding_host`); None (a landing, the default) is the Mac alone."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
     chosen = (quick_binding(worktree) if quick else None) or binding(worktree)
@@ -476,10 +628,13 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
     except (OSError, ValueError) as exc:
         license_lines = ["license: cannot check: %s" % exc]
     reuse = not license_lines and not again
-    green = reusable(worktree, head, command) if reuse else None
+    host, why_mac = deciding_host(worktree, remote, quick)
+    if why_mac:
+        print("gate: %s; this gate runs on this Mac" % why_mac, file=sys.stderr, flush=True)
+    green = reusable(worktree, head, command, host) if reuse else None
     if green is not None:      # the same code already has a green gate: report it, run nothing
         return 0, green, []
-    red = finished_red(worktree, head, command) if reuse else None
+    red = finished_red(worktree, head, command, host=host) if reuse else None
     if red is not None:      # the same code already has a finished red gate (only record commits since): report it, run nothing
         return reused_red(red)
     swept = sweep_leftovers(worktree, os.environ if environ is None else environ)
@@ -511,6 +666,10 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
         # one gate at a time per worktree, taken before the slot so a gate waiting for its worktree holds no slot
         lock = take_worktree_lock(lock_path, notify, swept.append)
         try:
+            if host == "vps" and remote is not None:      # a build-time gate decided on the remote host: no Mac slot, no Mac test tokens
+                done = _remote_gate(worktree, head, command, remote, license_lines, swept, notify)
+                if done is not None:
+                    return done
             slot, waited = take_slot(slot_count(home), os.path.join(home, "gate-slots"), notify)
             tokens = relay_tokens.Held()      # the gate's test tokens; freed with the slot, whatever ends the gate
             try:
@@ -521,10 +680,10 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                 except (OSError, ValueError) as exc:
                     license_lines = ["license: cannot check: %s" % exc]
                 reuse = not license_lines and not again
-                green = reusable(worktree, now, command) if reuse else None      # (a gate log committed meanwhile moves HEAD, but only by inert files)
+                green = reusable(worktree, now, command, host) if reuse else None      # (a gate log committed meanwhile moves HEAD, but only by inert files)
                 if green is not None:
                     return 0, green, []
-                red = finished_red(worktree, now, command) if reuse else None      # the gate we waited for may have gone red
+                red = finished_red(worktree, now, command, host=host) if reuse else None      # the gate we waited for may have gone red
                 if red is not None:
                     return reused_red(red)
                 if now != head:
