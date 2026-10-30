@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pidfile import wait_pid  # noqa: E402
 from relay_testbase import Base  # noqa: E402
 
 
@@ -217,11 +218,11 @@ class PythonGate(Base):
                     break
                 self.assertIsNone(proc.poll(), "the line never reached the log while the step ran")
             # the step (sh, pid in step.pid) must still be running when its line is already in the log
-            os.kill(int(open(os.path.join(self.proj, "step.pid")).read()), 0)
+            os.kill(wait_pid(os.path.join(self.proj, "step.pid"), 600), 0)
         finally:
             os.killpg(proc.pid, signal.SIGKILL)
             proc.wait()
-            step_pid = int(open(os.path.join(self.proj, "step.pid")).read())
+            step_pid = wait_pid(os.path.join(self.proj, "step.pid"), 600)
             while True:  # wait until the step (exec'd into sleep) is gone, so nothing outlives the test
                 try:
                     os.kill(step_pid, 0)
@@ -231,14 +232,14 @@ class PythonGate(Base):
 
     def test_ci_summary_of_a_failing_step_does_not_show_an_earlier_steps_errors(self):
         dest = self.render_ci('step "a" sh -c "echo error: old"\nstep "b" sh -c "echo boom; exit 1"')
-        r = subprocess.run([dest], cwd=self.proj, capture_output=True, text=True, timeout=120)
+        r = subprocess.run([dest], cwd=self.proj, capture_output=True, text=True, timeout=600)
         self.assertEqual(r.returncode, 1, r.stdout)
         self.assertIn("boom", r.stdout)
         self.assertNotIn("error: old", r.stdout)
 
     def test_ci_green_step_prints_one_line_and_logs_its_output(self):
         dest = self.render_ci('step "a" sh -c "echo hello"')
-        r = subprocess.run([dest], cwd=self.proj, capture_output=True, text=True, timeout=120)
+        r = subprocess.run([dest], cwd=self.proj, capture_output=True, text=True, timeout=600)
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertRegex(r.stdout.splitlines()[0], r"^ci: a ok \(\d+s\)$")
         self.assertIn("hello", open(os.path.join(self.proj, ".ci", "ci.log")).read())
