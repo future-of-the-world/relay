@@ -543,8 +543,11 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
                 finally:
                     if proc is not None:      # the command's whole process group ends before the slot is freed
                         try:
-                            relay_procs.record_sent(proc.pid, True, signal.SIGKILL, "gate: its command ended, the command's group is cleaned up" if proc.poll() is not None else "gate: the gate was stopped while its command ran, the command's group is ended")
-                            os.killpg(proc.pid, signal.SIGKILL)
+                            cleanup_reason = "gate: its command ended, the command's group is cleaned up" if proc.poll() is not None else "gate: the gate was stopped while its command ran, the command's group is ended"
+                            try:
+                                os.killpg(proc.pid, signal.SIGKILL)      # first: a stop landing in the log write below must not skip it
+                            except OSError: pass
+                            relay_procs.record_sent(proc.pid, True, signal.SIGKILL, cleanup_reason)
                         except OSError: pass
                         proc.wait()
                 why = tree_moved(worktree, head)

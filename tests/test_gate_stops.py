@@ -191,6 +191,32 @@ class StopWhilePopenReturns(unittest.TestCase):
         pid = wait_pid(os.path.join(f.tmp, "pid"), WAIT)
         self.assertTrue(until(lambda: not alive(pid)), "the gate command is still running after the stop landed during Popen")
 
+    def test_a_stop_landing_in_the_cleanup_log_write_still_kills_the_command_group(self):
+        """The flaky hang of F2: the runner's SIGTERM can land while the gate's cleanup writes its signal-log line, and the
+        exception then skipped the kill, leaving the command's group alive. The command starts a background sleep and exits; the
+        log write is made to raise (as a stop would); the sleep must still be killed. Cleanup that logs before it kills leaves it alive."""
+        import test_gate
+        import relay_gate
+        import relay_procs
+        f = test_gate.Fixture("setUp")
+        f.setUp()
+        self.addCleanup(f.doCleanups)
+        f.repo(gate='sleep 600 &\necho $! > "%s/pid"\nexit 0\n' % f.tmp)
+
+        def stop_in_log_write(*args: Any, **kwargs: Any) -> None:
+            raise SystemExit(143)
+        with mock.patch.object(relay_procs, "record_sent", stop_in_log_write):
+            with self.assertRaises(SystemExit):
+                relay_gate.run(f.wt, environ=f.env)
+        pid = wait_pid(os.path.join(f.tmp, "pid"), WAIT)
+        try:
+            self.assertTrue(until(lambda: not alive(pid)), "the command's background process survived a stop in the cleanup")
+        finally:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+
     def test_f2_review_a_stop_held_while_popen_raises_still_stops_the_gate(self):
         """Review F2: SIGTERM lands while Popen runs and Popen raises OSError. The gate exits 143 and commits no log (it used to
         write 'could not start', exit 127 and commit a log)."""

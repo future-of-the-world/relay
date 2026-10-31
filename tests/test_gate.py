@@ -170,8 +170,10 @@ class Fixture(unittest.TestCase):
         """SIGTERM the gate (its handler kills its command's group and frees its slot), wait; SIGKILL only if it ignores that."""
         proc.terminate()
         try:
-            proc.communicate(timeout=GATE_STOP_GRACE)
+            o, e = proc.communicate(timeout=GATE_STOP_GRACE)
+            print("DBG gate rc", proc.returncode, "ERR", e, file=sys.stderr, flush=True)
         except subprocess.TimeoutExpired:
+            print("DBG gate timeout grace", GATE_STOP_GRACE, file=sys.stderr, flush=True)
             proc.kill()
             proc.communicate()
 
