@@ -1,0 +1,16 @@
+head 8824bec3bedc2d51f85716bde36e036127163f70
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (2s)
+ci: plugin lib links ok (0s)
+ci: library tests FAILED (395s, log: .ci/steps/library-tests.log)
+    FAIL: test_kartoteka_shaped_file_has_no_problems (test_kit_schema.KitSchema.test_kartoteka_shaped_file_has_no_problems)
+    AssertionError: Lists differ: ['.claude/kit.toml [coordination] is not a section relay knows'] != []
+    FAILED (failures=1)
+ci: coverage 89.1% of lib, bin, plugins (16182 of 18157 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (1s)
+ci: plugin validate ok (3s)
+ran on a copy without queue, handover and check records; covers every commit with the same code
+ci: RED
+exit 1
