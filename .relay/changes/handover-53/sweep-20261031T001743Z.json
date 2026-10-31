@@ -1,0 +1,23 @@
+{
+ "agents": [
+  {
+   "cost_usd": 0.104,
+   "id": "a5114318d09178dcf",
+   "model": "claude-sonnet-5-5",
+   "n": 1,
+   "requests": 4,
+   "session": "6c217ef4-0969-4d5f-8509-e35de6dc28ef",
+   "stage": "other",
+   "start": "2026-10-30T23:12:53.985Z",
+   "stop": "2026-10-30T23:13:23.822Z"
+  }
+ ],
+ "before": null,
+ "branch": null,
+ "head": null,
+ "item": null,
+ "kind": "other",
+ "land": [],
+ "schema": 1,
+ "unit": "handover-53"
+}
