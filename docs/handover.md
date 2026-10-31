@@ -2185,3 +2185,61 @@ Next: give the owner a short current-state explanation with this verified
 baseline and what remains untrusted. Secure the existing unfinished work without
 mixing it, then qualify the smallest native worker/reviewer/checker path; no
 new broad rewrite and no legacy-worktree cleanup during recovery.
+
+## Addendum 46 (31 Oct; OpenAI behind Claude Code as a recovery candidate)
+
+Owner asks, verbatim:
+> Могу ли я использовать openai провайдера в claude code - поможет ли это снизить отставание ?
+
+Public-source evidence, fetched via native HTTP without Arsenal:
+- https://code.claude.com/docs/en/llm-gateway.md explicitly says Anthropic does
+  not support routing Claude Code to non-Claude models through any gateway.
+- https://code.claude.com/docs/en/llm-gateway-protocol.md says Claude Code's
+  ANTHROPIC_BASE_URL connection speaks Anthropic Messages; OpenAI Responses is
+  not a direct client connection format. Translation is required. Optional
+  direct Anthropic traffic and capability assumptions remain documented.
+- https://github.com/musistudio/claude-code-router advertises Claude Code with
+  OpenAI Chat/Responses routing. This is an upstream claim, not a local test.
+- https://github.com/router-for-me/CLIProxyAPI advertises Claude-compatible
+  endpoints, OpenAI Responses, exact GPT-6.1 Sol availability and Codex OAuth.
+  Those claims need verification before granting the proxy credentials.
+- Official OpenAI documentation fetched at
+  https://developers.openai.com/api/docs/guides/migrate-to-responses confirms
+  Responses and Chat Completions are different endpoint/protocol contracts.
+- Read only the stored OpenAI credential TYPE: oauth, not an API key. No token
+  value was displayed. Working Pi OAuth does not prove proxy authorization or
+  permission to reuse it; do not copy credentials into a third-party service.
+
+This may preserve Claude Code's local hooks/agent/workflow runtime and reduce
+short-term adaptation, but end-to-end Relay compatibility, account accessibility,
+model routing, tool behavior and usage/pricing are NOT tested. It does not lift
+an Anthropic account restriction or make non-Claude routing officially supported.
+No proxy installed, authentication changed, new model request made or default
+endpoint redirected. Recommend a bounded isolated compatibility test before
+choosing this as today's temporary path; preserve both existing setups.
+
+## Addendum 47 (31 Oct; owner-requested WIP preservation and freeze)
+
+Owner instruction, verbatim:
+> Ok, let's commit changes of branches that still uncommitted, lock current work and don't touch the master
+
+Preflight found three dirty task worktrees: the lane-release fix (one tracked
+Python file), the gate signal-reporting fix (three tracked Python/test files),
+and this Pi research worktree (the handover). No pending merge, cherry-pick,
+revert or index lock was detected in those worktrees. Preserve their contents in
+WIP commits only: no fixes, formatter, adoption, sync, merge or master changes.
+The earlier Pi research/probe is already preserved in WIP commit 811c0cf5.
+
+The primary checkout's four modified tracked files and two untracked files stay
+untouched and uncommitted by this request. Preserve master HEAD, primary index,
+status and file contents; do not move these changes into a task branch silently.
+
+Protect task worktrees with Git worktree locks and pause development. These locks
+prevent accidental removal/pruning, not edits to files or updates to branch refs;
+do not represent them as a write sandbox. Do not remove stale worktrees, resume
+implementation, publish, or merge while this freeze remains in force. A detached
+paid-run worktree is not a task branch and is outside the task-worktree locks.
+
+Next: verify WIP commits, clean task worktrees and locks, and compare master/primary
+fingerprints before and after. Report the saved snapshots and any refused step.
+Further work requires the owner's instruction to resume.
