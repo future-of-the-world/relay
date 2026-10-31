@@ -51,7 +51,6 @@ SCHEMA: Schema = {
     "project": {"name": Field("str", ""), "default_branch": Field("str", "main"), "worktrees": Field("str", ".worktrees"),
                 "stack_skills": Field("strlist", [])},
     "gate": {k: Field("str", "") for k in ("wt", "check", "ci", "ci_quick", "ci_log", "final")},
-    "coordination": {"mode": Field("str", "leadless")},
     "rules": {"lanes": Field("int", 4, bounds=(1, 8)), "wave_min": Field("int", 3, bounds=(1, 6)),
               "load": Field("strlist", []), "read": Field("strlist", [])},
     "specs": {"method": Field("str", "none", choices=("none", "openspec"))},   # the spec method plugins: plugins/*/flow.json with "slot": "specs"

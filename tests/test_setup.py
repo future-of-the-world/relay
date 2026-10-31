@@ -52,6 +52,28 @@ class Setup(Base):
         self.assertEqual(relay_setup.rename_delegate_keys(proj), [])
 
 
+    def test_setup_writes_no_coordination_section(self):
+        # nothing reads coordination.mode, so a new kit.toml must not carry it
+        import relay_kit
+        text = self._wt_project(None)
+        self.assertNotIn("coordination", text)
+        self.assertEqual(relay_kit.parse(text).problems, ())
+
+    def test_setup_removes_coordination_from_an_existing_kit_toml_with_one_line(self):
+        import relay_kit
+        import relay_setup
+        proj = os.path.join(self.tmp, "coordkit")
+        os.makedirs(os.path.join(proj, ".claude"))
+        path = os.path.join(proj, ".claude", "kit.toml")
+        with open(path, "w") as handle:
+            handle.write('[project]\nname = "x"\n\n[coordination]\nmode = "leadless"   # c\n\n[observe]\nlog_prompts = false\n')
+        done = relay_setup.remove_coordination(proj)
+        self.assertEqual(done, ["[coordination] removed (nothing reads it)"])
+        # the other sections stay as they were; the file parses clean (doctor stays green)
+        self.assertEqual(open(path).read(), '[project]\nname = "x"\n\n[observe]\nlog_prompts = false\n')
+        self.assertEqual(relay_kit.parse(open(path).read()).problems, ())
+        self.assertEqual(relay_setup.remove_coordination(proj), [])
+
     def test_setup_uses_the_folder_bin_wt_makes(self):
         # ALIX: bin/wt makes .worktree/<name>; kit.toml must say so, not the default.
         text = self._wt_project('#!/bin/sh\ngit worktree add ".worktree/$1" -b "wt/$1"\n')

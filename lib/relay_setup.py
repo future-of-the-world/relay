@@ -231,7 +231,6 @@ def bindings_text(d: dict[str, Any], flow: str, specs: str = "none") -> str:
     if d["ui"]:
         lines += ["[product]", 'medium = "the app on a phone and on a computer"   # where a person uses the product',
                   f'run_skill = "{name}-run"   # the skill that starts the product so a change can be seen working', ""]
-    lines += ["[coordination]", 'mode = "leadless"   # how several agents share the work: leadless means no agent leads the others', ""]
     return "\n".join(lines)
 
 
@@ -247,6 +246,28 @@ def rename_delegate_keys(root: str) -> list[str]:
         with open(path, "w", encoding="utf-8") as handle:
             handle.write(new)
     return did
+
+
+def remove_coordination(root: str) -> list[str]:
+    """Drop the [coordination] section from kit.toml (nothing reads it); the line it did, [] when the file has none."""
+    path = bindings_path(root)
+    if not os.path.isfile(path):
+        return []
+    out: list[str] = []
+    skipping = found = False
+    for line in open(path, encoding="utf-8").read().split("\n"):
+        m = re.match(r"\s*\[([^\]]+)\]", line)
+        if m:
+            skipping = m.group(1).strip() == "coordination"
+            found = found or skipping
+        if not skipping:
+            out.append(line)
+    if not found:
+        return []
+    backup(path)
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write("\n".join(out))
+    return ["[coordination] removed (nothing reads it)"]
 
 
 def set_specs(root, method):
@@ -950,6 +971,8 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
         for line in migrate_kit_toml(root, names["kit_flow"]):
             done.append(f"kit.toml: {line}")
         for line in rename_delegate_keys(root):
+            done.append(f"kit.toml: {line}")
+        for line in remove_coordination(root):
             done.append(f"kit.toml: {line}")
         d = detect(root)
     retired = retired_keys(d["settings"].get("enabledPlugins", {}) if isinstance(d["settings"].get("enabledPlugins"), dict) else {})

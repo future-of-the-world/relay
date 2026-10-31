@@ -200,7 +200,6 @@ path (write `^` to anchor it); `files` and `files_exclude` work the same way.
 | `gate.ci_quick` | none (a plain `relay gate` runs `gate.ci` as it is) | the free mode of the gate, run by a plain `relay gate`; `relay gate --paid` runs `gate.ci` | `"bin/ci --quick"` |
 | `gate.ci_log` | required | file holding the full gate log, read by fixers | `".ci/ci.log"` |
 | `gate.final` | `local` | where the final gate runs: `local` (here) or `remote` (CI pipeline on the pushed branch) | `"local"` |
-| `coordination.mode` | `leadless` | `leadless`, `single-lead` or `multi-lead` | `"leadless"` |
 | `product.medium` | required if the project has a person-facing surface | what the person looks at | `"the site on a phone"` |
 | `product.run_skill` | required if `[product]` | project skill that launches the app | `"kartoteka-run"` |
 | `packet.module` | none (module refs off) | module-contract kind: `typescript`, `rust` or `elixir` | `"typescript"` |
