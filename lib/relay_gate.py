@@ -29,6 +29,7 @@ import re
 from typing import IO, Any, Callable, Mapping, Optional, Sequence
 
 import relay_config
+import relay_gate_settings
 import relay_git
 import relay_inert
 import relay_license
@@ -67,6 +68,16 @@ def quick_binding(worktree):
     if not isinstance(value, str) or not value.strip():
         raise GateRefused("gate.ci_quick in .claude/kit.toml is not a command")
     return value
+
+
+def refuse_bad_settings(worktree: str) -> None:
+    """A branch whose .claude/kit.toml holds a mistake does not pass: the typo would land. The refusal names each line."""
+    try:
+        message = relay_gate_settings.refusal(worktree)
+    except RuntimeError as exc:
+        raise GateRefused(str(exc))
+    if message:
+        raise GateRefused(message)
 
 
 def binding(worktree):
@@ -429,6 +440,7 @@ def run(worktree: str, args: Sequence[str] = (), environ: Optional[Mapping[str, 
     `remote`: a host that may decide a quick build-time gate (`deciding_host`); None (a landing, the default) is the Mac alone."""
     worktree = os.path.realpath(worktree)
     head = check_ready(worktree)
+    refuse_bad_settings(worktree)
     chosen = (quick_binding(worktree) if quick else None) or binding(worktree)
     command = shlex.split(chosen) + list(args)
     # the license check is the gate's own step when kit.toml has [license]; it runs every time (cheap), so a green log of

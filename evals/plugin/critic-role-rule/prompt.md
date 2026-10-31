@@ -4,6 +4,7 @@ timeout_seconds: 900
 runs: 3
 model: haiku
 allowed_tools: [Agent, Bash, Read, Glob, Grep]
+disallowed_tools: ["Read(./.claude/kit/**)", "Read(./.claude/**)", "Read(//**/.claude/kit/**)"]
 ---
 The current directory is a git repo; branch `wt/take` adds one function to master.
 

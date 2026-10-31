@@ -371,6 +371,42 @@ class Analysis(Base):
         self.assertEqual(ra.classify("delegate:critic"), "think")
 
 
+class Status(Base):
+    NOW = dt.datetime(2026, 10, 30, 12, 0, 0, tzinfo=dt.timezone.utc)
+
+    @staticmethod
+    def _ev(kind: str, minutes_ago: int, aid: str, atype: str = "delegate:runner") -> dict[str, str]:
+        ts = (Status.NOW - dt.timedelta(minutes=minutes_ago)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        return {"ts": ts, "event": kind, "session_id": "s1", "agent_id": aid, "agent_type": atype}
+
+    def _running(self, events: list[dict[str, str]]) -> str:
+        import relay_analyze as ra
+        line = [l for l in ra.status(events, self.claude, self.NOW).splitlines() if l.startswith("s1")][0]
+        return line
+
+    def test_old_silent_starts_are_not_running(self):
+        # 7 starts 60 min ago, silent since (idle limit 10 min): dead; one start 3 min ago is alive.
+        events = [self._ev("agent_start", 60, f"d{i}", "delegate:worker") for i in range(7)]
+        events.append(self._ev("agent_start", 3, "live", "delegate:scout"))
+        line = self._running(events)
+        self.assertRegex(line, r"\s1\s+delegate:scout\s*$|\s1\s+delegate:scout")
+        self.assertNotIn("delegate:worker", line)
+
+    def test_recent_starts_all_count(self):
+        # starts 8 and 1 min ago are inside the 10 min limit: running 2.
+        events = [self._ev("agent_start", 8, "a"), self._ev("agent_start", 1, "b")]
+        self.assertRegex(self._running(events), r"\s2\s+delegate:runner")
+
+    def test_stopped_agents_do_not_count(self):
+        events = []
+        for i in range(7):
+            events += [self._ev("agent_start", 5, f"x{i}", "delegate:worker"), self._ev("agent_stop", 4, f"x{i}", "delegate:worker")]
+        events.append(self._ev("agent_start", 1, "live", "delegate:scout"))
+        line = self._running(events)
+        self.assertRegex(line, r"\s1\s+delegate:scout")
+        self.assertNotIn("delegate:worker", line)
+
+
 class Ledger(Base):
     def test_running_agents_and_durations(self):
         import relay_ledger as rl

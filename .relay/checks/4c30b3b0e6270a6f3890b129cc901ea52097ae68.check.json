@@ -1,0 +1,152 @@
+{
+  "branch": "wt/critic-rule-test-does-not-prove-relay-delivered",
+  "findings": [
+    {
+      "details": [
+        "The paid case for a project rule reaching the reviewer passed, but in 2 of 3 runs the agent read the rule file itself, so a pass does not show relay delivered the rule."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "In 2 of 3 runs of the paid critic-rule case the agent opened the rule file itself and still passed."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The rule file is not readable by the agent, and the case passes only when relay's delivery carries the rule."
+      ],
+      "path": "evals/plugin/critic-role-rule/scaffold.sh",
+      "rank": "high",
+      "reason": [
+        "tests/test_eval_cases.py CriticRoleRuleScaffold::test_the_agent_may_not_read_the_rule_file_but_the_hook_still_can passes at head and fails at base 065ffa05."
+      ],
+      "severity": "HIGH",
+      "since": "065ffa05dd42a2e2a7ad4a263b5baa03b1a91e18",
+      "source": "queue",
+      "summary": "Critic-rule test does not prove relay delivered the rule",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the runner. The installed Claude Code 2.1.314 eval child builder pushes",
+        "\"--permission-mode\",\"dontAsk\",\"--setting-sources\",\"user\" and then its own --allowed-tools / --disallowed-tools lists;",
+        "no project or local settings source is added. docs/benchmark.md:110 and evals/plugin/system_rules.py:5 already record",
+        "the same fact for CLAUDE.md (\"The runner sets CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 and --setting-sources user\").",
+        "So the new .claude/settings.json is inert in every paid run: the queue item's pass case \"the rule file is not readable by",
+        "the agent\" is not met, and the scaffold comment (\"deny rules bind its Read/Grep/Glob tools\") states something false for",
+        "this harness. The case behaves exactly as before the change; only the existing read-graders stand between a self-read",
+        "and a pass.",
+        "The runner does build --disallowed-tools from per-case data (the case's `disallowed_tools` frontmatter field exists in the",
+        "binary, and the runner itself passes path-scoped rules like Read(<dir>/**) there), so a per-case deny is likely the",
+        "route; whether `disallowed_tools` accepts a path-scoped `Read(...)` rule is not verified (PLAUSIBLE for the fix).",
+        "Size: 30 agent minutes (find the honoured channel, move the rules there, a free check of the child arguments, test)."
+      ],
+      "evidence": [
+        "$ LC_ALL=C grep -a -F -- '\"--setting-sources\",\"user\"' ~/.local/share/claude/versions/2.1.314 | perl ...",
+        "async function df(e,n,r,a,s,h,w,b){let y=[\"-p\"];y.push(\"--output-format\",\"stream-json\"),y.push(\"--verbose\"),",
+        "y.push(\"--max-turns\",...),y.push(\"--permission-mode\",\"dontAsk\"),y.push(\"--setting-sources\",\"user\");...",
+        "if(A.length>0)y.push(`--allowed-tools=${A.join(\",\")}`);let N=[`${Ke}(${vt(n.configDir)}/**)`, ... ,...b.denies,",
+        "...b.denyPaths.flatMap(...)]; ... y.push(`--disallowed-tools=${N.join(\",\")}`) ...",
+        "$ LC_ALL=C grep -a -F -c -- '\"--setting-sources\"' <binary>   -> one eval call site with \"user\"",
+        "docs/benchmark.md:110: The runner sets `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1` and `--setting-sources user`, so a",
+        "  `CLAUDE.md` or `CLAUDE.local.md` a scaffold writes never loads.",
+        "$ grep -ln settings.json evals/plugin/*/scaffold.sh  -> only critic-role-rule (no case has shown this channel works)"
+      ],
+      "failing_case": [
+        "Paid run of critic-role-rule under Claude Code 2.1.314. The scaffold writes .claude/settings.json with",
+        "{\"permissions\":{\"deny\":[\"Read(./.claude/kit/**)\",...]}}. The eval runner starts the child as",
+        "`claude -p ... --permission-mode dontAsk --setting-sources user ...`, so project settings are not a source: the deny list",
+        "is never read. The critic (or the outer session) calls Read on <cwd>/.claude/kit/judge.md and gets the rule text.",
+        "Now: the read succeeds (the run is only caught afterwards by the rule-file-read-by-read grader, as before this change).",
+        "Should: the read is refused by the harness, so the rule can reach the agent only through relay's SubagentStart hook."
+      ],
+      "fix_hint": [
+        "Move the deny out of the project settings file into a channel the runner honours: the case's frontmatter",
+        "`disallowed_tools` (prompt.md), e.g. Read/Grep/Glob rules scoped to **/.claude/kit/**, after a free check that the runner",
+        "copies those into the child's --disallowed-tools (and that a path-scoped rule there does not withhold Read entirely,",
+        "which the critic needs). Drop .claude/settings.json from the scaffold and fix its comment. If the runner offers no",
+        "path-scoped channel, say so in a Gap line: the read-graders are then the only guard and the owner decides."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 17,
+      "pass_cases": [
+        "1. Paid run (or a free probe of the runner's child arguments): a Read of .claude/kit/judge.md by the outer session or by",
+        "   delegate:critic is refused; the tool result is a permission denial, not the file text.",
+        "2. A Grep with path .claude/kit or pattern ROLE-RULE is refused the same way.",
+        "3. The SubagentStart hook still delivers the file: inject_addition.py for agent_type delegate:critic in the scaffolded",
+        "   directory emits additionalContext containing \"Project rule ROLE-RULE\" (tests/test_hook_inject_addition.py style).",
+        "4. The critic can still Read src/shelf.ts and src/shelf.test.ts (the deny is limited to the rule file / .claude).",
+        "5. The scaffold still leaves `git status --porcelain` empty on master and the rule file only in master's history."
+      ],
+      "path": "evals/plugin/critic-role-rule/scaffold.sh",
+      "rank": "high",
+      "reason": [
+        "prompt.md:6 holds disallowed_tools with Read(./.claude/kit/**); settings.json dropped from scaffold.sh; test asserts it. Runner honouring is unverified without a paid run."
+      ],
+      "severity": "HIGH",
+      "since": "1b60b279f1c2927bd75230df552cd68dbb14b09c",
+      "source": "review-critic-rule-test-does-not-prove-relay-delivered.json",
+      "source_id": "F1",
+      "summary": "the deny rules go into the fixture's .claude/settings.json, which `claude plugin eval` never loads (it starts the child with --setting-sources user), so the agent can still Read the rule file",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the assertions are assertIn(\"Read(./.claude/kit/**)\", deny) on the scaffold's own file. That",
+        "checks the mechanism's text, not its effect; the judge base names \"a test that passes with the behaviour disabled\". The",
+        "queue rule asks for each new test to fail without the fix; this one fails without the settings file, but the settings",
+        "file is not the fix that works (F1). Size: 10 agent minutes, done together with F1."
+      ],
+      "evidence": [
+        "$ python3 -m unittest tests.test_eval_cases.CriticRoleRuleScaffold",
+        "Ran 1 test in 0.252s",
+        "OK",
+        "(tests/test_eval_cases.py:54-56 assertIn on .claude/settings.json content; nothing ties it to the runner's flags)"
+      ],
+      "failing_case": [
+        "Run tests.test_eval_cases.CriticRoleRuleScaffold at HEAD: OK. Yet per F1 the runner loads only user settings, so the",
+        "deny has no effect on any paid run. The test passes with the behaviour absent; it would keep passing after a Claude Code",
+        "update that changes how settings load, or if the file were never read at all.",
+        "Should: the test fails when the deny does not reach the eval child."
+      ],
+      "fix_hint": [
+        "Rewrite the test to read the channel chosen in F1 (the case's frontmatter) and assert the rule-file deny there; keep the",
+        "file-exists and clean-status assertions."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 46,
+      "pass_cases": [
+        "1. With the deny moved to the runner-honoured channel (F1 fix), the test asserts the case's own frontmatter",
+        "   (prompt.md `disallowed_tools`, or whatever channel is chosen) holds a rule covering .claude/kit/judge.md; removing",
+        "   that rule makes the test fail.",
+        "2. The test still asserts .claude/kit/judge.md exists after the scaffold (the hook needs it) and git status is clean.",
+        "3. The test does not accept a deny that lives only in .claude/settings.json (the channel the runner ignores)."
+      ],
+      "path": "tests/test_eval_cases.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_eval_cases.py:46-57 reads the frontmatter and asserts no settings.json; fails at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "1b60b279f1c2927bd75230df552cd68dbb14b09c",
+      "source": "review-critic-rule-test-does-not-prove-relay-delivered.json",
+      "source_id": "F2",
+      "summary": "the new test checks that settings.json holds the deny strings, not that anything the eval runner reads denies the rule file; it passes while the agent can still read it",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "d50f1aac6c80183c8e6633efd665bb7f81462dba.gate.log",
+  "head": "4c30b3b0e6270a6f3890b129cc901ea52097ae68",
+  "item": "critic-rule-test-does-not-prove-relay-delivered",
+  "notes": [
+    "Not verified (fixer says so too): that the runner honours a path-scoped Read(...) in the case's disallowed_tools; needs a paid run. No other case uses the field. The read-graders stay as a backstop."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log head d50f1aac, exit 0, no file changed since to HEAD. Own changed files: prompt.md, scaffold.sh, tests/test_eval_cases.py (all in scope). Ran CriticRoleRuleScaffold: OK. Base (065ffa05) with the new test: FAILS (0 != 1)."
+  ],
+  "type": "check"
+}

@@ -69,6 +69,37 @@
       "fact": [
         "30 Oct, front decisions (owner can reverse): (1) waiting changes keep their lanes for now; measure a week after the cycle fix lands (design recount: 0-1 lanes would have been freed that night, not 5); (2) the self-wake timer is at most 55 minutes (8 wakes per idle 7-hour night; above 60 minutes each wake re-writes the 1-hour cache); (3) default-on-timeout is not built. Cost per wake not measured."
       ]
+    },
+    {
+      "asked_at": "2026-10-30T17:00:50Z",
+      "question": [
+        "Build the self-wake (a timer that wakes an idle front while the owner is away) now, or after one measured night?"
+      ],
+      "options": [
+        "a. Measure tonight first: since the fixes no idle gap over 43 minutes in 3 absences, and the 25 Oct outage gets at most one useful retry from a timer",
+        "b. Build now: about 75 agent minutes and about $1 per idle night"
+      ],
+      "decided_by": "front",
+      "chosen": "a",
+      "because": [
+        "principles 2 and 7: the measured gaps (none over 43 minutes in 3 absences) do not show the need yet, and the review showed the timer would not have covered the 25 Oct outage. Part A (reviewers and checkers decide reversible scope cuts) is built now. Owner can reverse."
+      ]
+    },
+    {
+      "at": "2026-10-30T17:00:51Z",
+      "fact": [
+        "Design rev 2, 30 Oct 2026: part A (reviewers and checkers decide reversible scope cuts on MEDIUM or LOW findings, code refuses the rest) is about 130 agent minutes, above the item's 2 hours (not measured: a guess)."
+      ]
+    },
+    {
+      "asked_at": "2026-10-30T17:49:32Z",
+      "question": [
+        "Part A of 'work goes on while the owner is away' is built and checked (gate green, open 0): a checker may itself put off a MEDIUM or LOW finding as a reversible scope cut; the rest is filed as a feature at the item's ip; the merge line shows it as 'decided without you'; HIGH findings, questions and design findings still wait for the owner, and code refuses otherwise. Does it land?"
+      ],
+      "options": [
+        "a. Land it (recommended): on 29 Oct night 4 of 4 waiting questions were MEDIUM scope cuts that would not have waited",
+        "b. Hold it: every finding the fixer does not fix keeps waiting for the owner, as today"
+      ]
     }
   ]
 }

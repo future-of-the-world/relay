@@ -28,6 +28,7 @@ from typing import Any, Callable, Optional
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "lib"))
 import relay_config  # noqa: E402
+import relay_kit  # noqa: E402
 import relay_land  # noqa: E402
 import relay_lanes  # noqa: E402
 import relay_git  # noqa: E402
@@ -136,10 +137,10 @@ def main() -> None:
 def work(data: "dict[str, Any]", event: Optional[str], budget: float) -> "tuple[Optional[str], Optional[dict]]":
     """The text to show (or the Stop refusal) for the event; nothing is printed here, so the deadline can never cut a write to stdout."""
     root = timed("config", lambda: relay_config.main_checkout(data["cwd"]))
-    cfg = relay_config.load_bindings(root)
-    quiet = relay_lanes.setting(cfg, "lane_quiet_hours")
-    cap = relay_lanes.setting(cfg, "lanes_line_items")
-    unused = relay_lanes.setting_note(cfg, "lanes_line_items")      # an out-of-bounds value is said in the line
+    kit = relay_kit.load(root)
+    quiet = kit.get("front", "lane_quiet_hours")
+    cap = kit.get("front", "lanes_line_items")
+    unused = relay_kit.note(kit, "front")      # a wrong value of the project's settings is said in the line
     if event == "UserPromptSubmit":
         state = timed("lanes", lambda: relay_lanes.lanes_state(root, quiet))
         try:
@@ -167,7 +168,7 @@ def work(data: "dict[str, Any]", event: Optional[str], budget: float) -> "tuple[
         if data.get("stop_hook_active") or not isinstance(session, str):
             return None, None
         stamp = os.path.join(relay_config.home_dir(), "state", "lanes-stop", session + ".json")
-        reason = relay_lanes.stop_refusal(timed("lanes", lambda: relay_lanes.lanes_state(root, quiet)), stamp, relay_lanes.setting(cfg, "stop_nudge"), session)
+        reason = relay_lanes.stop_refusal(timed("lanes", lambda: relay_lanes.lanes_state(root, quiet)), stamp, kit.get("front", "stop_nudge"), session)
         if reason:
             return None, {"decision": "block", "reason": reason}
     return None, None

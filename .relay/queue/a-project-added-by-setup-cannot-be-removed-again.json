@@ -27,5 +27,14 @@
   "closed_at": null,
   "test": null,
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T23:18:06Z",
+      "fact": [
+        "Reproduce step 2026-10-31 (scout, read-only, master d2cc130c): half holds. setup no longer writes into the main checkout: lib/relay_setup.py:808-827 register_project appends to relay_config.projects_file(), i.e. $RELAY_HOME/projects.toml (lib/relay_config.py:38-41, 80-81); the checkout's ./projects.toml is a legacy copy, untracked and not ignored. Still true: no relay command removes an entry (grep forget|undo|remove project|unregister in lib/ bin/ finds none). Today's failing case: an entry added by setup can only be removed by hand-editing $RELAY_HOME/projects.toml. Build scope narrows to the remove command."
+      ],
+      "reproduced": "yes"
+    }
+  ]
 }

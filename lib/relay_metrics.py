@@ -24,7 +24,6 @@ KEYS = {"schema", "kind", "unit", "item", "branch", "before", "head", "agents", 
 AGENT_KEYS = {"id", "session", "stage", "n", "model", "start", "stop", "requests", "cost_usd"}
 LAND_KEYS = {"kind", "at", "gates_run", "gate_seconds", "file", "holder"}
 KINDS = ("change", "design", "other", "front")
-SETTINGS = {"sweep_quiet_min": (60, 10, 1440)}   # default, lowest, highest
 BACKFILL_FROM = "2026-10-27T00:00:00+00:00"
 DESIGN_STAGES = ("design", "design review", "design revise")
 FRONT_KEYS = {"day", "cost_usd", "sessions", "basis"}      # basis: "exact" or "estimate", as `relay report` labels a session
@@ -57,18 +56,6 @@ def parse(text: str) -> dict[str, Any]:
 def dump(rec: dict[str, Any]) -> str:
     parse(json.dumps(rec))      # the writer refuses what the parser would
     return json.dumps(rec, indent=1, sort_keys=True) + "\n"
-
-
-def setting(cfg: Any, key: str) -> int:
-    import relay_config
-    default, low, high = SETTINGS[key]
-    value = relay_config.get(cfg, "metrics." + key, default)
-    return default if isinstance(value, bool) or not isinstance(value, int) else max(low, min(high, value))
-
-
-def enabled(cfg: Any) -> bool:
-    import relay_config
-    return relay_config.get(cfg, "metrics.enabled", True) is not False
 
 
 # ---- the ledger: finished, labelled agents ----
@@ -110,7 +97,7 @@ def ledger_agents(ledger_dir: str) -> list[dict[str, Any]]:
 
 
 def match_unit(agent: dict[str, Any], items: list[dict[str, Any]], notes: list[str]) -> Optional[str]:
-    """The queue item an agent belongs to, or None. A full item id matches exactly; an old 40-char label matches an item only inside
+    """The queue item an agent belongs to, or None. A full item id matches exactly; an old 40-char label matches the items whose recorded branch is that label, and only inside
     the item's taken..closed window, and never two items (the agent is named in `notes` and left out)."""
     unit = agent["unit"]
     for prefix in ("", "design-", "fix-"):
@@ -123,7 +110,10 @@ def match_unit(agent: dict[str, Any], items: list[dict[str, Any]], notes: list[s
     start = _epoch(agent["start"])
     hits = []
     for item in items:
-        if item["slug"][:40] != name[:40] or not item.get("taken_at"):
+        taken_by = str(item.get("taken_by") or "")
+        branch = taken_by[len("wt/"):] if taken_by.startswith("wt/") else None
+        # a take-conflict unit has no item: the front names it <branch>-<word> (e.g. "-take")
+        if not branch or not item.get("taken_at") or not (name == branch or re.fullmatch(re.escape(branch) + r"-[a-z]+", name)):
             continue
         end = item.get("closed_at") or item.get("dropped_at")
         if _epoch(item["taken_at"]) <= start <= (_epoch(end) if end else float("inf")):
@@ -292,16 +282,18 @@ def record_landing(repo: str, units: list[tuple[str, str]], before: Optional[str
     """Write the records of a landing (one per unit, none for a train branch) and the sweep, in one commit on the default branch.
     `landed` is the branch `relay land` was called with (a train's own branch for its riders); its events are the landing's, shared by every unit."""
     import relay_config
+    import relay_kit
     import relay_queue
     main, _ = relay_queue._context(repo)
-    cfg = relay_config.load_bindings(main)
-    if not enabled(cfg):
+    kit = relay_kit.load(main)
+    relay_kit.warn(kit, "metrics")
+    if not kit.get("metrics", "enabled"):
         return
     items = relay_queue.read_queue(main, closed=True)
     items += [{"slug": slug} for slug, _ in units if slug not in {i["slug"] for i in items}]     # a landed unit always matches its own id
     ledger = ledger_agents(relay_config.ledger_dir())
     moment = time.time() if now is None else now
-    quiet = setting(cfg, "sweep_quiet_min")
+    quiet = kit.get("metrics", "sweep_quiet_min")
     notes: list[str] = []
 
     def writes_at(rev: str) -> dict[str, str]:

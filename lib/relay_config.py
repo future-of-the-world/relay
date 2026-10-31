@@ -140,43 +140,12 @@ def bindings_path(root: str) -> str:
     return os.path.join(root, ".claude", "kit.toml")
 
 
-def load_bindings(root: str) -> dict[str, Any]:
-    """The project's kit.toml as a dict, or {} when the project has none."""
-    path = bindings_path(root)
-    if not os.path.isfile(path):
-        return {}
-    return read_toml(path)
-
-
 def worktrees_folder(main: str) -> str:
     """The folder that holds the task worktrees: project.worktrees of kit.toml, default .worktrees.
     A relative value is under main; an absolute value stays where it is."""
-    value = get(load_bindings(main), "project.worktrees")
-    folder = value.rstrip("/") if isinstance(value, str) else ""
+    import relay_kit      # not at the top: a plugin folder may carry this file without relay_kit
+    folder = relay_kit.load(main).get("project", "worktrees").rstrip("/")
     return os.path.normpath(os.path.join(main, folder or ".worktrees"))
-
-
-def get(cfg: Any, dotted: str, default: Any = None) -> Any:
-    value = cfg
-    for part in dotted.split("."):
-        if not isinstance(value, dict) or part not in value:
-            return default
-        value = value[part]
-    return value
-
-
-def relay_defaults() -> dict[str, dict[str, Any]]:
-    """Defaults for the relay sections of kit.toml (profiles/active.toml holds the policy)."""
-    return {
-        "flow": {"kind": "none"},
-        "delegate": {
-            "typed_only": True,
-            "fork_limit": 100_000,
-            "max_parallel": 4,
-            "build_tier_opus": "escalate",   # escalate | allow | deny
-        },
-        "observe": {"enabled": True, "log_prompts": False},
-    }
 
 
 def active_profile() -> dict[str, Any]:

@@ -8,19 +8,19 @@ import os
 import sys
 from typing import Callable, Optional, TextIO
 
+import relay_kit
 import relay_toml
 
 SOURCE = ("lib", "bin", "plugins")
 MODES = ("every", "landing", "off")       # [metrics] coverage; the default is the owner's answer of 29 Oct (every gate); landing: only the gate `relay land` runs (RELAY_LAND)
 
 
-def effective_mode(cfg: object, env: dict[str, str]) -> str:
+def effective_mode(kit: relay_kit.Kit, env: dict[str, str]) -> str:
     """`every` or `off` for this gate: `landing` means every only in the gate `relay land` started; metrics off or an unknown value of the
     setting leaves the default (every) or off as written."""
-    import relay_config
-    if relay_config.get(cfg, "metrics.enabled", True) is False:
+    if kit.get("metrics", "enabled") is False:
         return "off"
-    mode = str(relay_config.get(cfg, "metrics.coverage", "every"))
+    mode = kit.get("metrics", "coverage")      # a wrong value is already the default (every), with a problem
     if mode == "landing":
         return "every" if env.get("RELAY_LAND") else "off"
     return mode if mode in MODES else "every"
@@ -76,12 +76,12 @@ def run_tests(root: str, env: dict[str, str], run: Callable[..., "object"], log:
 def library_tests(root: str, base: dict[str, str], quick: bool, run: Callable[..., "object"], log: TextIO,
                   which: Callable[[str], Optional[str]]) -> tuple[int, str]:
     """(exit code, coverage line or "") of the library tests: under coverage when the settings and the pin allow, else plain."""
-    import relay_config
+    import relay_kit
     env = dict(base)
     # the guard suite (tests/test_hook_guard_main.py) runs its shared cases once in quick mode
     if quick:
         env["RELAY_QUICK"] = "1"
-    rc, line = run_tests(root, env, run, log, which, effective_mode(relay_config.load_bindings(root), env))
+    rc, line = run_tests(root, env, run, log, which, effective_mode(relay_kit.load(root), env))
     if rc is None:
         rc = run(["python3", "-W", "ignore::ResourceWarning", "tests/run_unittest.py"], log, env=env).returncode   # type: ignore[attr-defined]
     return rc, line or ""

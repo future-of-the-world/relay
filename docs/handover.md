@@ -1960,3 +1960,75 @@ Each branch waits for its answer; then a fix unit with the review's other findin
 ### Next steps
 1. Fill free fix lanes in ip order (86 closer test names, 84 branch names, 82 pytest without relay).
 2. Next handover worktree: handover-52.
+
+## Addendum 40 (30 Oct, evening; session 6c217ef4)
+
+### Owner state
+- Resting since ~13:05Z ("Я устал и отвечу позже, пока я отдыхаю можешь заняться чем нибудь другим и не ждать ответа на эти вопросы"). On return: ONE message, what landed and what waits, every question with its full intro as if asked first time.
+
+### Landed on master since addendum 39
+- Precheck timeout fix; quick gate speed-up (gate copy without service files).
+- VPS gates change 4 (item kept open for change 5, bring-up on the real VPS), including the Python exit abort fix (macOS crash dialog turned back on, no new Python-*.ips after the fix).
+- Branch names = full slug; pytest leaves HOME clean; inert probe worktree leftovers.
+- Project settings check (relay_kit: one checking parser, gate refuses a bad kit.toml, front decision a).
+- Task branches of queue- slugs are wt/task-queue-...; guard: absolute worktrees folder; route guard 10-minute idle limit (front decision).
+- New project's gate names a missing test tool; critic-rule eval deny moved into disallowed_tools (unverified until a paid run).
+
+### Paid run
+- Run on 065ffa05 RED: clean-image gate, tests/test_gate_hosts.py Add tests need ssh-keygen (absent in the image). Fix item paid-run-red-host-tests-need-ssh-keygen-in-the-c (ip 99) is building, started --despite-wait (overlaps lib/relay_hosts.py with the held Linux-compare branch). After it lands: a new paid run, then relay sync. Paid worktree .worktrees/paid-065ffa05 can go after that.
+
+### Ready, held for the owner (do not land without the owner's word)
+- wt/each-change-is-gated-in-a-fresh-containe (Linux vs Mac gate comparison, counts only): waits on the owner question "Does the Linux gate on the VPS take over the merge decision by itself?" (a. counts only, recommended; b. VPS decides after 3 agreeing waves, as promised 27 Oct, ~60 more agent minutes). Front decided twins (a), owner can reverse.
+- wt/work-goes-on-while-the-owner-is-away (part A: a checker may itself put off a MEDIUM/LOW finding as a reversible scope cut, filed as a feature, shown as 'decided without you'): owner question "Does it land?" (a. land, recommended; b. hold). Self-wake part not built: front decided to measure one night first.
+- wt/one-digest-per-wave-instead-of-status-me (digest) still on hold; preview scratchpad/reports/digest-preview-4.txt.
+
+### Still waiting for the owner from earlier
+- Session design rev 4 (three questions, scenarios page https://claude.ai/artifact/QpgowYU9Y54yo54u3Saeq3).
+- VPS root ssh for agents (a = guard refuses, recommended).
+
+### Running
+- Fix of the red paid run; relay setup writes an absolute relay path into settings; relay status counts dead agents.
+
+### Queued today
+- a-task-branch... (landed); slugify cuts titles at 48 chars (ip 55); bin/wt new queue-x (ip 50); relay status counts dead agents (ip 60, building); paid-run red (ip 99).
+- Duplicate pair: a-landed-worktree-that-git-calls-a-submodule-sta (ip 84) and a-landed-worktree-git-calls-a-submodule-holder-s (ip 80); start the 84 one when lib/relay_land.py is free and drop the 80 one as its duplicate.
+
+### Next steps
+1. On each cycle completion fill the free lane in ip order (fixes first).
+2. After the ssh-keygen fix lands start a paid run.
+3. On the owner's return send the one message.
+
+## Addendum 41 (30-31 Oct, night; session 6c217ef4)
+
+Owner still resting since ~13:05Z 30 Oct. On return: ONE message, what landed and what waits; every question with its full intro.
+
+### Landed since addendum 40
+- Red paid run fixed (fake ssh-keygen in host tests). Paid run on 14c7f5af GREEN ($17.56), but relay sync waits: checked paths changed after it (the submodule fix).
+- New project's gate names a missing test tool; relay setup writes no absolute relay path and lists additions; setup to-do names install for always-on plugins; setup detects the worktree folder bin/wt uses (.worktree on ALIX).
+- Leftover submodule worktree cleared (duplicate item dropped); relay wrapper reads marketplace amidman; relay status 10-minute idle limit; route guard idle limit; critic-rule eval deny in disallowed_tools; guard absolute worktrees; task branches of queue- slugs; bin/wt queue- prefix.
+- The gate checks a branch's kit.toml with the branch's own relay_kit (it blocked the rename). The bin/wt template item closed as already fixed (c77fba2a).
+
+### Front decisions tonight (owner can reverse, each recorded on its item)
+- Route guard idle limit 10 minutes.
+- Signal log once per gate run in a temporary folder (sigterm item).
+- Sigterm F4 fixed by narrowing the log wording; other senders are item several-of-relay-s-own-senders-still-signal-with (start only after the sigterm change lands).
+
+### In progress
+- Sigterm change (fix of F4 running); settings rename (gate/review running as a built unit).
+
+### Ready and held for the owner (unchanged)
+- Linux vs Mac comparison (question: does the VPS take over merges); part A of work-goes-on-while-away (question: does it land); the digest.
+- Still waiting: session design rev 4 three questions (https://claude.ai/artifact/QpgowYU9Y54yo54u3Saeq3); VPS root ssh.
+
+### Paid run
+- Due again after 3 checked-path changes; then relay sync.
+
+### Known tool gaps seen tonight
+- The cycle closer passes Class.test (closed by hand with file::test).
+- relay check owner records only owner words, so a fixer's Outside on an inside finding cannot be queued without the owner (handled by fixing inside).
+- Add --from queued an already-MET finding (fact added to queue-add-from-queues-a-finding-a-check-marked-m, ip 75).
+
+### Next steps
+1. Fill free lanes in ip order (fixes first, skip the senders item until sigterm lands).
+2. Start a paid run when 3 checked-path changes are due.
+3. On the owner's return send the one message.

@@ -70,6 +70,30 @@
         "a. a shell function: `claude` in a relay project goes through relay's launcher; IDE and desktop-app sessions stay as today and are told so (recommended; about 245 agent minutes)",
         "b. a separate command the owner types, `relay session`; plain `claude` stays global",
         "c. project files only, no launcher; user rules, memory, agents and skills still load (about 45 agent minutes)"
+      ],
+      "answered_at": "2026-10-30T23:59:47Z",
+      "answer": [
+        "По поводу хранения настроек и памяти, я не собираюсь читать этот текст полностью",
+        "",
+        "1. Существуют конкретные правила relay в проекте, в самом relay это должно быть оформлено через relay",
+        "2. Существуют глобальные правила relay на всю машину, определяющиеся в .relay",
+        "3. Мы не храним memory в relay, этим занимаются подключаемые harness, на текущий момент это claude",
+        "4. ~/.relay и .relay проекта хранит только информацию и настройки relay",
+        "5. почему shell ориентируется на kit.toml а не на .relay",
+        "",
+        "Ранее я продвигал политику - полностью вырезаем memory, не используем, сейчас же я хочу изменить это, преобразить подход, исходя из принципов, предложи новое решение",
+        "",
+        "relay - это подключаемая утилита к проекту, она имеет набор плагинов - relay, observe, front, delegate",
+        "",
+        "Эти плагины диктуют принцип по которому теперь проиходит работа с claude",
+        "",
+        "1. У меня уже был setup, как мы от него перешли к relay ?",
+        "2. Я думаю что здесь мне надо быть проще, и relay это просто relay, плагины и утилита которая поддерживает их работу, мы загружаем ряд принципов и инструкций в проект, как и сейчас происходит полагаю, необходимо лишь преобразовать это во что-то целостное и законченное, хотя бы с точки зрения позиций",
+        "",
+        "Тебе необходимо проследить график моей позиции и найти то самое что позволит работать с relay на новой машине и на машине на которой уже есть конфигурация, они будут работать неодинаково но я хочу чтобы это всё ещё был relay, возможно отодвигать конфигурацию пользователя было бы излишне, помоги мне разобраться со всем"
+      ],
+      "reading": [
+        "The owner does not pick among rev 4's options; they set positions and ask for a new design: relay = plugins (relay, observe, front, delegate) + the utility that supports them; project rules of relay live in the project via relay, machine-wide relay rules in ~/.relay; ~/.relay and a project's .relay hold only relay's information and settings; memory is not relay's, the harness (today Claude Code) keeps it, which reverses the earlier \"cut memory out\" policy; do not push the user's own configuration aside. Asked: why the shell launcher keys on kit.toml and not .relay; how relay grew from the owner's earlier setup. Goes to the design track: trace the owner's positions over time and find what makes relay work on a new machine and on one with existing configuration (differently, but still relay)."
       ]
     },
     {
@@ -80,6 +104,30 @@
       "options": [
         "a. stays where Claude Code keeps it, recorded by hash in every run (recommended by the design: the gate never reads memory)",
         "b. saved into the project's git by one relay command, copied in at session start (about 60 agent minutes; travels to other machines and containers)"
+      ],
+      "answered_at": "2026-10-30T23:59:47Z",
+      "answer": [
+        "По поводу хранения настроек и памяти, я не собираюсь читать этот текст полностью",
+        "",
+        "1. Существуют конкретные правила relay в проекте, в самом relay это должно быть оформлено через relay",
+        "2. Существуют глобальные правила relay на всю машину, определяющиеся в .relay",
+        "3. Мы не храним memory в relay, этим занимаются подключаемые harness, на текущий момент это claude",
+        "4. ~/.relay и .relay проекта хранит только информацию и настройки relay",
+        "5. почему shell ориентируется на kit.toml а не на .relay",
+        "",
+        "Ранее я продвигал политику - полностью вырезаем memory, не используем, сейчас же я хочу изменить это, преобразить подход, исходя из принципов, предложи новое решение",
+        "",
+        "relay - это подключаемая утилита к проекту, она имеет набор плагинов - relay, observe, front, delegate",
+        "",
+        "Эти плагины диктуют принцип по которому теперь проиходит работа с claude",
+        "",
+        "1. У меня уже был setup, как мы от него перешли к relay ?",
+        "2. Я думаю что здесь мне надо быть проще, и relay это просто relay, плагины и утилита которая поддерживает их работу, мы загружаем ряд принципов и инструкций в проект, как и сейчас происходит полагаю, необходимо лишь преобразовать это во что-то целостное и законченное, хотя бы с точки зрения позиций",
+        "",
+        "Тебе необходимо проследить график моей позиции и найти то самое что позволит работать с relay на новой машине и на машине на которой уже есть конфигурация, они будут работать неодинаково но я хочу чтобы это всё ещё был relay, возможно отодвигать конфигурацию пользователя было бы излишне, помоги мне разобраться со всем"
+      ],
+      "reading": [
+        "The owner does not pick among rev 4's options; they set positions and ask for a new design: relay = plugins (relay, observe, front, delegate) + the utility that supports them; project rules of relay live in the project via relay, machine-wide relay rules in ~/.relay; ~/.relay and a project's .relay hold only relay's information and settings; memory is not relay's, the harness (today Claude Code) keeps it, which reverses the earlier \"cut memory out\" policy; do not push the user's own configuration aside. Asked: why the shell launcher keys on kit.toml and not .relay; how relay grew from the owner's earlier setup. Goes to the design track: trace the owner's positions over time and find what makes relay work on a new machine and on one with existing configuration (differently, but still relay)."
       ]
     },
     {
@@ -154,6 +202,30 @@
         "a. shell block in ~/.zshrc and ~/.bashrc (recommended; the owner's round-4 \"2. Да\" read as a)",
         "b. a separate `relay session` command",
         "c. project files only, no launcher (user rules, memory, agents and skills still load)"
+      ],
+      "answered_at": "2026-10-30T23:59:47Z",
+      "answer": [
+        "По поводу хранения настроек и памяти, я не собираюсь читать этот текст полностью",
+        "",
+        "1. Существуют конкретные правила relay в проекте, в самом relay это должно быть оформлено через relay",
+        "2. Существуют глобальные правила relay на всю машину, определяющиеся в .relay",
+        "3. Мы не храним memory в relay, этим занимаются подключаемые harness, на текущий момент это claude",
+        "4. ~/.relay и .relay проекта хранит только информацию и настройки relay",
+        "5. почему shell ориентируется на kit.toml а не на .relay",
+        "",
+        "Ранее я продвигал политику - полностью вырезаем memory, не используем, сейчас же я хочу изменить это, преобразить подход, исходя из принципов, предложи новое решение",
+        "",
+        "relay - это подключаемая утилита к проекту, она имеет набор плагинов - relay, observe, front, delegate",
+        "",
+        "Эти плагины диктуют принцип по которому теперь проиходит работа с claude",
+        "",
+        "1. У меня уже был setup, как мы от него перешли к relay ?",
+        "2. Я думаю что здесь мне надо быть проще, и relay это просто relay, плагины и утилита которая поддерживает их работу, мы загружаем ряд принципов и инструкций в проект, как и сейчас происходит полагаю, необходимо лишь преобразовать это во что-то целостное и законченное, хотя бы с точки зрения позиций",
+        "",
+        "Тебе необходимо проследить график моей позиции и найти то самое что позволит работать с relay на новой машине и на машине на которой уже есть конфигурация, они будут работать неодинаково но я хочу чтобы это всё ещё был relay, возможно отодвигать конфигурацию пользователя было бы излишне, помоги мне разобраться со всем"
+      ],
+      "reading": [
+        "The owner does not pick among rev 4's options; they set positions and ask for a new design: relay = plugins (relay, observe, front, delegate) + the utility that supports them; project rules of relay live in the project via relay, machine-wide relay rules in ~/.relay; ~/.relay and a project's .relay hold only relay's information and settings; memory is not relay's, the harness (today Claude Code) keeps it, which reverses the earlier \"cut memory out\" policy; do not push the user's own configuration aside. Asked: why the shell launcher keys on kit.toml and not .relay; how relay grew from the owner's earlier setup. Goes to the design track: trace the owner's positions over time and find what makes relay work on a new machine and on one with existing configuration (differently, but still relay)."
       ]
     },
     {
@@ -166,6 +238,30 @@
         "b. clean-up only; new notes stay on the machine (~30)",
         "c. a personal notes repository with a sync command (~75)",
         "d. do nothing"
+      ],
+      "answered_at": "2026-10-30T23:59:47Z",
+      "answer": [
+        "По поводу хранения настроек и памяти, я не собираюсь читать этот текст полностью",
+        "",
+        "1. Существуют конкретные правила relay в проекте, в самом relay это должно быть оформлено через relay",
+        "2. Существуют глобальные правила relay на всю машину, определяющиеся в .relay",
+        "3. Мы не храним memory в relay, этим занимаются подключаемые harness, на текущий момент это claude",
+        "4. ~/.relay и .relay проекта хранит только информацию и настройки relay",
+        "5. почему shell ориентируется на kit.toml а не на .relay",
+        "",
+        "Ранее я продвигал политику - полностью вырезаем memory, не используем, сейчас же я хочу изменить это, преобразить подход, исходя из принципов, предложи новое решение",
+        "",
+        "relay - это подключаемая утилита к проекту, она имеет набор плагинов - relay, observe, front, delegate",
+        "",
+        "Эти плагины диктуют принцип по которому теперь проиходит работа с claude",
+        "",
+        "1. У меня уже был setup, как мы от него перешли к relay ?",
+        "2. Я думаю что здесь мне надо быть проще, и relay это просто relay, плагины и утилита которая поддерживает их работу, мы загружаем ряд принципов и инструкций в проект, как и сейчас происходит полагаю, необходимо лишь преобразовать это во что-то целостное и законченное, хотя бы с точки зрения позиций",
+        "",
+        "Тебе необходимо проследить график моей позиции и найти то самое что позволит работать с relay на новой машине и на машине на которой уже есть конфигурация, они будут работать неодинаково но я хочу чтобы это всё ещё был relay, возможно отодвигать конфигурацию пользователя было бы излишне, помоги мне разобраться со всем"
+      ],
+      "reading": [
+        "The owner does not pick among rev 4's options; they set positions and ask for a new design: relay = plugins (relay, observe, front, delegate) + the utility that supports them; project rules of relay live in the project via relay, machine-wide relay rules in ~/.relay; ~/.relay and a project's .relay hold only relay's information and settings; memory is not relay's, the harness (today Claude Code) keeps it, which reverses the earlier \"cut memory out\" policy; do not push the user's own configuration aside. Asked: why the shell launcher keys on kit.toml and not .relay; how relay grew from the owner's earlier setup. Goes to the design track: trace the owner's positions over time and find what makes relay work on a new machine and on one with existing configuration (differently, but still relay)."
       ]
     },
     {
@@ -176,6 +272,30 @@
       "options": [
         "a. keep it, as today, keeping the person's own lines (recommended: the guard stays on for any relay session; the owner's working rules follow them)",
         "b. shell block only: folders outside relay are exactly as before relay; an IDE session in a relay project has no guard and no relay rules"
+      ],
+      "answered_at": "2026-10-31T00:00:26Z",
+      "answer": [
+        "По поводу хранения настроек и памяти, я не собираюсь читать этот текст полностью",
+        "",
+        "1. Существуют конкретные правила relay в проекте, в самом relay это должно быть оформлено через relay",
+        "2. Существуют глобальные правила relay на всю машину, определяющиеся в .relay",
+        "3. Мы не храним memory в relay, этим занимаются подключаемые harness, на текущий момент это claude",
+        "4. ~/.relay и .relay проекта хранит только информацию и настройки relay",
+        "5. почему shell ориентируется на kit.toml а не на .relay",
+        "",
+        "Ранее я продвигал политику - полностью вырезаем memory, не используем, сейчас же я хочу изменить это, преобразить подход, исходя из принципов, предложи новое решение",
+        "",
+        "relay - это подключаемая утилита к проекту, она имеет набор плагинов - relay, observe, front, delegate",
+        "",
+        "Эти плагины диктуют принцип по которому теперь проиходит работа с claude",
+        "",
+        "1. У меня уже был setup, как мы от него перешли к relay ?",
+        "2. Я думаю что здесь мне надо быть проще, и relay это просто relay, плагины и утилита которая поддерживает их работу, мы загружаем ряд принципов и инструкций в проект, как и сейчас происходит полагаю, необходимо лишь преобразовать это во что-то целостное и законченное, хотя бы с точки зрения позиций",
+        "",
+        "Тебе необходимо проследить график моей позиции и найти то самое что позволит работать с relay на новой машине и на машине на которой уже есть конфигурация, они будут работать неодинаково но я хочу чтобы это всё ещё был relay, возможно отодвигать конфигурацию пользователя было бы излишне, помоги мне разобраться со всем"
+      ],
+      "reading": [
+        "Same reply as the answer to 09:58:55Z etc.; it also answers this one (\"возможно отодвигать конфигурацию пользователя было бы излишне\"). The owner does not pick among rev 4's options; they set positions and ask for a new design: relay = plugins (relay, observe, front, delegate) + the utility that supports them; project rules of relay live in the project via relay, machine-wide relay rules in ~/.relay; ~/.relay and a project's .relay hold only relay's information and settings; memory is not relay's, the harness (today Claude Code) keeps it, which reverses the earlier \"cut memory out\" policy; do not push the user's own configuration aside. Asked: why the shell launcher keys on kit.toml and not .relay; how relay grew from the owner's earlier setup. Goes to the design track: trace the owner's positions over time and find what makes relay work on a new machine and on one with existing configuration (differently, but still relay)."
       ]
     },
     {

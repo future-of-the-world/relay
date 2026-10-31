@@ -225,6 +225,13 @@
       "options": [
         "a. Show the agreement counts only; the Mac gate decides merges until the owner says to switch (recommended: no Linux result exists yet, so agreement and Linux flakiness are not measured)",
         "b. The VPS decides after 3 agreeing waves, as promised on 27 Oct: about 60 more agent minutes, and a break seen only on the Mac can land"
+      ],
+      "answered_at": "2026-10-31T00:08:30Z",
+      "answer": [
+        "Что ты имеешь ввиду после трех волн где Linux и Mac согласны - звучит как будто ты будет запускать их по несколько раз, ранее мы обговаривали что Linux сейчас - быстрый способ проверить проход тестов, решает Mac (до тех пор пока разработка ведется на mac), возможно в будущем мы сделаем relay remote чтобы полностью перенести разработку на удаленные сервера (сейчас звучит немного странно касательно того как это будет работать, надо прежде дожить до релиза)"
+      ],
+      "reading": [
+        "Option a: the Linux gate on the VPS is a fast check that the tests pass; the Mac decides the merge while development is on the Mac; no automatic switch after agreeing waves. A later \"relay remote\" (development moved to remote servers) is a post-release idea, not built now."
       ]
     },
     {

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # `relay` on the Bash tool's PATH (a plugin's bin/ is added to it). Finds the
-# repository: $RELAY_ROOT, else the relay marketplace path in the user's
+# repository: $RELAY_ROOT, else the amidman marketplace path in the user's
 # settings, else ~/relay.
 set -u
 root="${RELAY_ROOT:-}"
 if [ -z "$root" ]; then
   s="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
-  [ -f "$s" ] && command -v jq >/dev/null 2>&1 && root="$(jq -r '.extraKnownMarketplaces.relay.source.path // empty' "$s" 2>/dev/null)"
+  [ -f "$s" ] && command -v jq >/dev/null 2>&1 && root="$(jq -r '.extraKnownMarketplaces.amidman.source.path // empty' "$s" 2>/dev/null)"
 fi
 [ -n "$root" ] || root="$HOME/relay"
 [ -x "$root/bin/relay" ] || { echo "relay: repository not found (set RELAY_ROOT or register the relay marketplace)" >&2; exit 1; }

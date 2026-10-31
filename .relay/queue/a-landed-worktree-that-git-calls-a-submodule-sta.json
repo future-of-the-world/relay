@@ -25,10 +25,10 @@
     "plugins/relay/hooks/session_start.py",
     "tests/test_land.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T20:08:28Z",
+  "taken_by": "wt/a-landed-worktree-that-git-calls-a-submodule-sta",
+  "closed_at": "2026-10-30T21:01:25Z",
+  "test": "tests/test_land.py::LeftoverModules::test_an_empty_modules_folder_is_cleared_and_the_worktree_goes",
   "dropped_at": null,
   "dropped_why": null
 }

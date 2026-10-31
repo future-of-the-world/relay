@@ -25,10 +25,10 @@
     "lib/relay_ci_lines.py",
     "lib/relay_setup.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T18:17:35Z",
+  "taken_by": "wt/a-new-project-s-gate-is-red-and-hides-the-cause",
+  "closed_at": "2026-10-30T19:27:09Z",
+  "test": "tests/test_template_python_gate.py::PythonGate::test_ci_summary_carries_the_cause_when_the_test_tool_is_missing",
   "dropped_at": null,
   "dropped_why": null
 }

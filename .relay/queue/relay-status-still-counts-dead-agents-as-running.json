@@ -1,0 +1,43 @@
+{
+  "kind": "fix",
+  "ip": 60,
+  "time": 30,
+  "found_at": "2026-10-30T19:17:28Z",
+  "found_in": "finding F1 of review-the-routing-guard-counts-finished-agents-as-runn.json",
+  "title": "Relay status still counts dead agents as running: it…",
+  "what": [
+    "lib/relay_analyze.py:637: MEDIUM: F1 relay status still counts dead agents as running: it calls running_agents without the idle limit"
+  ],
+  "why": [
+    "relay status (lib/relay_analyze.py) still counts finished and killed agents as running; the route guard was fixed on 30 Oct with a 10-minute idle limit, relay status was not."
+  ],
+  "failing_case": [
+    "Live ledger now, session 6c217ef4 (the front): `relay status` shows running = 11 (runners from 07:27, 10:45, 12:58,",
+    "13:58, 14:18, a thinker from 11:12, workers from 08:05, 12:03 ...), while 3 agents are running (all with ledger events",
+    "in the last 3 minutes). It should show 3, the same count the routing guard now uses."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. Ledger: session s with 7 agent_start an hour ago, last event 50 min ago, no stop, plus 1 start 3 min ago: status row for s shows running 1.",
+    "2. Ledger: session s with 2 starts 8 min and 1 min ago, no stops: running 2.",
+    "3. Ledger: 7 starts and 7 matching stops plus 1 live start: running 1 (works today).",
+    "4. Agent names column lists only the counted agents' types."
+  ],
+  "where": [
+    "lib/relay_analyze.py:637"
+  ],
+  "taken_at": "2026-10-30T19:47:27Z",
+  "taken_by": "wt/relay-status-still-counts-dead-agents-as-running",
+  "closed_at": "2026-10-30T20:33:14Z",
+  "test": "tests/test_transcripts_analysis.py::test_old_silent_starts_are_not_running",
+  "dropped_at": null,
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T19:47:39Z",
+      "fact": [
+        "Seen live 30 Oct 2026 ~19:20Z: relay status shows 9 running agents for front session 6c217ef4 while 4 change cycles were running; the route guard, fixed the same day, counts by a 10-minute idle limit."
+      ]
+    }
+  ]
+}

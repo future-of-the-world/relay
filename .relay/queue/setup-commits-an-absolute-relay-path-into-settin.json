@@ -23,10 +23,10 @@
   "where": [
     "lib/relay_setup.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T19:37:10Z",
+  "taken_by": "wt/setup-commits-an-absolute-relay-path-into-settin",
+  "closed_at": "2026-10-30T20:05:46Z",
+  "test": "tests/test_setup_off.py::Writes::test_t1b_committed_settings_hold_no_absolute_path_and_done_names_each_addition",
   "dropped_at": null,
   "dropped_why": null
 }

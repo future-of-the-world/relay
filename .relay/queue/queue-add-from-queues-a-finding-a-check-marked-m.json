@@ -23,10 +23,30 @@
     "lib/relay_queue.py (add_from)",
     "tests/test_queue.py"
   ],
-  "taken_at": null,
-  "taken_by": null,
-  "closed_at": null,
-  "test": null,
+  "taken_at": "2026-10-30T23:13:31Z",
+  "taken_by": "wt/task-queue-add-from-queues-a-finding-a-check-marked-m",
+  "closed_at": "2026-10-30T23:52:22Z",
+  "test": "tests/test_queue.py::test_add_from_refuses_a_finding_a_later_check_marked_met_and_names_the_check",
   "dropped_at": null,
-  "dropped_why": null
+  "dropped_why": null,
+  "notes": [
+    {
+      "at": "2026-10-30T23:12:29Z",
+      "fact": [
+        "Seen again 30 Oct 2026: the review finding F1 of wt/bin-wt-new-queue-x (the bin/wt template), already MET in its check and fixed on master in c77fba2a, was queued with add --from as the-bin-wt-template-that-relay-setup-writes-into; a whole cycle (4 agents) built nothing; closed with done --fixed-by c77fba2a."
+      ]
+    },
+    {
+      "at": "2026-10-30T23:26:46Z",
+      "said": [
+        "А как отчет review хранится, может проблема в том что он хранится не в структурированном виде ?"
+      ]
+    },
+    {
+      "at": "2026-10-30T23:26:47Z",
+      "fact": [
+        "2026-10-31 front read: the review is structured JSON with a schema (findings: id, path, line, severity, summary, failing_case, pass_cases); check records are structured JSON committed under .relay/checks/ (432 .check.json). add_from (lib/relay_queue.py:1171) reads only the review finding via find_finding and never reads the branch's check records, so a MET verdict is not seen. Cause is the missing read, not the format."
+      ]
+    }
+  ]
 }

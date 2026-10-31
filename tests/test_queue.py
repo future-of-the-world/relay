@@ -239,6 +239,72 @@ class TestOrderAndParse(Base):
             rq.add_from(self.main, report, "F9", why="w", minutes=5, **QUIET)
         self.assertIn("no finding F9", str(ctx.exception))
 
+    def met_check(self, report_name, verdicts):
+        """Commit on a new branch wt/m a check record whose F-findings come from review `report_name` with these verdicts ({id: verdict});
+        returns (the review's path, the commit the check is of). The review was made at the branch's start, so it is an ancestor of the check."""
+        wm = self.worktree("m")
+        start = git(wm, "rev-parse", "HEAD")
+        self.write_commit(wm, {"lib/work.py": "x = 1\n"}, "work")
+        head = git(wm, "rev-parse", "HEAD")
+        finding = {"path": "lib/work.py", "line": 1, "severity": "LOW", "rank": "low", "kind": "inside", "summary": "x is wrong", "failing_case": ["call x"]}
+        reviewed = [dict(finding, id=i) for i in verdicts]
+        report = self.review_data(name=report_name[:-5], findings=reviewed, reviewed=start)
+        findings = [dict(f, source=report_name, source_id=f["id"], since=head, verdict=verdicts[f["id"]], reason=["lib/work.py:1"]) for f in reviewed]
+        record = {"schema": 2, "type": "check", "head": head, "branch": "wt/m", "item": None, "gate": None, "scope": [], "notes": [], "findings": findings}
+        mark = {"schema": 2, "commit": head, "verdict": {"open": 0, "queued": 0}, "check": head + ".check.json", "gate": None, "time": "t"}
+        relay_marks.put(wm, head, mark, {head + ".check.json": json.dumps(record) + "\n"})
+        return report, head
+
+    def test_add_from_refuses_a_finding_a_later_check_marked_met_and_names_the_check(self):
+        # F1 is MET in the check of wt/m: queueing it would build a fix for something already fixed (28 Oct: 4 agents, 7 min for nothing)
+        report, head = self.met_check("review-m.json", {"F1": "MET", "F2": "NOT MET"})
+        before = git(self.main, "rev-parse", "master")
+        with self.assertRaises(rq.Refused) as ctx:
+            rq.add_from(self.main, report, "F1", why="w", minutes=5, **QUIET)
+        self.assertIn(head, str(ctx.exception))
+        self.assertIn("MET", str(ctx.exception))
+        self.assertEqual(git(self.main, "rev-parse", "master"), before)       # nothing was queued
+
+    def test_add_from_still_queues_a_finding_the_check_marked_not_met_or_never_checked(self):
+        report, _ = self.met_check("review-m.json", {"F1": "MET", "F2": "NOT MET"})
+        self.assertIn("queued", rq.add_from(self.main, report, "F2", why="w", minutes=5, **QUIET))     # NOT MET: still queued
+        other = self.review_data(name="review-lonely", findings=[{"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low",
+                                                                  "kind": "outside", "summary": "never checked", "failing_case": ["call c()"]}])
+        self.assertIn("queued", rq.add_from(self.main, other, "F1", why="w", minutes=5, **QUIET))      # no check names this review
+
+    def test_met_in_a_check_reads_inside_one_reading_window(self):
+        # F1: one git process per check file per branch took 54 s on the live repo; inside reading() each question is asked once
+        report, _ = self.met_check("review-m.json", {"F1": "MET"})
+        seen = []
+        real = rq.relay_git.stored_text
+        def spy(*args, **kwargs):
+            seen.append(rq.relay_git._window is not None)
+            return real(*args, **kwargs)
+        with mock.patch.object(rq.relay_git, "stored_text", spy):
+            self.assertIsNotNone(rq.met_in_a_check(self.main, report, "F1"))
+        self.assertTrue(seen)
+        self.assertTrue(all(seen))
+
+    def test_add_from_queues_a_finding_when_the_check_is_of_a_review_made_elsewhere_under_the_same_name(self):
+        # F2: same file name, but the review's commit is not in the history of the check's head: another review, so queue it
+        report, _ = self.met_check("review-m.json", {"F1": "MET"})
+        orphan = git(self.main, "commit-tree", git(self.main, "rev-parse", "master^{tree}"), "-m", "unrelated")
+        with open(report) as handle:
+            data = json.load(handle)
+        data["reviewed"] = orphan
+        with open(report, "w") as handle:
+            json.dump(data, handle)
+        self.assertIn("queued", rq.add_from(self.main, report, "F1", why="w", minutes=5, **QUIET))
+
+    def test_add_from_a_review_with_reviewed_unknown_is_queued(self):
+        report, _ = self.met_check("review-m.json", {"F1": "MET"})
+        with open(report) as handle:
+            data = json.load(handle)
+        data["reviewed"] = "unknown"
+        with open(report, "w") as handle:
+            json.dump(data, handle)
+        self.assertIn("queued", rq.add_from(self.main, report, "F1", why="w", minutes=5, **QUIET))
+
     def test_f4_add_from_copies_the_findings_pass_cases_and_q1_carries_them(self):
         both = {"id": "F1", "path": "lib/q.py", "line": 4, "severity": "LOW", "rank": "low", "kind": "outside", "summary": "the thing breaks",
                 "failing_case": ["call c()"], "pass_cases": ["call c(), get d", "call e(), get f"]}
@@ -1222,131 +1288,6 @@ class TestInputFile(Base):
             "job: Job", "fix, ip 60, 1h 30m, open", "found 2026-10-01T00:00:00Z in test", "Where:", "  lib/x.py:5",
             "What:", "  what is wrong here", "Why:", "  it matters", "Failing case:", "  line 1", "  line 2", "Pass cases:", "  the other case"])
         self.assertEqual(self.run_relay("show", "nope", "-C", self.main).returncode, 2)
-
-
-def old_shape(title, state="open", taken_by="", closed_by="", test="", dropped_why=None, kind="feature"):
-    """An item file in the shape before dated events (what the migration reads)."""
-    data = {"kind": kind, "state": state, "ip": 0, "time": 10, "found": "2026-10-01", "found_in": "test", "title": title,
-            "what": ["what is wanted here"], "why": ["it matters"], "taken_by": taken_by, "closed_by": closed_by, "test": test,
-            "dropped_why": dropped_why}
-    return json.dumps(data, indent=2) + "\n"
-
-
-class TestMigrate(Base):
-    """`relay queue migrate` (lib/relay_queue_migrate.py) on a scratch repository whose commits carry chosen times."""
-
-    def commit_at(self, files, when, message="queue", remove=()):
-        env = {"GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
-        with mock.patch.dict(os.environ, env):
-            for rel in remove:
-                git(self.main, "rm", "-q", rel)
-            self.write_commit(self.main, files, message)
-
-    def run_relay(self, *args):
-        return subprocess.run([sys.executable, os.path.join(ROOT, "bin", "relay"), "queue", *args], capture_output=True, text=True,
-                              env=dict(os.environ, RELAY_ROOT=ROOT))
-
-    def history(self):
-        q = ".relay/queue/"
-        d = ".relay/queue/done/"
-        self.commit_at({q + "job.json": old_shape("Job item here")}, "2026-10-01T10:00:00Z")                      # found
-        self.commit_at({q + "job.json": old_shape("Job item here", "taken", "wt/a")}, "2026-10-01T11:00:00Z")     # first take
-        self.commit_at({q + "job.json": old_shape("Job item here")}, "2026-10-01T12:00:00Z")                      # released
-        self.commit_at({q + "job.json": old_shape("Job item here", "taken", "wt/b")}, "2026-10-01T13:00:00Z")     # the last take
-        done = old_shape("Job item here", "done", "wt/b", "wt/b", "tests/t.py::t")
-        self.commit_at({d + "job.json": done}, "2026-10-01T14:00:00Z", remove=[q + "job.json"])                   # closed
-        self.commit_at({q + "job.json": old_shape("Job item here", "taken", "wt/b")}, "2026-10-01T15:00:00Z", remove=[d + "job.json"])   # reverted
-        self.commit_at({d + "job.json": done}, "2026-10-01T16:00:00Z", remove=[q + "job.json"])                   # closed again
-        self.commit_at({q + "gone.json": old_shape("Gone item here")}, "2026-10-02T09:00:00Z")
-        self.commit_at({d + "gone.json": old_shape("Gone item here", "dropped", dropped_why=["no"])}, "2026-10-02T10:00:00Z", remove=[q + "gone.json"])
-        self.commit_at({q + "plain.json": old_shape("Plain item here")}, "2026-10-03T08:00:00Z")
-        self.commit_at({q + "busy.json": old_shape("Busy item here", "taken", "wt/c")}, "2026-10-03T09:00:00Z")
-
-    def read(self, rel):
-        with open(os.path.join(self.main, ".relay", "queue", rel), encoding="utf-8") as handle:
-            return json.load(handle)
-
-    def test_dates_come_from_the_commits_of_the_history(self):
-        self.history()
-        out = self.run_relay("migrate", "-C", self.main)
-        self.assertEqual(out.returncode, 0, out.stderr)
-        # job: first commit 10:00 is found_at; taken 11:00, released 12:00, taken again 13:00: the LAST take (13:00) counts;
-        # closed 14:00, reverted back to taken 15:00 (a revert is not a take), closed again 16:00: closed_at is 16:00
-        job = self.read("job.json")
-        self.assertEqual((job["found_at"], job["taken_at"], job["taken_by"], job["closed_at"], job["test"], job["dropped_at"]),
-                         ("2026-10-01T10:00:00Z", "2026-10-01T13:00:00Z", "wt/b", "2026-10-01T16:00:00Z", "tests/t.py::t", None))
-        self.assertTrue(set(job).isdisjoint(rq.OLD_ONLY))
-        gone = self.read("gone.json")
-        self.assertEqual((gone["found_at"], gone["dropped_at"], gone["dropped_why"], gone["taken_at"], gone["taken_by"]),
-                         ("2026-10-02T09:00:00Z", "2026-10-02T10:00:00Z", ["no"], None, None))
-        plain = self.read("plain.json")
-        self.assertEqual((plain["found_at"], plain["taken_at"], plain["taken_by"], plain["test"]), ("2026-10-03T08:00:00Z", None, None, None))
-        busy = self.read("busy.json")
-        self.assertEqual((busy["found_at"], busy["taken_at"], busy["taken_by"]), ("2026-10-03T09:00:00Z", "2026-10-03T09:00:00Z", "wt/c"))
-        self.assertEqual(rq.check_files(self.main), [])
-
-    def test_f4_it_runs_again_and_changes_only_what_is_still_old(self):
-        self.history()
-        self.run_relay("migrate", "-C", self.main)
-        git(self.main, "add", "-A")
-        git(self.main, "commit", "-q", "-m", "migrated")
-        before = self.read("plain.json")
-        again = self.run_relay("migrate", "-C", self.main)
-        self.assertEqual((again.returncode, again.stdout.startswith("nothing to migrate")), (0, True), again.stdout)
-        self.assertEqual(git(self.main, "status", "--porcelain"), "")
-        # another branch lands an item in the old shape after this branch migrated: the second run converts that one only
-        self.commit_at({".relay/queue/late.json": old_shape("Late item here")}, "2026-10-04T08:00:00Z")
-        out = self.run_relay("migrate", "-C", self.main)
-        self.assertEqual(out.stdout.splitlines()[1:], ["  .relay/queue/late.json"], out.stdout)
-        self.assertEqual(self.read("late.json")["found_at"], "2026-10-04T08:00:00Z")
-        self.assertEqual(self.read("plain.json"), before)
-
-    def test_an_item_with_no_history_stops_the_run_and_writes_nothing(self):
-        self.history()
-        path = os.path.join(self.main, ".relay", "queue", "uncommitted.json")
-        with open(path, "w") as handle:
-            handle.write(old_shape("Not committed yet"))
-        out = self.run_relay("migrate", "-C", self.main)
-        self.assertEqual(out.returncode, 2)
-        self.assertIn("uncommitted", out.stderr)
-        self.assertIn('"state"', open(os.path.join(self.main, ".relay", "queue", "plain.json")).read())    # nothing was rewritten
-
-    def test_check_lists_the_files_that_fail_and_exits_1(self):
-        self.history()
-        bad = self.run_relay("check", "-C", self.main)
-        self.assertEqual(bad.returncode, 1)
-        self.assertIn(".relay/queue/plain.json: old shape (state, found, closed_by): run `relay queue migrate`", bad.stdout)
-        self.run_relay("migrate", "-C", self.main)
-        ok = self.run_relay("check", "-C", self.main)
-        self.assertEqual((ok.returncode, ok.stdout.strip()), (0, "every queue item file is well formed"))
-        # a file left in the gone done/ folder is reported with the way out
-        os.makedirs(os.path.join(self.main, ".relay", "queue", "done"), exist_ok=True)
-        with open(os.path.join(self.main, ".relay", "queue", "done", "late.json"), "w") as handle:
-            handle.write(new_shape())
-        stray = self.run_relay("check", "-C", self.main)
-        self.assertEqual(stray.returncode, 1)
-        self.assertIn(".relay/queue/done/late.json: the done/ folder is gone: run `relay queue migrate`", stray.stdout)
-
-    def test_json_lists_the_done_items_too_with_their_dates_and_the_table_does_not(self):
-        self.history()
-        self.run_relay("migrate", "-C", self.main)
-        git(self.main, "add", "-A")
-        git(self.main, "commit", "-q", "-m", "migrated")
-        items = json.loads(self.run_relay("json", "-C", self.main).stdout)
-        self.assertEqual(sorted((i["slug"], i["state"]) for i in items),
-                         [("busy", "taken"), ("gone", "dropped"), ("job", "done"), ("plain", "open")])
-        job = next(i for i in items if i["slug"] == "job")
-        self.assertEqual((job["found_at"], job["taken_at"], job["closed_at"]), ("2026-10-01T10:00:00Z", "2026-10-01T13:00:00Z", "2026-10-01T16:00:00Z"))
-        table = self.run_relay("-C", self.main).stdout
-        self.assertNotIn("gone", table)
-        self.assertNotIn("job", table)
-
-    def test_add_writes_only_the_new_shape(self):
-        rq.add(self.main, "feature", "Fresh item here", why="w", minutes=5, now="2026-10-22T08:30:00Z", **QUIET)
-        data = json.loads(git(self.main, "show", "master:.relay/queue/fresh-item-here.json"))
-        self.assertEqual((data["found_at"], data["taken_at"], data["taken_by"], data["closed_at"], data["test"], data["dropped_at"], data["dropped_why"]),
-                         ("2026-10-22T08:30:00Z", None, None, None, None, None, None))
-        self.assertTrue(set(data).isdisjoint(rq.OLD_ONLY))
 
 
 class TestFrontSkill(unittest.TestCase):

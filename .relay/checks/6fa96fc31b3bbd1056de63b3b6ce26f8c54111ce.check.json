@@ -1,0 +1,121 @@
+{
+  "branch": "wt/a-new-project-s-gate-is-red-and-hides-the-cause",
+  "findings": [
+    {
+      "details": [
+        "Found 30 Oct by the trial of relay on a copy of relay cleaned of relay (owner, 30 Oct: \"\u041f\u043e\u043b\u0430\u0433\u0430\u044e \u0447\u0442\u043e \u0434\u043b\u044f \u0442\u0435\u043a\u0443\u0449\u0438\u0445 \u0437\u0430\u0434\u0430\u0447 \u0431\u0443\u0434\u0435\u0442 \u043d\u0435 \u043b\u0438\u0448\u043d\u0438\u043c \u043f\u0440\u043e\u0432\u0435\u0440\u0438\u0442\u044c \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 relay \u043a \u0441\u0430\u043c\u043e\u043c\u0443 relay, \u043e\u0447\u0438\u0449\u0435\u043d\u043d\u043e\u043c\u0443 \u043e\u0442 relay\"); sandbox HOME, RELAY_HOME and RELAY_PROJECTS, claude stubbed. Template bin/ci for a python stack runs `python3 -m pytest -q`; with no pytest in that python the gate is red with 'No module named pytest' only in .ci/ci.log: the printed summary ('ci: tests FAILED') and the committed gate log show no cause because the step keeps only lines matching FAIL|error|Error. setup's to-do says 'bin/check: check the python steps it was given' but not that the gate stays red until bin/ci is tailored.",
+        "Also: lib/relay_ci_lines.py",
+        "Also: lib/relay_setup.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "Fresh python project, no pytest installed: `relay setup`, then `relay gate -- --quick` prints 'ci: tests FAILED' and the gate log has no line naming the missing module."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "the gate log of that run contains 'No module named pytest'",
+        "setup's to-do names the red step when the test tool is missing",
+        "a green template step is unchanged"
+      ],
+      "path": "templates/bin-ci",
+      "rank": "high",
+      "reason": [
+        "tests/test_template_python_gate.py:172 test_ci_summary_carries_the_cause_when_the_test_tool_is_missing passes at head and fails at 1adeccc32d01 (also :188 setup todo test fails there)."
+      ],
+      "severity": "HIGH",
+      "since": "1adeccc32d017cc6ba228c195055085ef7e30126",
+      "source": "queue",
+      "summary": "A new project's gate is red and hides the cause",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reproduction. The new step() runs `\"$@\" > \"$out\"` into a mktemp file and only appends it to .ci/ci.log after the command returns, then `rm -f \"$out\"`. When the whole bin/ci process group is SIGKILLed (relay_gate.py kills the group at the time limit), bash never reaches the `cat` or the `rm`, so the hung step's partial output is lost to .ci/ci.log (the file plugins/relay/README.md names as gate.ci_log, \"read by fixers\") and the temp file stays in $TMPDIR. A hang is exactly the case where the partial output (the last test started) is what the fixer needs. The old template appended live, so this is a regression the change introduced. The same holds for Ctrl-C of a local run.",
+        "Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "rendered HEAD templates/bin-ci with step \"tests\" sh -c \"echo test_slow.py started; sleep 30\"; perl -e 'setpgrp(0,0); exec @ARGV' ./ci & ; lsof of the sleep's fd 1; kill -9 -- -$pid",
+        "  step stdout: /private/var/folders/p8/dhcggy314838c8vh4y8t2txw0000gn/T/tmp.mNphSqouxD",
+        "  ci.log bytes:        0",
+        "  leftover: test_slow.py started"
+      ],
+      "failing_case": [
+        "bin/ci rendered from the template with `step \"tests\" sh -c \"echo test_slow.py started; sleep 30\"`, run in its own process group and killed with SIGKILL to the group after 2 s (what relay gate does at its time limit: os.killpg(proc.pid, SIGKILL)).",
+        "Now: .ci/ci.log is 0 bytes; \"test_slow.py started\" is only in /private/var/folders/.../T/tmp.mNphSqouxD, which is never removed. While the step runs, `tail -f .ci/ci.log` shows nothing.",
+        "Before the change (and expected): .ci/ci.log holds \"test_slow.py started\" (the step wrote to it directly), so a fixer reading gate.ci_log sees which test hung."
+      ],
+      "fix_hint": [
+        "Keep appending live and remember where the step began, by bytes: `local from; from=$(wc -c < .ci/ci.log)`; run `\"$@\" >> .ci/ci.log 2>&1`; on failure read the step's own part with `tail -c +$((from + 1)) .ci/ci.log` for both the filter and the last line. No temp file, so nothing to leak. Add pass case 1 as a test (Popen with start_new_session=True, os.killpg after the first line appears)."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 8,
+      "pass_cases": [
+        "1. Hanging step killed by a process-group SIGKILL after 2 s: .ci/ci.log contains \"test_slow.py started\"; no temp file of the step is left behind.",
+        "2. python3 with no pytest, step \"tests\" python3 -m pytest -q: stdout has \"ci: tests FAILED\" and an indented line ending \"No module named pytest\"; exit 1 (the existing test_ci_summary_carries_the_cause_when_the_test_tool_is_missing).",
+        "3. A failing step whose last line already matches FAIL|error|Error: that line is printed once (test_ci_summary_does_not_repeat_a_cause_the_filter_already_showed).",
+        "4. Two steps, the first prints \"error: old\" and passes, the second fails with \"boom\": the second step's summary shows \"boom\" and not \"error: old\".",
+        "5. A green step: stdout is exactly \"ci: <name> ok (<n>s)\" and its output is in .ci/ci.log."
+      ],
+      "path": "templates/bin-ci",
+      "rank": "medium",
+      "reason": [
+        "tests/test_template_python_gate.py:210 passes at head; fails at 3ad11aa1 with ProcessLookupError. bin-ci appends live and reads its own part by byte offset; :233 and :240 pass."
+      ],
+      "severity": "MEDIUM",
+      "since": "7982f507372a24eab2cd681cf6771732441ec73e",
+      "source": "review-a-new-project-s-gate-is-red-and-hides-the-cause.json",
+      "source_id": "F1",
+      "summary": "a step's output now waits in a mktemp file, so a step the gate kills at its time limit leaves .ci/ci.log empty for that step and leaks the file",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED (skip seen). The file already has install_shim, which makes `python3 -c \"import pytest\"` succeed through PYTHONPATH; using it under mock.patch.dict(os.environ, {PATH, PYTHONPATH}) makes the case machine-independent. Correct today, but the pass case \"a green setup gets no warning\" has no running test on the owner's machine.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "pytest -q tests/test_template_python_gate.py -rs",
+        "  SKIPPED [1] tests/test_template_python_gate.py:195: python3 on this machine has no pytest",
+        "  14 passed, 1 skipped in 19.98s"
+      ],
+      "failing_case": [
+        "On this Mac `python3 -m pytest` prints \"/opt/homebrew/opt/python@3.14/bin/python3.14: No module named pytest\"; `pytest -q tests/test_template_python_gate.py -rs` reports \"SKIPPED [1] tests/test_template_python_gate.py:195: python3 on this machine has no pytest\". A change that always added the red to-do line would pass here.",
+        "Expected: the test runs everywhere, with a python3 that has a pytest put on PATH by the test itself."
+      ],
+      "fix_hint": [
+        "Call self.install_shim(), then setup_proj under mock.patch.dict(os.environ, {\"PATH\": shim + os.pathsep + PATH, \"PYTHONPATH\": shim}); drop python_has_pytest and the skip."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 195,
+      "pass_cases": [
+        "1. PATH and PYTHONPATH set to the file's existing install_shim folder (python3 = sys.executable, stub pytest package): setup's to-do has no line containing \"stays red\"; the test is not skipped on a machine without pytest.",
+        "2. PATH with the fake python3 of fake_python_without_pytest: exactly one to-do line names bin/ci, pytest, \"red\" and \"tests\" (unchanged)."
+      ],
+      "path": "tests/test_template_python_gate.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_template_python_gate.py:197 uses a shim for pytest, no skip; passes."
+      ],
+      "severity": "LOW",
+      "since": "7982f507372a24eab2cd681cf6771732441ec73e",
+      "source": "review-a-new-project-s-gate-is-red-and-hides-the-cause.json",
+      "source_id": "F2",
+      "summary": "the 'no red warning when pytest is installed' test skips on any machine whose python3 lacks pytest, including the owner's Mac, so that pass case is never asserted there",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "94bb2f1c9e0a1b795d892878cba65c92fd312880.gate.log",
+  "head": "6fa96fc31b3bbd1056de63b3b6ce26f8c54111ce",
+  "item": "a-new-project-s-gate-is-red-and-hides-the-cause",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Files changed: lib/relay_setup.py, templates/bin-ci, tests/test_template_python_gate.py. Gate log head 94bb2f1c exit 0; HEAD only adds the gate commit (no file changed). Precheck green; setup tests plus the gate-template test file: 139 passed. Each new test run on the base commit: the Q1 and F1 tests fail there."
+  ],
+  "type": "check"
+}

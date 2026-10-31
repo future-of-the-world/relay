@@ -499,7 +499,7 @@ def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
             "id": "F1", "title": "Build agents ran on Opus",
             "evidence": f"{len(opus_build)} agents ({', '.join(sorted({a.agent_type for a in opus_build}))}), {_money(cost)}",
             "saving_usd": cost - as_sonnet,
-            "lever": "profile: [models].build = \"sonnet\"; delegate hook build_tier_opus = \"escalate\"",
+            "lever": "profile: [models].build = \"sonnet\"; delegate hook opus_for_builders = \"after_a_failure\"",
         })
 
     # F2: general-purpose agents (every tool loaded: 30-35k first read vs 10-17k)
@@ -511,7 +511,7 @@ def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
             "id": "F2", "title": "general-purpose agents (carry every tool, re-read on every request)",
             "evidence": f"{len(gp)} agents, {sum(a.total.requests for a in gp)} requests, {_money(sum(a.total.cost for a in gp))}",
             "saving_usd": saving,
-            "lever": "delegate hook typed_only = true; give the role to delegate:scout/worker/runner",
+            "lever": "delegate hook typed_agents_only = true; give the role to delegate:scout/worker/runner",
         })
 
     # F3: forks from big sessions
@@ -520,7 +520,7 @@ def findings(data: dict[str, Any]) -> list[dict[str, Any]]:
         out.append({
             "id": "F3", "title": "Forks (a fork inherits the whole conversation)",
             "evidence": f"{forks} forks started", "saving_usd": 0.0,
-            "lever": "delegate hook fork_limit (default 100k): write a brief file and start a typed agent",
+            "lever": "delegate hook no_session_copy_above_tokens (default 100k): write a brief file and start a typed agent",
         })
 
     # F4: sessions over the context line
@@ -632,17 +632,18 @@ def compare(a: dict[str, Any], b: dict[str, Any], label_a: str = "A", label_b: s
     return _table(rows, ["measure", label_a, label_b, "delta"])
 
 
-def status(events, claude_dir):
-    """What is running now, from today's ledger: one line per session."""
-    running = relay_ledger.running_agents(events)
-    last_seen = {}
-    cwd_of = {}
+def status(events: list[dict[str, Any]], claude_dir: str, now: dt.datetime | None = None) -> str:
+    """What is running now, from today's ledger: one line per session.
+    An agent silent for relay_ledger.AGENT_IDLE counts as ended, as in the route guard."""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    running = relay_ledger.running_agents(events, now, relay_ledger.AGENT_IDLE)
+    last_seen: dict[Any, Any] = {}
+    cwd_of: dict[Any, Any] = {}
     for e in events:
         last_seen[e.get("session_id")] = e.get("ts")
         if e.get("cwd"):
             cwd_of.setdefault(e.get("session_id"), e.get("cwd"))
     rows = []
-    now = dt.datetime.now(dt.timezone.utc)
     for sid, ts in sorted(last_seen.items(), key=lambda kv: kv[1] or "", reverse=True)[:10]:
         when = relay_ledger.parse_ts(ts)
         age = f"{(now - when).total_seconds()/60:.0f} min ago" if when else "?"

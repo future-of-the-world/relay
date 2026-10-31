@@ -102,7 +102,8 @@ session started by a program (entrypoint `sdk-*`: `claude -p`, benchmarks) has
 all its prompts counted apart as scripted turns, not as yours.
 
 `relay status` reads the last 12 hours: each session's last activity,
-context size, and the agents started but not stopped.
+context size, and the agents started, not stopped, and active in the last
+10 minutes (an agent silent longer has ended, as the routing guard counts it).
 
 ## Findings
 

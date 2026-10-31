@@ -1,0 +1,312 @@
+{
+  "branch": "wt/a-wrong-value-in-project-settings-passes",
+  "findings": [
+    {
+      "details": [
+        "Owner, 27 Oct: \"\u0427\u0442\u043e \u043a\u043e\u043d\u0442\u0440\u043e\u043b\u0438\u0440\u0443\u0435\u0442 \u0446\u0435\u043b\u043e\u0441\u0442\u043d\u043e\u0441\u0442\u044c \u0438 \u0432\u0430\u043b\u0438\u0434\u043d\u043e\u0441\u0442\u044c \u043d\u0430\u0441\u0442\u0440\u043e\u0435\u043a \u0438 \u043e\u043a\u0440\u0443\u0436\u0435\u043d\u0438\u044f, \u0442\u043e\u0447\u043d\u043e \u043b\u0438 relay doctor \u0441\u0435\u0439\u0447\u0430\u0441 \u043f\u043e\u043a\u0440\u044b\u0432\u0430\u0435\u0442 \u0432\u0441\u0435 \u0438\u043b\u0438 \u0434\u043b\u044f \u044d\u0442\u043e\u0433\u043e \u0435\u0441\u0442\u044c \u043f\u0440\u043e\u0447\u0438\u0435 \u0443\u0442\u0438\u043b\u0438\u0442\u044b\". A scout read of the code that day (verified by the front): every reader of .claude/kit.toml parses its own section ad hoc, and nothing checks keys or values. IP chosen by the front (agent-chosen): a typo can switch a guard off.",
+        "Also: plugins/delegate/hooks/route-guard.py:150-156 values",
+        "Also: plugins/observe/hooks/ledger.py:47 only log_prompts",
+        "Also: lib/relay_config.py",
+        "Also: lib/relay_setup.py:1066-1180 doctor"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A project with [delegate] build_tier_opus = \"denny\" in .claude/kit.toml: a worker started with model opus and no Escalated line is allowed, and relay doctor says nothing."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 49,
+      "pass_cases": [
+        "build_tier_opus = \"deny\" still denies; the default (no key) still escalates only with an Escalated line",
+        "a kit.toml with a syntax error: the route guard names the file and the error; relay doctor reports it",
+        "typed_only = \"false\" (string) is reported as a wrong type, not read as true",
+        "an unknown key in [observe] is reported by relay doctor"
+      ],
+      "path": "plugins/delegate/hooks/route-guard.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_kit_schema.py::test_wrong_type_names_key_and_uses_the_strict_default; the test file fails on the base commit."
+      ],
+      "severity": "HIGH",
+      "since": "a15e07dd41af698bc0a038ae262bd7e528f4d21e",
+      "source": "queue",
+      "summary": "A wrong value in project settings passes unnoticed",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by live probes of relay_kit.parse. The design (5.1) says the schema lists every key relay reads and test 11",
+        "was to prove it; test 11 was not written and the schema was typed by hand. Case 1 is the worst: with the gate refusing",
+        "any problem (owner decision a), a project that sets a documented reminder setting can no longer land a change.",
+        "Cases 2 and 3 make doctor say a wrong thing (green on a value relay sync refuses; \"used 8\" when 0 is used).",
+        "Size: 15 minutes (three schema lines plus one cross-check test)."
+      ],
+      "evidence": [
+        "python3 -I -c \"...relay_kit.parse('[front]\\nask_reminder_days = 10\\nask_reminder_lines = 3\\n')...\"",
+        "['.claude/kit.toml [front] ask_reminder_days is not a key relay knows', '.claude/kit.toml [front] ask_reminder_lines is not a key relay knows']",
+        "relay_kit.parse('[rules]\\nwave_min = 9\\n').problems -> []",
+        "relay_kit.parse('[front]\\nfeature_lanes = 12\\n') -> ['.claude/kit.toml [front] feature_lanes = 12 is outside 0..8; used 8']",
+        "lib/relay_rules.py:124 WAVE_MIN_MAX = 6",
+        "lib/relay_lane_features.py:14 \"out of bounds or not a whole number: the default ... (clamping would turn a 3 and 3 into all features)\""
+      ],
+      "failing_case": [
+        "1. kit.toml `[front]\\nask_reminder_days = 10\\nask_reminder_lines = 3` (both documented in plugins/front/hooks/ask_waiting.py:6-8 and read",
+        "   there, tested in tests/test_queue_notes.py:495): relay_kit reports \"[front] ask_reminder_days is not a key relay knows\" and",
+        "   \"[front] ask_reminder_lines is not a key relay knows\"; doctor shows two red lines and `relay gate` refuses the branch.",
+        "   Should: no problem (both keys valid; 1..30 and 1..20 clamped, as the hook does).",
+        "2. `[rules]\\nwave_min = 9`: relay_kit reports nothing (bounds 1..1000), doctor says \"keys and values valid\" and the gate passes,",
+        "   but relay_rules.wave_min_of (lib/relay_rules.py:127-131) refuses anything above 6 and `relay sync` fails.",
+        "   Should: a problem \"[rules] wave_min = 9 is outside 1..6\".",
+        "3. `[front]\\nfeature_lanes = 12`: relay_kit says \"is outside 0..8; used 8\" (outside=\"clamp\"), but the reader",
+        "   lib/relay_lane_features.py:13-25 uses 0 for an out-of-bounds value (\"clamping would turn a 3 and 3 into all features\").",
+        "   Should: \"used 0\", the reader's actual value."
+      ],
+      "fix_hint": [
+        "Add ask_reminder_days Field(\"int\", 7, bounds=(1, 30), outside=\"clamp\") and ask_reminder_lines Field(\"int\", 5, bounds=(1, 20),",
+        "outside=\"clamp\") to [front]; wave_min bounds (1, 6); feature_lanes outside=\"default\". Better: derive the bounds from the",
+        "readers' tables (or make the readers import them from relay_kit) and add the cross-check test."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 54,
+      "pass_cases": [
+        "- parse('[front]\\nask_reminder_days = 10\\nask_reminder_lines = 3\\n').problems == ()",
+        "- parse('[front]\\nask_reminder_days = \"x\"\\n') has one problem naming [front] ask_reminder_days",
+        "- parse('[rules]\\nwave_min = 9\\n') has one problem naming [rules] wave_min; wave_min = 6 has none",
+        "- parse('[front]\\nfeature_lanes = 12\\n') problem line ends \"used 0\"; feature_lanes = 3 has no problem",
+        "- a test that compares the schema with the readers' own tables (relay_lanes.SETTINGS, relay_land.SETTINGS,",
+        "  relay_metrics.SETTINGS, ask_waiting.DAYS/LINES, relay_rules.LANES_MAX/WAVE_MIN_MAX): every key present, same bounds",
+        "  (this is design test 11's intent: \"fails if the schema lists every key relay reads is false\")"
+      ],
+      "path": "lib/relay_kit.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_kit_schema.py:100,107,114,120 pass; fail on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "3fada252289ac77662f3e9b925838d35076f9760",
+      "source": "review-a-wrong-value-in-project-settings-passes.json",
+      "source_id": "F1",
+      "summary": "the schema disagrees with the code that reads the keys: two documented [front] keys are called unknown (the gate refuses them), wave_min and feature_lanes have the wrong bounds",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading. The brief: \"One typed record and one checking parser ... used by every reader (hooks included) ...",
+        "a hook given a broken file says so instead of silently using defaults.\" The design's table 5.2 lists spec-rule,",
+        "flow-stage, lanes and ask_waiting with the note each must give; the worker's report lists them under \"Left (not done)\".",
+        "Only route-guard, ledger and budget were moved. A typo in [specs] method turns a whole workflow off with no word, which",
+        "is exactly the class of problem the item exists to end. Project rule (Python): \"A record that several programs read",
+        "has one typed record and one parser, shared by all of them.\"",
+        "Size: 45 minutes (four hooks, relay_kit links already exist; tests 22-24)."
+      ],
+      "evidence": [
+        "git diff --stat master...HEAD: no change to plugins/openspec/hooks/spec-rule.py, plugins/relay/hooks/flow-stage.py,",
+        "plugins/front/hooks/lanes.py, plugins/front/hooks/ask_waiting.py",
+        "spec-rule.py:44-47: with open(... \"kit.toml\") ... except Exception: return \"none\"",
+        "flow-stage.py:37-41: with open(... \"kit.toml\") ... except Exception: return []",
+        "worker report: \"Left (not done): spec-rule, flow-stage, lanes/ask_waiting hooks ... tests 22-25 not written.\""
+      ],
+      "failing_case": [
+        "kit.toml `[specs]\\nmethod = \"opnspec\"` (a typo): spec-rule.py project_method (lines 41-48) returns \"opnspec\", no manifest",
+        "matches, the hook prints nothing at SessionStart; the OpenSpec rule and steps silently stay off. The same file with",
+        "a syntax error: spec-rule.py and flow-stage.py (bindings, lines 36-41) catch every exception and return \"none\" / [],",
+        "the very `except Exception` pattern the item names. Should (design 5.2, test 22): the SessionStart context names",
+        "\".claude/kit.toml [specs] method\" and \"opnspec\", exit 0."
+      ],
+      "fix_hint": [
+        "Each hook takes relay_kit.load(project_root) and puts kit.problems_of(<its section>) into the additionalContext it",
+        "already emits (the pattern ledger.settings_note uses)."
+      ],
+      "id": "F2",
+      "kind": "feature",
+      "line": 41,
+      "pass_cases": [
+        "- [specs] method = \"opnspec\", SessionStart: stdout context names \".claude/kit.toml [specs] method\" and \"opnspec\"; exit 0 (design test 22)",
+        "- [specs] method = \"openspec\": today's rule text and steps, no settings note",
+        "- no [specs]: spec-rule prints nothing, as today",
+        "- [flow] kind = \"jria\" (a value no plugin binds), UserPromptSubmit: flow-stage context names \"[flow] kind\" (design test 23)",
+        "- [front] feature_lanes = \"3\": the lanes line uses 0 and names \".claude/kit.toml [front] feature_lanes\" (design test 24)"
+      ],
+      "path": "plugins/openspec/hooks/spec-rule.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_openspec_hook.py, test_hook_flow_stage.py, test_lanes_state.py, test_queue_notes.py new cases pass; fail on base."
+      ],
+      "severity": "MEDIUM",
+      "since": "3fada252289ac77662f3e9b925838d35076f9760",
+      "source": "review-a-wrong-value-in-project-settings-passes.json",
+      "source_id": "F2",
+      "summary": "four hooks still parse kit.toml on their own and say nothing about a wrong value: spec-rule, flow-stage, lanes, ask_waiting",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading and grep. Design decision 4 (held after review finding F2 of the design review, \"the dict API stays,",
+        "so most readers bypass the typed record\") says load_bindings, get, relay_defaults and every setting()/SETTINGS go and",
+        "every reader takes the Kit. Only relay_defaults went. 16 call sites still read the raw dict, and each module keeps its",
+        "own bounds table, which is how F1's mismatches arose. Project rule (Python): \"A record that several programs read",
+        "(a queue item, a verdict) has one typed record and one parser, shared by all of them.\" Kit.values typed as",
+        "dict[str, dict[str, Any]] is not the typed record the rule and design 5.1 ask for.",
+        "Size: 120 minutes (the design's estimate for this part; touches lib/relay_land.py, which another lane also changes)."
+      ],
+      "evidence": [
+        "git grep -n \"load_bindings\\|relay_config.get(\" -- lib plugins bin  -> relay_coverage.py:21,23,84; relay_land.py:41,281;",
+        "relay_lane_features.py:17; relay_lanes.py:89,100; relay_metrics.py:65,71,297; relay_rules.py:64; ask_waiting.py:30,40; lanes.py:139",
+        "git grep -n \"relay_kit.warn\\|\\.warn(\" -- lib plugins bin -> only its definition (lib/relay_kit.py)"
+      ],
+      "failing_case": [
+        "kit.toml `[land]\\nland_tries = 9`: `relay land` reads it through relay_config.load_bindings + relay_land.setting, clamps to 3",
+        "and prints nothing; relay_kit's problem for the same line is never shown by the command (design 5.2: \"relay_kit.warn on",
+        "stderr, once per run\"; test 25). relay_kit.warn is defined and called by no code. Also the values relay_kit computes",
+        "are a dict[str, dict[str, Any]], not one typed record per section (design 5.1).",
+        "Should: `relay land` prints one line \".claude/kit.toml [land] land_tries = 9 is outside 1..3; used 3\" on stderr and",
+        "lands with 3 tries; load_bindings, get, and the setting() tables are gone."
+      ],
+      "fix_hint": [
+        "Per design 5.1/5.2: readers take relay_kit.load(main) and kit.get(section, key); commands call relay_kit.warn(kit, section);",
+        "delete load_bindings/get and the SETTINGS tables (the bounds live in SCHEMA only). If the owner prefers to land the",
+        "hook part first, this needs his word, as a queue item, not a silent deferral."
+      ],
+      "id": "F3",
+      "kind": "feature",
+      "line": 143,
+      "pass_cases": [
+        "- [land] land_tries = 9: relay land uses 3 tries and prints one problem line on stderr (design test 25)",
+        "- [land] land_tries = 2: no line, 2 tries",
+        "- git grep -n \"load_bindings\\|relay_config.get(\" -- lib plugins bin: no hits outside relay_kit (design decision 4)",
+        "- relay_kit.warn has at least one caller, and a second call in the same process prints nothing new"
+      ],
+      "path": "lib/relay_config.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_land.py and tests/test_kit_schema.py:128 (no second parser) pass; relay_config.load_bindings/get no longer referenced."
+      ],
+      "severity": "MEDIUM",
+      "since": "3fada252289ac77662f3e9b925838d35076f9760",
+      "source": "review-a-wrong-value-in-project-settings-passes.json",
+      "source_id": "F3",
+      "summary": "the second parser stays: relay_config.load_bindings/get and the modules' setting() still feed land, metrics, coverage, lanes, rules, so their values bypass the checked record (Python rule: one typed record and one parser)",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading tests/test_kit_schema.py:66-74 and relay_gate.run:438-441. Correct today; the decision is unguarded.",
+        "Size: 15 minutes."
+      ],
+      "evidence": [
+        "grep -n \"refuse_bad_settings(worktree)\" lib/relay_gate.py -> 441",
+        "tests/test_kit_schema.py: relay_gate.refuse_bad_settings(root) called directly; no test goes through relay_gate.run"
+      ],
+      "failing_case": [
+        "Delete line 441 of lib/relay_gate.py (`refuse_bad_settings(worktree)` inside run): test_gate_refuses_a_branch_with_a_settings_problem",
+        "still passes, since it calls relay_gate.refuse_bad_settings(root) itself. Should: a test fails, because the gate would",
+        "then pass a branch with build_tier_opus = \"denny\" (owner decision a)."
+      ],
+      "fix_hint": [
+        "Drive relay_gate.run (or the `relay gate` CLI) on a temp repo with the bad kit.toml and assert the refusal."
+      ],
+      "id": "F4",
+      "kind": "inside",
+      "line": 66,
+      "pass_cases": [
+        "- relay_gate.run on a temp git worktree whose kit.toml has build_tier_opus = \"denny\": raises GateRefused naming build_tier_opus",
+        "- the same worktree with build_tier_opus = \"deny\": the refusal does not come from settings"
+      ],
+      "path": "tests/test_kit_schema.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_kit_schema.py:154 through relay_gate.run."
+      ],
+      "severity": "LOW",
+      "since": "3fada252289ac77662f3e9b925838d35076f9760",
+      "source": "review-a-wrong-value-in-project-settings-passes.json",
+      "source_id": "F4",
+      "summary": "the gate test calls refuse_bad_settings directly: removing its call from relay_gate.run keeps every test green",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: settings() returns relay_kit.delegate_settings, which uses kit.problems_of(\"delegate\") only.",
+        "The strict default applies, so no guard is weakened; the person just gets no reason. Size: 10 minutes."
+      ],
+      "evidence": [
+        "lib/relay_kit.py delegate_settings: problems = kit.problems_of(\"delegate\")",
+        "route-guard.py:141-145 metrics_on reads relay_kit.load(...).get(\"metrics\", \"enabled\") and drops the problems"
+      ],
+      "failing_case": [
+        "kit.toml `[metrics]\\nenabled = \"false\"` (text) in a project with .relay/: an unlabelled delegate:worker is denied with",
+        "the label text only; nothing says the setting was read as true. Design 5.2 lists route-guard's sections as",
+        "\"delegate, metrics\". Should: the deny reason carries \"Settings note: .claude/kit.toml [metrics] enabled ...\"."
+      ],
+      "fix_hint": [
+        "problems_of(\"delegate\", \"metrics\") in delegate_settings (or in decide)."
+      ],
+      "id": "F5",
+      "kind": "inside",
+      "line": 141,
+      "pass_cases": [
+        "- [metrics] enabled = \"false\", .relay/ present, unlabelled delegate:worker: deny, reason names \"[metrics] enabled\"",
+        "- [metrics] enabled = false: the worker is allowed without a label, no note"
+      ],
+      "path": "plugins/delegate/hooks/route-guard.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_kit_schema.py:146."
+      ],
+      "severity": "LOW",
+      "since": "3fada252289ac77662f3e9b925838d35076f9760",
+      "source": "review-a-wrong-value-in-project-settings-passes.json",
+      "source_id": "F5",
+      "summary": "the route guard acts on [metrics] enabled through relay_kit but never names a [metrics] problem",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. No live project on this machine has the line (design 2), so the cost is small today. Size: 10 minutes."
+      ],
+      "evidence": [
+        "relay_kit.parse('[observe]\\nenabled = true\\nlog_prompts = false\\n') -> ['.claude/kit.toml [observe] enabled is not a key relay knows']"
+      ],
+      "failing_case": [
+        "A project set up before this change has `[observe]\\nenabled = true` (the old template). After this change its gate refuses",
+        "with \".claude/kit.toml [observe] enabled is not a key relay knows\", which reads as a typo, and `relay setup` on it leaves the",
+        "line in place. Design 5.5 promised: \"[observe] enabled has no effect: no code reads it; remove the line\"."
+      ],
+      "fix_hint": [
+        "A small table of retired keys with their own sentence, checked before the unknown-key branch in parse."
+      ],
+      "id": "F6",
+      "kind": "inside",
+      "line": 159,
+      "pass_cases": [
+        "- parse('[observe]\\nenabled = true\\n') problem line contains \"has no effect\" and \"remove the line\"",
+        "- parse('[observe]\\nenabld = true\\n') still says \"is not a key relay knows\"",
+        "- relay setup on a project whose kit.toml has [observe] enabled = true removes that line (or doctor's red line says to)"
+      ],
+      "path": "lib/relay_kit.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_kit_schema.py:19; setup removal of old line not done, doctor says remove it (acceptable, LOW)."
+      ],
+      "severity": "LOW",
+      "since": "3fada252289ac77662f3e9b925838d35076f9760",
+      "source": "review-a-wrong-value-in-project-settings-passes.json",
+      "source_id": "F6",
+      "summary": "[observe] enabled gets the generic 'is not a key relay knows', not the promised 'has no effect, remove the line', and relay setup does not remove it from older projects whose gate it now refuses",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b0efdde8cb551d366c2c8a7b61ae970f06566a07.gate.log",
+  "head": "8ee8124bace9820269662cb276cbe5c54d20eb0b",
+  "item": "a-wrong-value-in-project-settings-passes-unnotic",
+  "notes": [
+    "Fixer F2/F3 touched hooks and relay_land, named in the findings."
+  ],
+  "schema": 2,
+  "scope": [
+    "Gate log is for b0efdde8; relay changed lists no file after it. relay precheck green on head. Test files copied to a15e07dd41af base all fail there (kit_schema, land, lanes_state, openspec_hook, hook_flow_stage, queue_notes, metrics); head versions pass in precheck."
+  ],
+  "type": "check"
+}

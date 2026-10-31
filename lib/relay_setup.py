@@ -17,10 +17,12 @@ import stat
 import subprocess
 import sys
 import tomllib
+from typing import Any
 
 import relay_config
+import relay_kit
 import relay_license
-from relay_config import ROOT, bindings_path, claude_dir, load_bindings, read_toml
+from relay_config import ROOT, bindings_path, claude_dir, read_toml
 
 STACKS = [
     ("bun.lock", "typescript", "bun"), ("bun.lockb", "typescript", "bun"), ("pnpm-lock.yaml", "typescript", "pnpm"),
@@ -84,9 +86,10 @@ def detect(root):
     if d["stack"] == "unknown" and has_python_files(root):
         d["stack"], d["tool"] = "python", "python"
     d["default_branch"] = default_branch(root)
+    d["worktrees"] = worktrees_folder(root)
     d["openspec"] = os.path.isdir(os.path.join(root, "openspec"))
     d["has_bindings"] = os.path.isfile(bindings_path(root))
-    d["bindings"] = load_bindings(root)
+    d["bindings"] = relay_kit.load(root).raw      # the parsed file as written (setup edits it); wrong values are shown by doctor
     d["scripts"] = {s: os.path.isfile(os.path.join(root, "bin", s)) for s in ("check", "ci", "wt")}
     d["claude_md"] = os.path.isfile(os.path.join(root, "CLAUDE.md"))
     d["handover"] = os.path.isfile(os.path.join(root, "docs", "handover.md"))
@@ -100,6 +103,24 @@ def detect(root):
     cfg_specs = d["bindings"].get("specs", {}).get("method") if isinstance(d["bindings"].get("specs"), dict) else None
     d["specs_bound"] = cfg_specs if isinstance(cfg_specs, str) else None   # None: kit.toml has no [specs] setting
     return d
+
+
+def worktrees_folder(root: str) -> str:
+    """The folder the project's worktrees live in: ".worktree" when bin/wt names that folder (and not ".worktrees"), or a
+    registered linked worktree sits in it; ".worktrees" otherwise."""
+    script = os.path.join(root, "bin", "wt")
+    try:
+        text = open(script, encoding="utf-8", errors="replace").read()
+    except OSError:
+        text = ""
+    if re.search(r"\.worktree(?![\w-])", text) and not re.search(r"\.worktrees(?![\w-])", text):
+        return ".worktree"
+    listing = _git_out(root, "worktree", "list", "--porcelain") or ""
+    top = os.path.realpath(main_checkout(root) or root)
+    for line in listing.splitlines():
+        if line.startswith("worktree ") and os.path.dirname(os.path.realpath(line[9:])) == os.path.join(top, ".worktree"):
+            return ".worktree"
+    return ".worktrees"
 
 
 def default_branch(root):
@@ -184,7 +205,7 @@ def backup(path):
 
 # --- bindings ---------------------------------------------------------------
 
-def bindings_text(d, flow, specs="none"):
+def bindings_text(d: dict[str, Any], flow: str, specs: str = "none") -> str:
     """A kit.toml for a new project; sections relay needs, with the detected values."""
     name, stack = d["name"], d["stack"]
     skills = {"typescript": '["ts-dev"]', "rust": '["rust-dev"]', "elixir": '["elixir-dev"]', "go": '["go-dev"]'}.get(stack, "[]")
@@ -192,18 +213,40 @@ def bindings_text(d, flow, specs="none"):
         f"# {name}: bindings for the relay plugins (written by `relay setup`, {dt.date.today()}).",
         "# Every key is documented in plugins/relay/README.md (gate, packet, guard)",
         "# and docs/flows.md ([flow]); [delegate] and [observe] in docs/delegation.md.", "",
-        "[project]", f'name = "{name}"', f'default_branch = "{d["default_branch"]}"', 'worktrees = ".worktrees"',
-        f"stack_skills = {skills}", "",
-        "[gate]", 'wt = "bin/wt"', 'check = "bin/check"', 'ci = "bin/ci"', 'ci_log = ".ci/ci.log"', 'final = "local"', "",
-        "[flow]", f'kind = "{flow}"', "",
+        "[project]", f'name = "{name}"   # what this project is called', f'default_branch = "{d["default_branch"]}"   # the branch finished work is merged into',
+        f'worktrees = "{d.get("worktrees", ".worktrees")}"   # the folder where each task gets its own copy of the project',
+        f"stack_skills = {skills}   # skills for your stack that agents load before they build", "",
+        "[gate]", 'wt = "bin/wt"   # the command that makes a task folder', 'check = "bin/check"   # the quick check an agent repeats while it builds',
+        'ci = "bin/ci"   # the full check a change must pass before it is merged', 'ci_log = ".ci/ci.log"   # where the full check writes its output',
+        'final = "local"   # where the last check runs before a merge', "",
+        "[flow]", f'kind = "{flow}"   # which work flow the project follows ("none" is relay\'s own)', "",
         "[specs]", f'method = "{specs}"   # "none", or a spec method plugin such as "openspec" (docs/flows.md)', "",
-        "[delegate]", "typed_only = true", "fork_limit = 100000", "max_parallel = 4", 'build_tier_opus = "escalate"', "",
-        "[observe]", "enabled = true", "log_prompts = false", "",
+        "[delegate]",
+        "typed_agents_only = true   # true: the main session may start only relay's named agents, never a general-purpose one",
+        "no_session_copy_above_tokens = 100000   # a copy of the whole conversation is refused once the conversation is longer than this many tokens",
+        "max_agents_at_once = 4   # agents running at the same time in one session; at this many relay adds a note to the next one",
+        'opus_for_builders = "after_a_failure"   # use the big model for building: "after_a_failure" (only when a smaller agent failed the same task), "always" or "never"', "",
+        "[observe]", "log_prompts = false   # true: keep the text of every prompt in the usage log", "",
     ]
     if d["ui"]:
-        lines += ["[product]", 'medium = "the app on a phone and on a computer"', f'run_skill = "{name}-run"', ""]
-    lines += ["[coordination]", 'mode = "leadless"', ""]
+        lines += ["[product]", 'medium = "the app on a phone and on a computer"   # where a person uses the product',
+                  f'run_skill = "{name}-run"   # the skill that starts the product so a change can be seen working', ""]
+    lines += ["[coordination]", 'mode = "leadless"   # how several agents share the work: leadless means no agent leads the others', ""]
     return "\n".join(lines)
+
+
+def rename_delegate_keys(root: str) -> list[str]:
+    """Rename the old [delegate] keys of kit.toml (relay_kit.RENAMED) to their new names; the lines it did, [] when none."""
+    path = bindings_path(root)
+    if not os.path.isfile(path):
+        return []
+    text = open(path, encoding="utf-8").read()
+    new, did = relay_kit.rename_old_delegate_keys(text)
+    if did:
+        backup(path)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(new)
+    return did
 
 
 def set_specs(root, method):
@@ -257,8 +300,8 @@ def set_license(root, license_id, holder, todo):
 def merge_bindings(root, specs="none", force_specs=False, spec_folder=False):
     """Add the relay sections a kit.toml lacks, only where the value differs from what a missing section means, without touching what is
     there. `[specs]` for a method other than "none", or when `force_specs` (the run said
-    --specs) or `spec_folder` (an openspec/ folder would otherwise turn the steps on) holds. [delegate] and [observe] equal relay_defaults()
-    and are never added. `force_specs` rewrites an existing [specs] method."""
+    --specs) or `spec_folder` (an openspec/ folder would otherwise turn the steps on) holds. [delegate] and [observe] equal the defaults of
+    relay_kit and are never added. `force_specs` rewrites an existing [specs] method."""
     path = bindings_path(root)
     text = open(path, encoding="utf-8").read()
     cfg = tomllib.loads(text)
@@ -390,6 +433,26 @@ def names_moved_hook(command, moved):
     return first in moved
 
 
+def settings_additions(before: dict, after: dict) -> list[str]:
+    """Done lines naming each permission and each plugin switch merge_settings added to .claude/settings.json, and the
+    machine-path marketplace entry it dropped."""
+    def allowed(data: dict) -> list[str]:
+        perms = data.get("permissions")
+        allow = perms.get("allow") if isinstance(perms, dict) else None
+        return [r for r in allow if isinstance(r, str)] if isinstance(allow, list) else []
+    def plugins(data: dict) -> dict:
+        enabled = data.get("enabledPlugins")
+        return enabled if isinstance(enabled, dict) else {}
+    lines = [f".claude/settings.json: added permission {rule}" for rule in allowed(after) if rule not in allowed(before)]
+    lines += [f".claude/settings.json: added {key} = {str(value).lower()}" for key, value in plugins(after).items()
+              if key not in plugins(before) and value is False]
+    lines += [f".claude/settings.json: {key} {str(plugins(before)[key]).lower()} -> {str(value).lower()}" for key, value in plugins(after).items()
+              if key in plugins(before) and isinstance(value, bool) and plugins(before)[key] is not value]
+    gone = [k for k in ("amidman", "principles") if k in (before.get("extraKnownMarketplaces") or {}) and k not in (after.get("extraKnownMarketplaces") or {})]
+    lines += [f".claude/settings.json: removed the {k} marketplace path (it is this machine's; `relay setup --global` keeps it in ~/.claude/settings.json)" for k in gone]
+    return lines
+
+
 def merge_settings(root, plugins, remove=(), moved_hooks=(), off=()):
     """Write the project's enabledPlugins. Relay's plugins: old names move to the new key, the always-on and `plugins` are true,
     `remove` (spec methods not chosen) is false, a key already there is kept, the rest are false. Keys of retired relay plugins are dropped.
@@ -420,9 +483,16 @@ def merge_settings(root, plugins, remove=(), moved_hooks=(), off=()):
             enabled[key] = False
     for key in off:
         enabled[key] = False
-    markets = data.setdefault("extraKnownMarketplaces", {})
-    markets[mname] = {"source": {"source": "directory", "path": marketplace_root()}}
-    markets.pop("principles", None)
+    # The marketplace path is this machine's: it lives in ~/.claude/settings.json (relay setup --global), never in this committed file.
+    markets = data.get("extraKnownMarketplaces")
+    if isinstance(markets, dict):
+        entry = markets.get(mname)
+        source = entry.get("source") if isinstance(entry, dict) else None
+        if isinstance(source, dict) and source.get("source") == "directory":
+            markets.pop(mname)   # an earlier setup wrote relay's absolute path here
+        markets.pop("principles", None)
+        if not markets:
+            data.pop("extraKnownMarketplaces")
     perms = data.setdefault("permissions", {})
     allow = perms.setdefault("allow", [])
     for rule in ("Bash(kit:*)", "Bash(bin/kit:*)", "Bash(relay:*)"):
@@ -635,7 +705,7 @@ def gitignore_lines(d: dict) -> list[str]:
     outside the project), the stack's caches."""
     project = d["bindings"].get("project")
     folder = project.get("worktrees") if isinstance(project, dict) else None
-    folder = folder if isinstance(folder, str) and folder.strip("/") else ".worktrees"
+    folder = folder if isinstance(folder, str) and folder.strip("/") else d.get("worktrees") or ".worktrees"   # first setup: kit.toml is not read yet
     norm = posixpath.normpath(folder)
     lines = [".ci/"]
     if not (os.path.isabs(folder) or norm == ".." or norm.startswith("../")):
@@ -668,6 +738,17 @@ def ensure_gitignore(root: str, d: dict) -> list[str]:
     with open(path, "a", encoding="utf-8", newline="") as handle:
         handle.write(prefix + "".join(m + eol for m in missing))
     return missing
+
+
+def test_tool_missing(stack: str) -> str:
+    """The reason the stack's test step cannot run on this machine, or "" (only python is looked at: `python3 -m pytest`)."""
+    if stack != "python":
+        return ""
+    try:
+        rc = subprocess.run(["python3", "-c", "import pytest"], capture_output=True, timeout=60).returncode
+    except (OSError, subprocess.TimeoutExpired):
+        return "python3 could not be run"
+    return "" if rc == 0 else "python3 has no pytest"
 
 
 def template_steps(stack: str) -> dict[str, str]:
@@ -868,6 +949,8 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
     if d["has_bindings"]:
         for line in migrate_kit_toml(root, names["kit_flow"]):
             done.append(f"kit.toml: {line}")
+        for line in rename_delegate_keys(root):
+            done.append(f"kit.toml: {line}")
         d = detect(root)
     retired = retired_keys(d["settings"].get("enabledPlugins", {}) if isinstance(d["settings"].get("enabledPlugins"), dict) else {})
     kit_kind = d["bindings"].get("flow", {}).get("kind") if isinstance(d["bindings"].get("flow"), dict) else None
@@ -893,8 +976,11 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
         done.append(f"spec steps are ON for this project because it has an openspec/ folder; turn them off with `relay setup {root} --specs none`")
     plugins = relay_plugins_for(specs)
     turned_off = [plugin_key(m) for m in methods if m != specs]
+    settings_before = read_json(os.path.join(root, ".claude", "settings.json"))
     changed, removed = merge_settings(root, plugins, remove=turned_off, moved_hooks=moved_hooks, off=off)
+    settings_after = read_json(os.path.join(root, ".claude", "settings.json"))
     done.append(f".claude/settings.json: plugins {', '.join(plugin_key(p) for p in plugins)} enabled" + (f"; off: {', '.join(off)}" if off else "") + (" (unchanged)" if not changed else ""))
+    done.extend(settings_additions(settings_before, settings_after))
     for r in removed:
         done.append(f"  removed a hook the plugins now provide: {r}")
     for key in retired:
@@ -918,6 +1004,9 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
                     todo.append(f"bin/{script}: fill in the {d['stack']} commands where it says TODO")
                 elif d["stack"] in STACK_STEPS:
                     todo.append(f"bin/{script}: check the {d['stack']} steps it was given (the contract is in plugins/relay/README.md)")
+                    why = test_tool_missing(d["stack"]) if script == "ci" else ""
+                    if why:
+                        todo.append(f'bin/ci: {why}, so the gate stays red at step "tests" until you install it or edit bin/ci')
                 else:
                     todo.append(f"bin/{script}: it fails with NOT CONFIGURED until you replace the placeholder step with the {d['stack']} commands (the contract is in plugins/relay/README.md)")
         elif not os.path.isfile(os.path.join(root, gate.get(script, f"bin/{script}"))):
@@ -941,10 +1030,12 @@ def setup(root, relay_dir=True, install_runner=None, specs=None, uninstall_runne
     todo.append("in Claude Code, run `/plugin marketplace add " + marketplace_root() + "` once, then `/reload-plugins` (or restart) so the plugins load")
     runner = install_runner or run_plugin_install
     for p in plugins:
-        if p in ALWAYS_ON:
-            continue
         key = plugin_key(p)
         cmd = f"claude plugin install {key} --scope project"
+        if p in ALWAYS_ON:   # the user scope owns these; but one installed nowhere is a doctor FIX, so name the command
+            if not installed_for(root, key):
+                todo.append(f"{key} is enabled but not installed, so its skills are missing: after the marketplace step above, run `{cmd}` in {root} (or `relay setup --global` for every project)")
+            continue
         if installed_for(root, key):
             done.append(f"{key} already installed")
         else:
@@ -1210,6 +1301,17 @@ def git_first_check(system: str | None = None) -> tuple[str, bool, str] | None:
     return ("git first on PATH is the real git", problem is None, problem or "")
 
 
+GATE_COPIES_LINE = "no gate copy of a killed gate left registered"
+
+
+def gate_copies_check(root: str) -> tuple[str, bool, str]:
+    """The doctor line "no gate copy left registered": removes the copies of gates that were killed (a temporary worktree each,
+    registered in the repository) and names them in the detail. A folder that is missing or no repository has none."""
+    import relay_ci_copy
+    gone = relay_ci_copy.prune_dead_copies(root) if os.path.isdir(root) else []
+    return (GATE_COPIES_LINE, True, "removed: " + ", ".join(gone) if gone else "")
+
+
 def bin_relay_problem(root: str) -> str | None:
     """Why bin/relay in relay's main checkout (not a linked worktree of it: a branch may edit bin/relay there) is not what HEAD
     holds, None when it is, or when the folder is no git checkout. The fix is the next step, since guard-main refuses a restore
@@ -1227,6 +1329,20 @@ def bin_relay_problem(root: str) -> str | None:
 def doctor(root: str | None = None, profile: dict | None = None) -> list[tuple[str, bool, str]]:
     machine, project = doctor_parts(root, profile)
     return machine + project
+
+
+def settings_env_problems(root: str) -> list:
+    """Problems in RELAY_DELEGATE_* and RELAY_CTX_* as a session gets them: this shell's env and the `env` blocks of
+    ~/.claude/settings.json and the project's .claude/settings.json and settings.local.json."""
+    import relay_kit
+    out = relay_kit.env_problems(dict(os.environ))
+    for path in (os.path.join(claude_dir(), "settings.json"), os.path.join(root, ".claude", "settings.json"),
+                 os.path.join(root, ".claude", "settings.local.json")):
+        data = read_json(path)
+        block = data.get("env") if isinstance(data, dict) else None
+        if isinstance(block, dict):
+            out += relay_kit.env_problems({str(k): str(v) for k, v in block.items()})
+    return out
 
 
 def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[list[tuple[str, bool, str]], list[tuple[str, bool, str]]]:
@@ -1299,7 +1415,15 @@ def doctor_parts(root: str | None = None, profile: dict | None = None) -> tuple[
         root = os.path.realpath(root)
         d = detect(root)
         ok("project has .claude/kit.toml", d["has_bindings"], "relay setup " + root)
+        checks.append(gate_copies_check(root))
         ok("rules for this project in sync", not own_stale, "-> relay sync")
+        import relay_kit
+        found = relay_kit.load(root).problems + tuple(settings_env_problems(root))
+        for problem in found:
+            ok(problem.where, False, f"{(problem.value + ' ') if problem.value else ''}{problem.wrong}"
+               + (f"; used {problem.used}" if problem.used else "") + " -> fix it in .claude/kit.toml (or the env block / variable named)")
+        if not found:
+            ok(".claude/kit.toml: keys and values valid", True, "")
         cfg = d["bindings"]
         flow = cfg.get("flow", {}).get("kind", "none")
         old = load_old_names()

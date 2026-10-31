@@ -1,0 +1,13 @@
+head 45ac669e424644ef5ccb0d89db5e15a5f89c19fb
+cmd bin/ci --quick
+wait 0.0
+ci: types and lint ok (2s)
+ci: plugin lib links ok (0s)
+ci: library tests ok (660s)
+ci: coverage 89.0% of lib, bin, plugins (15927 of 17899 lines)
+ci: hook tests ok (0s)
+ci: eval grader tests ok (2s)
+ci: plugin validate ok (4s)
+ran on a copy without queue, handover and check records; covers every commit with the same code
+ci: green (QUICK MODE: paid steps skipped, not a release gate)
+exit 0

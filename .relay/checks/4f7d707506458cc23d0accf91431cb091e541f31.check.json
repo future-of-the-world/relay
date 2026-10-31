@@ -1,0 +1,132 @@
+{
+  "branch": "wt/task-queue-add-from-queues-a-finding-a-check-marked-m",
+  "findings": [
+    {
+      "details": [
+        "28 Oct: base-restores-only-four-keys-bench-s-relay-claud was built for nothing (4 agents, 7 min, a lane): master had fixed it on 25 Oct in 58d5d5f9, and the item exists only because `relay queue add --from <report> F<n>` queued a finding that a check had marked MET two minutes earlier (found by the review of that empty branch).",
+        "Also: tests/test_queue.py"
+      ],
+      "evidence": [],
+      "failing_case": [
+        "A review report with F1 and a check record marking F1 MET: `relay queue add --from review.json F1` queues it."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 1,
+      "pass_cases": [
+        "The same refuses and names the check.",
+        "A finding marked NOT MET or not checked is still queued."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_queue.py:258 passes; fails at base 43a79b81 (FAIL)."
+      ],
+      "severity": "HIGH",
+      "since": "43a79b8111a71b2da1e67e8b9d9bad31cef7b008",
+      "source": "queue",
+      "summary": "queue add --from queues a finding a check marked MET",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by measurement. bin/relay opens relay_git.reading() only at line 916, not around queue add, so stored_text and",
+        "is_ancestor fall back to one `git` subprocess each: one per check file per branch (each lane branch carries master's",
+        "432 records again, so the same blob is read up to 22 times). Principle 2 (waste): waste that repeats on every run is",
+        "MEDIUM and fixed before the merge. A person or agent running `relay queue add --from` waits nearly a minute.",
+        "Size: 10 minutes."
+      ],
+      "evidence": [
+        "git for-each-ref refs/heads/ | wc -l  -> 22",
+        "sum of `git ls-tree --name-only <ref> .relay/checks/ | grep -c check.json$` -> 7288; on master -> 432",
+        "time python3 -I -c \"... rq.met_in_a_check('/Users/amidman/relay', <probe review>, 'F1')\"  -> None, 54.191 total",
+        "same inside `with relay_git.reading():`                                           -> None, 2.857 total"
+      ],
+      "failing_case": [
+        "On /Users/amidman/relay today (22 local branches, 7288 check.json files over them, 432 on master):",
+        "met_in_a_check(repo, <review.json>, \"F1\"), the call bin/relay:1102 makes through add_from outside relay_git.reading(),",
+        "takes 54.2 s (23.6 s user, 27.8 s sys). It runs on every `relay queue add --from`, and grows with each check and lane.",
+        "It should take a few seconds: the same call inside relay_git.reading() takes 2.9 s and returns the same answer."
+      ],
+      "fix_hint": [
+        "Wrap the body of met_in_a_check (it only reads; no ref moves) in `with relay_git.reading():`. Optionally dedupe by blob id",
+        "(ls-tree without --name-only) so a record shared by several branches is parsed once."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 1181,
+      "pass_cases": [
+        "1. `relay queue add --from <report> F<n>` on a repo with N branches and many check records reads the check files without",
+        "   one git process per file (e.g. a test that counts relay_git.git calls, or met_in_a_check run inside relay_git.reading()),",
+        "   and returns the same answer as now.",
+        "2. The new test test_add_from_refuses_a_finding_a_later_check_marked_met_and_names_the_check still refuses and names the head.",
+        "3. test_add_from_still_queues_a_finding_the_check_marked_not_met_or_never_checked still queues both findings.",
+        "4. add_from's own commit (the queue item) is made outside the reading window, since reading() is not for code that commits."
+      ],
+      "path": "lib/relay_queue.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_queue.py:275 passes; errors at base."
+      ],
+      "severity": "MEDIUM",
+      "since": "57e65cbb94cde4daa22f8a8ac25a77fe9d3e70e2",
+      "source": "review-task-queue-add-from-queues-a-finding-a-check-marked-m.json",
+      "source_id": "F1",
+      "summary": "relay queue add --from now takes about 54 s on the live repo: every check file of every branch is read by its own git process",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading the tests: met_check always makes the review at the branch start, an ancestor of the check head, and",
+        "the \"never checked\" case uses a different file name, so neither exercises the ancestry condition. The collision itself is",
+        "rare today: measured 0 of 248 review file names on master's check records reused at a different sha. Matching on",
+        "f[\"since\"] == reviewed (the record stores the review's sha per finding) would be exact, though a rebased review's since is",
+        "its twin, so keep the ancestry check as the fallback. Size: 10 minutes."
+      ],
+      "evidence": [
+        "pytest -q tests/test_queue.py -k \"add_from_refuses_a_finding_a_later or add_from_still_queues\" -> 2 passed",
+        "scan of master's .relay/checks/*.check.json: 248 review sources, 0 with more than one `since`"
+      ],
+      "failing_case": [
+        "Remove the `relay_git.is_ancestor(main, reviewed, record[\"head\"])` condition from met_in_a_check: both new tests still",
+        "pass, so the guard against a same-named review of another branch is untested. With the guard, the match is still by file",
+        "name plus ancestry, not by the finding's own `since`: a review A made at R_A, merged, and a later review B of another",
+        "branch saved under the same file name (e.g. review-precheck.json) whose check marks F1 MET makes",
+        "`relay queue add --from A F1` refuse though A's F1 was never checked. It should queue it."
+      ],
+      "fix_hint": [
+        "Add a test: same file name, reviewed not an ancestor of the check head -> queued. Optionally match on f[\"since\"] == reviewed first."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 242,
+      "pass_cases": [
+        "1. A check on wt/m marks F1 of review-m.json MET, but the review given to add_from has the same file name and a",
+        "   `reviewed` sha that is not in the history of the check's head: add_from queues F1.",
+        "2. The same review whose `reviewed` equals the check finding's `since`: refused, naming the check (the current test).",
+        "3. A review with reviewed = \"unknown\": queued."
+      ],
+      "path": "tests/test_queue.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_queue.py:288 and :299 pass and encode the cases."
+      ],
+      "severity": "LOW",
+      "since": "57e65cbb94cde4daa22f8a8ac25a77fe9d3e70e2",
+      "source": "review-task-queue-add-from-queues-a-finding-a-check-marked-m.json",
+      "source_id": "F2",
+      "summary": "no test holds the guard that the check is built on the review's commit; a MET of another review of the same file name refuses",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "b9ff953e81843686f3a7a9c8a8f6a9ae01a3e161.gate.log",
+  "head": "4f7d707506458cc23d0accf91431cb091e541f31",
+  "item": "queue-add-from-queues-a-finding-a-check-marked-m",
+  "notes": [],
+  "schema": 2,
+  "scope": [
+    "Range 43a79b81..HEAD; own files lib/relay_queue.py, tests/test_queue.py, tests/test_queue_migrate.py. Ran unittest test_queue + test_queue_migrate: 104 OK. Gate b9ff953e exit 0, only inert commit after. Base worktree at 43a79b81 with head test file: Q1 and F1 tests fail there."
+  ],
+  "type": "check"
+}

@@ -1,0 +1,33 @@
+{
+  "kind": "fix",
+  "ip": 50,
+  "time": 20,
+  "found_at": "2026-10-30T18:37:40Z",
+  "found_in": "finding F3 of review-a-task-branch-of-an-item-whose-slug-starts-with.json",
+  "title": "Bin/wt new queue-<x> still makes wt/queue-<x>, which…",
+  "what": [
+    "bin/wt:12: LOW: F3 bin/wt new queue-<x> still makes wt/queue-<x>, which tidy, doctor, inert and the merge hook read as a queue-landing branch"
+  ],
+  "why": [
+    "bin/wt new queue-<x> still makes wt/queue-<x>, which tidy, doctor, inert and the merge hook read as a queue-landing branch; relay queue start was fixed on 30 Oct (wt/task-queue-...), bin/wt was not."
+  ],
+  "failing_case": [
+    "The front, told by guard_main to \"git worktree add ... / bin/wt new <name>\", runs bin/wt new queue-docs master: the branch is",
+    "wt/queue-docs; relay doctor lists \"leftover queue branch: wt/queue-docs\" while it is being built, and after merge tidy never",
+    "reports its worktree. Expected: bin/wt refuses (or renames) a name starting with \"queue-\"."
+  ],
+  "failing_kind": "claim",
+  "pass_cases": [
+    "1. bin/wt new queue-docs master -> refused with a message naming the reserved prefix, or makes wt/task-queue-docs.",
+    "2. bin/wt new docs master -> .worktrees/docs on wt/docs, unchanged."
+  ],
+  "where": [
+    "bin/wt:12"
+  ],
+  "taken_at": "2026-10-30T22:35:47Z",
+  "taken_by": "wt/bin-wt-new-queue-x-still-makes-wt-queue-x-which",
+  "closed_at": "2026-10-30T23:07:25Z",
+  "test": "tests/test_bin_wt.py::test_queue_prefix_refused",
+  "dropped_at": null,
+  "dropped_why": null
+}

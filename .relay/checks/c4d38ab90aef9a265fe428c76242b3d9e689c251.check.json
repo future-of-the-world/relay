@@ -1,0 +1,137 @@
+{
+  "branch": "wt/relay-setup-writes-worktrees-worktrees-and-ignor",
+  "findings": [
+    {
+      "details": [
+        "29 Oct, design review of the ALIX worktree-folder fix: outside that change. ALIX's bin/wt makes .worktree/; relay setup would write and ignore the wrong folder there. IP chosen by the front (agent-chosen)."
+      ],
+      "evidence": [],
+      "failing_case": [
+        "relay setup on ALIX (bin/wt makes .worktree/<name>): kit.toml gets worktrees = \".worktrees\" and .gitignore gets",
+        ".worktrees/, while gate.wt = \"bin/wt\" keeps making .worktree/. Every reader of project.worktrees (openspec skills,",
+        "the guard advice) then points at a folder the project never uses. Expected: worktrees = \".worktree\"."
+      ],
+      "fix_hint": [],
+      "id": "Q1",
+      "kind": "inside",
+      "line": 195,
+      "pass_cases": [
+        "1. Project whose bin/wt or registered worktrees use .worktree/: setup writes worktrees = \".worktree\".",
+        "2. Project with no bin/wt and no worktrees: setup writes \".worktrees\" as today."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "high",
+      "reason": [
+        "tests/test_setup.py::Setup::test_setup_uses_the_folder_bin_wt_makes fails at b1681974 (5 new tests fail), passes at head."
+      ],
+      "severity": "HIGH",
+      "since": "b16819741e217b1a1d2286bd2739c789d0048cec",
+      "source": "queue",
+      "summary": "Relay setup writes worktrees = \".worktrees\" and ignores\u2026",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by probe. In setup(), d = detect(root) runs before kit.toml exists; the first-setup branch writes",
+        "bindings_text(d, ...) (now with d[\"worktrees\"]) but never refreshes d[\"bindings\"]; ensure_gitignore at :990",
+        "uses that stale d. gitignore_lines (:680-690) only looks at d[\"bindings\"][\"project\"][\"worktrees\"] and defaults",
+        "to \".worktrees\". Before this change kit.toml and .gitignore agreed (both wrong); now they disagree. No test",
+        "covers the .gitignore half. Size: 15 agent minutes."
+      ],
+      "evidence": [
+        "probe.py (temp git repo, bin/wt: git worktree add \".worktree/$1\"):",
+        "  A kit: ['worktrees = \".worktree\"']",
+        "  A gitignore: ['.ci/', '.worktrees/']",
+        "lib/relay_setup.py:684-685:",
+        "  folder = project.get(\"worktrees\") if isinstance(project, dict) else None",
+        "  folder = folder if isinstance(folder, str) and folder.strip(\"/\") else \".worktrees\"",
+        "/Users/amidman/alix/.gitignore:30: /.worktree/"
+      ],
+      "failing_case": [
+        "A git project with no .claude/kit.toml whose bin/wt runs `git worktree add \".worktree/$1\"` (ALIX's shape).",
+        "relay setup: detect() gives d[\"bindings\"] = {} and d[\"worktrees\"] = \".worktree\"; kit.toml is written with",
+        "worktrees = \".worktree\"; d is not reloaded, so ensure_gitignore(root, d) -> gitignore_lines(d) finds no",
+        "[project] worktrees and falls back to \".worktrees\". .gitignore gets \".worktrees/\" (a folder nobody uses) and,",
+        "when it lacks it, never gets \".worktree/\" - linked worktrees then show as untracked. The item's title and failing",
+        "case name both halves (\"writes worktrees = .worktrees and ignores .worktrees/\"); only the kit half is fixed.",
+        "Expected: gitignore_lines gives [\".ci/\", \".worktree/\"] and .gitignore gets \".worktree/\"."
+      ],
+      "fix_hint": [
+        "In gitignore_lines fall back to d.get(\"worktrees\", \".worktrees\") instead of the literal \".worktrees\" (or reload",
+        "d[\"bindings\"] after writing kit.toml on first setup). Add a test: first-setup-shaped d with bin/wt making",
+        ".worktree -> ensure_gitignore writes \".worktree/\" and not \".worktrees/\"."
+      ],
+      "id": "F1",
+      "kind": "inside",
+      "line": 682,
+      "pass_cases": [
+        "1. First setup of a git project whose bin/wt makes .worktree/<name>, empty .gitignore: kit.toml has",
+        "   worktrees = \".worktree\" and .gitignore gets \".worktree/\" and no \".worktrees/\" line.",
+        "2. Same project with .gitignore already holding \"/.worktree/\" (ALIX today): setup adds no worktrees line at all.",
+        "3. First setup of a git project with no bin/wt and no worktrees: .gitignore gets \".worktrees/\" as today.",
+        "4. A project with kit.toml saying worktrees = \"../out\": gitignore_lines adds no worktrees line (unchanged)."
+      ],
+      "path": "lib/relay_setup.py",
+      "rank": "medium",
+      "reason": [
+        "tests/test_setup.py test_first_setup_ignores_the_folder_bin_wt_makes and test_first_setup_adds_no_worktrees_line_when_already_ignored fail at 3957b9cb, pass at head; default case test passes."
+      ],
+      "severity": "MEDIUM",
+      "since": "b457133a4a6dd8f4c3c513d3172c73668ad8043f",
+      "source": "review-relay-setup-writes-worktrees-worktrees-and-ignor.json",
+      "source_id": "F1",
+      "summary": "first setup still ignores .worktrees/ while kit.toml now says .worktree: gitignore_lines reads the pre-setup bindings",
+      "verdict": "MET"
+    },
+    {
+      "details": [
+        "CONFIRMED by reading: the two new tests cover the bin/wt text and the no-bin/wt default only. The branch works",
+        "today (probe B returned .worktree from main and from the linked worktree), so LOW: correct but unguarded.",
+        "Size: 5 agent minutes."
+      ],
+      "evidence": [
+        "probe B main: .worktree ; B from linked: .worktree",
+        "grep of tests/test_setup.py: only test_setup_uses_the_folder_bin_wt_makes and",
+        "test_setup_default_worktrees_folder_without_bin_wt touch the folder."
+      ],
+      "failing_case": [
+        "Delete the `git worktree list` loop in worktrees_folder (lib/relay_setup.py:117-121): every test in",
+        "tests/test_setup.py still passes, though pass case 1 says \"bin/wt or registered worktrees use .worktree/\".",
+        "Expected: a test that fails when that branch is removed."
+      ],
+      "fix_hint": [
+        "Add a test using _wt_project-style setup that registers a worktree under .worktree/ with no bin/wt."
+      ],
+      "id": "F2",
+      "kind": "inside",
+      "line": 16,
+      "pass_cases": [
+        "1. Git repo, no bin/wt, one commit, `git worktree add .worktree/x -b wt/x`: worktrees_folder(main) == \".worktree\".",
+        "2. Same, called with the linked worktree .worktree/x as root: \".worktree\".",
+        "3. Git repo, no bin/wt, worktree at .worktrees/x: \".worktrees\"."
+      ],
+      "path": "tests/test_setup.py",
+      "rank": "low",
+      "reason": [
+        "tests/test_setup.py test_worktrees_folder_sees_registered_worktree_without_bin_wt and test_worktrees_folder_registered_in_dot_worktrees pass at head."
+      ],
+      "severity": "LOW",
+      "since": "b457133a4a6dd8f4c3c513d3172c73668ad8043f",
+      "source": "review-relay-setup-writes-worktrees-worktrees-and-ignor.json",
+      "source_id": "F2",
+      "summary": "no test for the registered-worktree branch of worktrees_folder (pass case 1, second half)",
+      "verdict": "MET"
+    }
+  ],
+  "gate": "d96414c0c2a7e5572e9a8ad355dc240dee8ac7b6.gate.log",
+  "head": "c4d38ab90aef9a265fe428c76242b3d9e689c251",
+  "item": "relay-setup-writes-worktrees-worktrees-and-ignor",
+  "notes": [
+    "F2 tests not run against a disabled loop by me; they fail at the base commit (no worktrees_folder)."
+  ],
+  "schema": 2,
+  "scope": [
+    "Files changed: lib/relay_setup.py, tests/test_setup.py only. Ran tests/test_setup.py, test_setup_off.py, test_setup_worktree_rules.py: 136 passed. Gate log head d96414c, exit 0; only the gate-log commit came after. Base b1681974 with new tests: 5 fail. At 3957b9cb: the two F1 tests fail."
+  ],
+  "type": "check"
+}
