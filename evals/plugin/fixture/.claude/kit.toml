@@ -15,9 +15,6 @@ check = "bin/check"
 ci = "bin/ci"
 ci_log = ".ci/ci.log"
 
-[coordination]
-mode = "leadless"
-
 [[spec_check.group]]
 name = "stored data"
 trigger = '\b(stor(?:e|ed|es|ing|age)|sav(?:e|es|ed|ing)|persist\w*|restor(?:e|es|ed|ing)|file)\b'

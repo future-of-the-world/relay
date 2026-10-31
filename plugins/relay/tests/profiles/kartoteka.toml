@@ -30,9 +30,6 @@ serve = "bun run preview --port {port} --strictPort --outDir {out}"
 # `^src/data/` is in `surface` on purpose: a card file can change what a screen shows, so a
 # logic-only change under src/data also runs the look review (add a look_diff later to skip those).
 
-[coordination]
-mode = "leadless"
-
 # --- kit packet -------------------------------------------------------------
 [packet]
 module = "typescript"
