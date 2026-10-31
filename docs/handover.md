@@ -2032,3 +2032,156 @@ Owner still resting since ~13:05Z 30 Oct. On return: ONE message, what landed an
 1. Fill free lanes in ip order (fixes first, skip the senders item until sigterm lands).
 2. Start a paid run when 3 checked-path changes are due.
 3. On the owner's return send the one message.
+
+## Addendum 42 (31 Oct; provider-neutral Pi research)
+
+The owner requested gpt-6.1-sol as the base and a minimal migration away from
+Claude models, reusing the existing setup through a Pi bridge where possible.
+This supersedes the historical preference for an Opus front for this migration.
+
+- Pi startup defaults changed outside Git in ~/.pi/agent/settings.json to
+  openai/gpt-6.1-sol; catalog entry and stored credential presence verified, no
+  paid request. Existing sessions still need /model; resumed sessions can keep
+  their recorded model. Other Pi settings, including Arsenal, were preserved.
+- Research and an offline compatibility probe are in worktree
+  .worktrees/provider-neutral-pi, branch wt/provider-neutral-pi, based on c8f75cdc.
+  See docs/plans/provider-neutral-pi.md and evals/compat/pi-code.ts there.
+- pi-code@1.6.1 is the closest full setup bridge inspected. Six isolated assertions
+  passed with zero model calls: local directory plugins are not discovered;
+  cached hook parsing and command/args substitution work; a translated built-in
+  edit triggers the real main-checkout guard; agent/task input is incompatible
+  with Relay routing; opus can still select Claude; Pi usage is ignored by the
+  current transcript parser. Source inspection also found missing persisted child
+  transcripts and no Claude Workflow runtime. These are blockers, not parity.
+- No package activated, live settings moved, runtime migration completed, merge
+  made or primary-checkout user edits changed. Relay's dirty active profile still
+  names Claude tiers; the Pi default change does not override those.
+- Recommendation (owner can reverse): qualify a filtered pi-code bridge before a
+  custom rewrite. Keep Python policy and records common, move project bindings
+  through one checked resolver to .relay/kit.toml, and use explicit provider/model
+  identities for all roles. Preserve existing safeguards, not just skill text.
+
+Next: reproduce and adapt plugin-source discovery, agent input and transcript
+contracts; implement the common bindings resolver and provider-qualified role
+policy with regression tests before enabling hooks or moving live config. The
+report contains the mechanism inventory, candidate comparison and acceptance gate.
+
+## Addendum 43 (31 Oct; urgent native Pi bootstrap)
+
+Owner correction, verbatim:
+> 1. You're already not speak with me in Russian, you don't load all required instructions, this is a huge gap, I thought to do this later, but I need to migrate this now
+> 2. GIve me the concrete steps to make migration, what is a bad
+
+Further owner instructions, verbatim:
+> 1. Increase context window to 1 000 000 (model allow this)
+> 2. Don't use arsenal mcp servers (this is past way for working with pi)
+
+- The earlier English replies and missed instruction loading were an assistant
+  failure, not evidence that the language preference was unavailable. Read the
+  actual global Relay instructions, working-with-me/front/delegation rules,
+  native-language memory, and front/delegate skills. Communicate in Russian;
+  code/docs stay English and standard IT terms stay English.
+- Outside Git, ~/.pi/agent/models.json now overrides
+  providers.openai.modelOverrides.gpt-6.1-sol.contextWindow = 1000000. Verified
+  valid JSON and `pi --list-models gpt-6.1-sol` reports OpenAI context 1M, max
+  output 128K. This is local metadata verification, not a paid 1M-input API test.
+- Removed the legacy pi-arsenal-mcp package reference from native Pi settings;
+  disabled both configured native MCP entries, common-os-less and glonass,
+  preserving their connection definitions and credentials. No server process
+  was killed (other clients may use it). Do not call Arsenal MCP tools or launch
+  agents through them; no agents were launched in this session.
+- Native ~/.pi/agent/AGENTS.md now records Russian, the Arsenal prohibition,
+  project CLAUDE.local.md bootstrap, mandatory front/delegate skill loading, and
+  explicit treatment of missing legacy runtime capabilities. Existing editing
+  instructions were preserved.
+- Added ~/.pi/agent/APPEND_SYSTEM.md as a symlink to the existing generated
+  ~/.claude/CLAUDE.md: a temporary single-source global-instruction bridge, not
+  a Claude model/server dependency. Verified the link and identical contents.
+  Project APPEND_SYSTEM.md overrides the global appendix in Pi; account for
+  that in the permanent loader. Project-local instruction discovery is still
+  an explicit bootstrap rule, not yet a mechanically enforced loader.
+- Running-session model metadata/extensions were not hot-reloaded by these file
+  edits. New-session loading still needs an end-to-end native Pi check; current
+  session loaded the missing instructions manually. Do not claim all guards,
+  skills or native delegation migrated. No repository merge or paid call.
+
+Next: explain the ordered migration steps and the concrete remaining gaps to the
+owner in Russian. Implement and test native instruction discovery first, including
+project append overrides, context after compaction and child inheritance; use no
+Arsenal integration. Then provider-qualified role policy, common project bindings,
+agent/tool guard contracts, cycle/results/usage, and a Claude-free acceptance run.
+
+## Addendum 44 (31 Oct; owner corrects the direction: additive Pi support)
+
+This direction supersedes the migration/removal framing of addenda 42-43 and the
+initial report. Preserve the working Claude Code adapter; add a specialized Pi
+adapter over Relay's existing provider-independent policy, files and commands.
+Do not remove or move legacy settings as a prerequisite, rewrite existing policy,
+or adopt pi-code as the assumed architecture. Installation/setup should be
+extended to support both harnesses; provider/model choice is a separate concern.
+The owner prohibits Arsenal MCP, not the Claude Code integration.
+
+Owner decisions, verbatim:
+> relay - не claude, это набор моих принципов разработки
+>
+> 1. Мы не должны полностью лишаться claude - то как это работает сейчас работало прекрасно
+> 2. Нам необходим специализированный способ поддержки pi, relay - утилита которая управляет файлам, у нас уже часть модулей независимы, давай просто расширим их для использования с любыми провайдерами, не миграция но способ переипользовать то что уже существуют для нового способа
+>
+> relay setup
+> relay install
+>
+> команды которые мы используем можно будет расширить для того чтобы сделать новый setup, это будет быстрее - так как принципы разработки уже существуют, уже есть способ измерять работу моделей, нам лишь необходимо придумать как заменить механизм claude workflows, есть ли у тебя необходимые инструменты для поиска в интернете
+
+Internet capability verified using only native Bash and Python stdlib HTTP:
+pi.dev, GitHub repository search API and npm registry each returned HTTP 200.
+GitHub search found nicobailon/pi-subagents and tintinweb/pi-subagents; npm's
+pi-subagents/latest returned 0.84.0. Dedicated web_search/fetch tools and Arsenal
+subagent tools are not available/allowed; native public HTTP research is available.
+No model calls, package activation or external writes were made for this check.
+
+Exact next step: research a bounded replacement runtime for Claude Workflow
+(existing Pi workflow/subagent extension versus a small Pi SDK adapter for the
+existing cycle script). Compare preservation of script semantics, structured
+results, cancellation, concurrency, tool policy and usage reporting; bring the
+tradeoff to the owner before implementation. Extend setup/install around that
+adapter without regressing or retiring Claude support. Current dedicated native
+subagent tooling is not installed; do not silently substitute Arsenal.
+
+## Addendum 45 (31 Oct; recovery baseline, not another broad migration)
+
+Owner's urgency, verbatim:
+> Ты должен ввести меня в курс дела
+>
+> Что переиспользуем, как это будет работать, сейчас я работаю из pi и у меня нет доверия к непроверенному окружению, более того на полпути были брошены изменения, я словно сирота на вокзале с булочкой в руках, нужно срочно что-то придумать, если мы не справимся за сегодня думаю что уже всё будет бессмысленно и я заброшу проект, надо срочно что-то придумать и не потерять в темпе разработки
+
+Read-only inventory confirms the primary checkout and existing worktrees remain
+present; the primary has four modified tracked paths and two untracked paths.
+Do not sweep, delete, merge or commit the owner's existing changes blindly.
+The research worktree is separate and contains only this handover, the report
+and the compatibility probe. Nothing here is an approved implementation or a
+completed migration.
+
+A real native Pi child smoke check now PASSED: explicit provider openai, exact
+model gpt-6.1-sol, print mode, no extensions/MCP/skills/tools, in-memory session,
+40-second external deadline. One request completed in 4.6 seconds, exit 0, no
+stderr. It correctly returned Russian as the owner's language, Arsenal MCP and
+its subagent tools as forbidden, edit as the existing-file editing tool, and
+status ГОТОВ. This proves native child invocation and global instruction delivery
+for the tested configuration, not project-local discovery, child tool policy,
+check attestations, the full change cycle, usage normalization or 1M-input service
+acceptance. It was the first live model probe in this work; do not report zero
+model calls after this point. No billed-cost figure was captured.
+
+Fast recovery candidate: reuse Relay's rules, role bodies, worktrees, Python
+commands, stage semantics and graders. Native `pi --print` processes can provide
+the initial child-session boundary without Arsenal or a third-party workflow
+package; the smoke check proves launch, not parity. First qualify one bounded,
+serial build/gate/review/check cycle with explicit tool grants and retained child
+results, preserving the existing Claude path. Package that proven behavior into
+Relay setup/install afterward. Full concurrency and observability must not be
+claimed ready before their separate tests.
+
+Next: give the owner a short current-state explanation with this verified
+baseline and what remains untrusted. Secure the existing unfinished work without
+mixing it, then qualify the smallest native worker/reviewer/checker path; no
+new broad rewrite and no legacy-worktree cleanup during recovery.
