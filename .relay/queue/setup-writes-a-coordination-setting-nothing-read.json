@@ -24,8 +24,8 @@
     "lib/relay_setup.py",
     "plugins/relay/README.md"
   ],
-  "taken_at": null,
-  "taken_by": null,
+  "taken_at": "2026-10-31T00:00:47Z",
+  "taken_by": "wt/setup-writes-a-coordination-setting-nothing-read",
   "closed_at": null,
   "test": null,
   "dropped_at": null,
