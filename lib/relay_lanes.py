@@ -178,6 +178,15 @@ def _activity(main: str, branch: str, worktree: Optional[str]) -> float:
     return newest
 
 
+def _empty(main: str, default: str, branch: str, worktree: str) -> bool:
+    """True when a branch has no commit beyond the default branch and its worktree holds no modified file (an item was dropped, nothing was done)."""
+    rc, out = _git(main, "rev-list", "--count", f"refs/heads/{default}..refs/heads/{branch}")
+    if rc != 0 or out.strip() != "0":
+        return False
+    rc, out = relay_git.git(worktree, "status", "--porcelain", "--untracked-files=all", raw=True)
+    return rc == 0 and not out.strip()
+
+
 def canonical(path: str) -> str:
     """A file's name with a plugin's copy mapped to its source, as the links under plugins/<p>/lib point (a link never shows in a diff, so this maps a name written by hand): plugins/<p>/lib/relay_*.py and
     prices.toml come from lib/ (prices.toml from the root); plugins/<p>/bin/relay is bin/relay. Two names of one file compare equal."""
@@ -305,6 +314,8 @@ def lanes_state(repo: str, quiet_hours: int = QUIET_HOURS_DEFAULT, now: Optional
         done, _ = landing(main, default, branch, None)
         if done:
             quiet.append(f"{branch} (landed)")
+        elif _empty(main, default, branch, trees[branch]):
+            quiet.append(f"{branch} (empty)")
         elif when - _activity(main, branch, trees[branch]) <= quiet_hours * 3600:
             running.append(Lane(branch, None))
         else:
